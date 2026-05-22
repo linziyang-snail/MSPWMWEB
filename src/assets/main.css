@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #108194;
+  --color-primary-hover: #0d6a78;
+  --color-primary-active: #0b5f6e;
+  --color-primary-soft: #e6f7fa;
+  --color-primary-subtle: #f0fbfc;
+  --color-primary-border: #b9e5ea;
+  --color-copy-table-border: #d7ebef;
+
+  --color-text-primary: #1d293d;
+  --color-text-heading: #252525;
+  --color-text-secondary: #45556c;
+  --color-text-muted: #64748b;
+  --color-text-placeholder: #90a1b9;
+  --color-text-grey: #9CA3AF;
+  --color-text-helper: rgb(68 68 68 / 50%);
+  --color-text-disabled: #cbd5e1;
+  --color-text-inverse: #ffffff;
+
+
+  /* 成功 / 啟用 / 核准 */
+  --color-success: #198a63;
+  --color-success-bg: #b7eedb;
+  --color-success-text: #198a63;
+  --color-success-border: #9be4cd;
+
+  /* 警告 (預留) */
+  --color-warning: #d98c00;
+  --color-warning-bg: #fff4d8;
+  --color-warning-text: #c77700;
+  --color-warning-border: #f5d28a;
+
+  /* 危險 / 待審核 / 紅色刪除提示 */
+  --color-danger: #EF5350;
+  --color-danger-bg: #FDEEEE;
+  --color-danger-text: #EF5350;
+  --color-danger-border: #FDEEEE;
+  --color-state-red: #ef5350;
+
+  /* 新增 (淺藍) */
+  --color-info: #2889d3;
+  --color-info-bg: #d6ecfb;
+  --color-info-avatar: #C2EAFD;
+  --color-info-text: #2889d3;
+  --color-info-border: #bfdbfe;
+  --color-accent: #00d5be;
+
+  /* 中性 / 已取消 / 已停用 / 已刪除 */
+  --color-natural: #4b5563;
+  --color-natural-bg: #e5e7eb;
+  --color-natural-text: #4b5563;
+  --color-natural-border: #cbd5e1;
+  --color-natural-grey: #d1d5db;
+
+  /* 編輯狀態 (橘色系) — 對應 Figma 規格 */
+  --color-edit: #e27600;
+  --color-edit-bg: #fde8c2;
+  --color-edit-text: #e27600;
+  --color-edit-border: #fde8c2;
+
+  /* 駁回狀態 (與編輯共用同一橘色系，依 Figma 規格) */
+  --color-rejected: #e27600;
+  --color-rejected-bg: #fde8c2;
+  --color-rejected-text: #e27600;
+  --color-rejected-border: #fde8c2;
+
+  --color-border: #e2e8f0;
+  --color-border-muted: #eef2f6;
+  --color-border-strong: #cbd5e1;
+  --color-border-focus: #108194;
+  --color-border-error: #ef3530;
+  --color-border-disabled: #cbd5e1;
+
+  --color-background-page: #f8fafc;
+  --color-background-surface: #ffffff;
+  --color-background-subtle: #f1f5f9;
+  --color-background-field-muted: #f3f4f6;
+  --color-background-hover: #f8fafc;
+  --color-background-disabled: #f1f5f9;
+  --color-background-overlay: rgb(15 23 42 / 45%);
+
+  --color-login-bell: #f5b81d;
+  --color-login-dot-1: #7dbccb;
+  --color-login-dot-2: #4bc7dd;
+  --color-login-dot-3: #22bfae;
+  --color-login-bg-1: #f0f9fb;
+  --color-login-bg-2: #eef8fa;
+  --color-login-bg-3: #ecf8f9;
+  --color-login-bg-4: #eaf7f9;
+  --color-login-bg-5: #e8f6f8;
+  --color-login-bg-6: #e5f5f7;
+  --color-login-bg-7: #e3f5f7;
+  --color-login-bg-8: #e0f4f6;
+  --color-login-bg-9: #ddf3f5;
+  --color-auth-hero-surface: rgb(255 255 255 / 70%);
+
+  --color-brand-50: #effafe;
+  --color-brand-100: #d6f3fb;
+  --color-brand-500: #16a3c7;
+  --color-brand-600: #0788aa;
+  --color-brand-700: #086f8c;
+  --color-ink-950: #172026;
+  --color-line-200: #d8e2e8;
+
+  --spacing-sidebar: 252px;
+  --spacing-sidebar-gutter: 15px;
+  --spacing-sidebar-logo: 88px;
+  --spacing-sidebar-item: 39px;
+  --spacing-sidebar-child: 43px;
+  --spacing-header: 72px;
+  --spacing-logo-bank-w: 167px;
+  --spacing-logo-bank-h: 45px;
+  --spacing-modal-password: 448px;
+  --spacing-modal-copy-detail: clamp(344px, 40vw, 896px);
+  --spacing-modal-preview: 672px;
+  --spacing-modal-shell-max: calc(100dvh - 48px);
+  --spacing-modal-md: 640px;
+  --spacing-modal-lg: 680px;
+  --spacing-modal-xl: 960px;
+  --spacing-modal-max: calc(100vw - 32px);
+  --spacing-modal-history: 1152px;
+  --spacing-modal-history-max: calc(100vh - 48px);
+  --spacing-modal-history-search: 456px;
+  --spacing-modal-date: 184px;
+  --spacing-col-date: 30%;
+  --spacing-col-operator: 30%;
+  --spacing-col-module: 24%;
+  --spacing-col-action: 128px;
+  --spacing-filter-sm: 180px;
+  --spacing-filter-md: 220px;
+  --spacing-filter-lg: 240px;
+  --spacing-filter-xl: 260px;
+  --spacing-form-card: 560px;
+  --spacing-list-title: 260px;
+  --spacing-15: 60px;
+  --spacing-auth-card: 38rem;
+
+  --shadow-control: 0 1px 1.5px rgb(0 0 0 / 10%), 0 1px 1px rgb(0 0 0 / 10%);
+  --shadow-control-focus: 0 0 0 2px rgb(16 129 148 / 15%);
+  --shadow-card: 0 10px 24px rgb(16 129 148 / 6%);
+  --shadow-card-soft: 0 10px 24px rgb(16 129 148 / 5%);
+  --shadow-auth-card: 0 20px 25px -5px rgb(16 129 148 / 5%), 0 8px 10px -6px rgb(16 129 148 / 5%);
+  --shadow-popup: 0 25px 50px -12px rgb(0 0 0 / 25%);
+}
+
+@utility bg-auth-page {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-login-bg-1) 0%,
+    var(--color-login-bg-2) 12.5%,
+    var(--color-login-bg-3) 25%,
+    var(--color-login-bg-4) 37.5%,
+    var(--color-login-bg-5) 50%,
+    var(--color-login-bg-6) 62.5%,
+    var(--color-login-bg-7) 75%,
+    var(--color-login-bg-8) 87.5%,
+    var(--color-login-bg-9) 100%
+  );
+}
+
+@utility bg-auth-hero-border {
+  background-image: linear-gradient(
+    90deg,
+    rgb(16 129 148 / 30%) 0%,
+    rgb(0 211 243 / 40%) 50%,
+    rgb(16 129 148 / 30%) 100%
+  );
+}
+
+@utility bg-auth-title-gradient {
+  background-image: linear-gradient(
+    90deg,
+    #108194 0%,
+    #107f92 8.33%,
+    #0f7d90 16.67%,
+    #0f7b8e 25%,
+    #0f798d 33.33%,
+    #0e778b 41.67%,
+    #0e7589 50%,
+    #0e7386 58.33%,
+    #0e7183 66.67%,
+    #0d6f80 75%,
+    #0d6e7e 83.33%,
+    #0d6c7b 91.67%,
+    #0d6a78 100%
+  );
+}
+
+@utility bg-auth-title-line {
+  background-image: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 0%) 0%,
+    rgb(0 2 3 / 14%) 7.14%,
+    rgb(0 16 20 / 29%) 14.29%,
+    rgb(1 36 42 / 43%) 21.43%,
+    rgb(3 57 66 / 57%) 28.57%,
+    rgb(6 80 92 / 71%) 35.71%,
+    rgb(11 104 120 / 86%) 42.86%,
+    var(--color-primary) 50%,
+    rgb(11 104 120 / 86%) 57.14%,
+    rgb(6 80 92 / 71%) 64.29%,
+    rgb(3 57 66 / 57%) 71.43%,
+    rgb(1 36 42 / 43%) 78.57%,
+    rgb(0 16 20 / 29%) 85.71%,
+    rgb(0 2 3 / 14%) 92.86%,
+    rgb(0 0 0 / 0%) 100%
+  );
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.app-scrollbar {
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}

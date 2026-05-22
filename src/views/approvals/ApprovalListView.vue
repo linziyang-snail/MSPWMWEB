@@ -1,0 +1,117 @@
+<template>
+  <div>
+    <PageTitle
+      title="審核管理"
+      description="覆核主管與管理員處理待審核案件。"
+      eyebrow="Approvals"
+    />
+    <SearchFilterBar class="mb-4">
+      <FormField label="審核類型">
+        <BaseSelect
+          v-model="targetType"
+          :options="targetOptions"
+          placeholder="全部類型"
+        />
+      </FormField>
+    </SearchFilterBar>
+    <BaseTable :columns="columns" :rows="filteredApprovals">
+      <template #cell-targetType="{ row }">{{
+        targetMap[row.targetType]
+      }}</template>
+      <template #cell-action="{ row }">{{ actionMap[row.action] }}</template>
+      <template #cell-status="{ row }"
+        ><BaseBadge :status="row.status"
+      /></template>
+      <template #cell-createdAt="{ row }">{{
+        formatDateTime(row.createdAt)
+      }}</template>
+      <template #actions="{ row }">
+        <div class="flex justify-end gap-2">
+          <RouterLink class="text-primary" :to="`/approvals/${row.id}`"
+            >查看</RouterLink
+          >
+          <button
+            class="text-success-text"
+            @click="openConfirm(row, 'approve')"
+          >
+            放行
+          </button>
+          <button class="text-danger-text" @click="openConfirm(row, 'reject')">
+            駁回
+          </button>
+          <button
+            class="text-text-secondary"
+            @click="openConfirm(row, 'cancel')"
+          >
+            取消
+          </button>
+        </div>
+      </template>
+    </BaseTable>
+    <BaseModal
+      v-model="confirm.open"
+      :title="confirm.title"
+      @confirm="confirm.open = false"
+    >
+      <p class="text-sm text-text-secondary">{{ confirm.message }}</p>
+      <FormField v-if="confirm.type === 'reject'" class="mt-4" label="駁回原因"
+        ><BaseTextarea v-model="remark"
+      /></FormField>
+    </BaseModal>
+  </div>
+</template>
+
+<script setup>
+import { computed, ref } from "vue";
+
+import BaseBadge from "@/components/base/BaseBadge.vue";
+import BaseModal from "@/components/base/BaseModal.vue";
+import BaseSelect from "@/components/base/BaseSelect.vue";
+import BaseTextarea from "@/components/base/BaseTextarea.vue";
+import PageTitle from "@/components/common/PageTitle.vue";
+import SearchFilterBar from "@/components/common/SearchFilterBar.vue";
+import FormField from "@/components/forms/FormField.vue";
+import BaseTable from "@/components/tables/BaseTable.vue";
+import { mockApprovals } from "@/mocks/approvals.mock";
+import { ACTION_LABEL_MAP, TARGET_TYPE_LABEL_MAP } from "@/utils/constants";
+import { formatDateTime } from "@/utils/formatDate";
+
+const targetType = ref("");
+const remark = ref("");
+const targetMap = TARGET_TYPE_LABEL_MAP;
+const actionMap = ACTION_LABEL_MAP;
+const confirm = ref({ open: false });
+const targetOptions = Object.entries(TARGET_TYPE_LABEL_MAP).map(
+  ([value, label]) => ({ value, label }),
+);
+const columns = [
+  { key: "id", label: "案件 ID" },
+  { key: "targetType", label: "類型" },
+  { key: "targetId", label: "對象 ID" },
+  { key: "action", label: "動作" },
+  { key: "requesterId", label: "申請人" },
+  { key: "status", label: "狀態" },
+  { key: "createdAt", label: "申請時間" },
+];
+const filteredApprovals = computed(() =>
+  mockApprovals.filter(
+    (item) =>
+      item.status === "PENDING" &&
+      (!targetType.value || item.targetType === targetType.value),
+  ),
+);
+
+function openConfirm(row, type) {
+  const map = {
+    approve: ["放行案件", `確認放行案件 #${row.id}？`],
+    reject: ["駁回案件", `請確認是否駁回案件 #${row.id}。`],
+    cancel: ["取消案件", `確認取消案件 #${row.id}？`],
+  };
+  confirm.value = {
+    open: true,
+    type,
+    title: map[type][0],
+    message: map[type][1],
+  };
+}
+</script>

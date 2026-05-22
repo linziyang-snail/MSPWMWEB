@@ -1,0 +1,6 @@
+export {
+  CLICK_ACTION_OPTIONS,
+  NNB_CATEGORY_OPTIONS,
+  RETENTION_OPTIONS,
+  WBK_CATEGORY_OPTIONS,
+} from "@/mocks/copies.mock";
