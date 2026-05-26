@@ -1,4 +1,4 @@
-import { hasAdminRole, normalizeRoles } from "@/utils/authRoles";
+import { normalizeRoles } from "@/utils/authRoles";
 
 export const ROLE_PERMISSION_MAP = {
   ADMIN: [
@@ -13,19 +13,10 @@ export const ROLE_PERMISSION_MAP = {
     "ORG_UPDATE",
     "ORG_DELETE",
     "ROLE_VIEW",
-    "COPY_SUBMIT",
-    "COPY_CATEGORY_VIEW",
-    "COPY_CATEGORY_CREATE",
-    "COPY_CATEGORY_UPDATE",
-    "COPY_CATEGORY_DELETE",
-    "APPROVAL_VIEW",
-    "APPROVAL_APPROVE",
-    "APPROVAL_REJECT",
-    "APPROVAL_CANCEL",
     "APPROVAL_HISTORY_VIEW",
+    "OPERATION_LOG_VIEW",
   ],
   MANAGER: [
-    "COPY_SUBMIT",
     "APPROVAL_VIEW",
     "APPROVAL_APPROVE",
     "APPROVAL_REJECT",
@@ -44,6 +35,5 @@ export function getPermissionsByRoles(roles = []) {
 
 export function hasPermission(roles = [], permission) {
   if (!permission) return true;
-  if (hasAdminRole(roles)) return true;
   return getPermissionsByRoles(roles).includes(permission);
 }

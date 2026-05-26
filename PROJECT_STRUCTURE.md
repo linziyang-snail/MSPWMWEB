@@ -131,7 +131,8 @@ component -> service -> apiRequest / mock api
 - 現有登入 redirect 保留：
   - `ADMIN` -> `/accounts/pending-changes`
   - `MANAGER` / `USER` -> `/copies/all`
-- `ADMIN` 是最高權限，可進所有 requiresAuth 後台功能。
+- `ADMIN` 只可進入人員管理、申請單資訊查詢、查看操作記錄與自身帳號功能。
+- `USER` / `MANAGER` 只可進入文案管理與自身帳號功能；`USER` 可新增文案，`MANAGER` 可核准與駁回文案。
 - `/403` 不受角色 guard 擋住，回首頁會導回目前角色可進入的預設入口，避免 403 loop。
 - 未登入進入內頁需導回 `/login` 並保留 redirect query。
 

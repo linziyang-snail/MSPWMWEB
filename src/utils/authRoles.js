@@ -21,7 +21,6 @@ export function hasAdminRole(roles = []) {
 export function canAccessRoles(userRoles = [], allowedRoles = []) {
   const normalizedUserRoles = normalizeRoles(userRoles);
   if (!allowedRoles?.length) return true;
-  if (hasAdminRole(normalizedUserRoles)) return true;
   const normalizedAllowedRoles = normalizeRoles(allowedRoles);
   return normalizedAllowedRoles.some((role) => normalizedUserRoles.includes(role));
 }
@@ -29,7 +28,6 @@ export function canAccessRoles(userRoles = [], allowedRoles = []) {
 export function hasAnyRole(userRoles = [], allowedRoles = []) {
   const normalizedUserRoles = normalizeRoles(userRoles);
   if (!allowedRoles?.length) return true;
-  if (hasAdminRole(normalizedUserRoles)) return true;
   const normalizedAllowedRoles = normalizeRoles(allowedRoles);
   return normalizedAllowedRoles.some((role) => normalizedUserRoles.includes(role));
 }
