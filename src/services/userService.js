@@ -139,8 +139,10 @@ export const ResetUserPassword = (id, newPassword) =>
  * @param {string} newPassword - 新密碼
  * @returns {Promise} - 修改密碼結果
  */
-export const ChangeMyPassword = (oldPassword, newPassword) =>
-  changeMyPassword({ oldPassword, newPassword });
+export const ChangeMyPassword = (params, newPassword) => {
+  if (params && typeof params === "object") return changeMyPassword(params);
+  return changeMyPassword({ oldPassword: params, newPassword });
+};
 
 export const GetAccountChangeRequests = () => getAccountChangeRequests();
 

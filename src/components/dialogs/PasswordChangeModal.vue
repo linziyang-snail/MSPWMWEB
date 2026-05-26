@@ -88,6 +88,7 @@ import passwordIcon from "@/assets/password.svg";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import { ChangeMyPassword } from "@/services/userService";
+import { useAuthStore } from "@/stores/authStore";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -100,6 +101,7 @@ const form = reactive({ current: "", password: "", confirm: "" });
 const errors = reactive({ current: "", password: "", confirm: "" });
 const show = reactive({ current: false, password: false, confirm: false });
 const submitting = ref(false);
+const auth = useAuthStore();
 
 watch(
   () => props.modelValue,
@@ -134,7 +136,12 @@ const submit = async () => {
   if (!validate()) return;
   try {
     submitting.value = true;
-    await ChangeMyPassword(form.current, form.password);
+    await ChangeMyPassword({
+      id: auth.userId,
+      oldPassword: form.current,
+      newPassword: form.password,
+    });
+    auth.markPasswordChanged();
     emit("submitted", { ...form });
     close();
   } catch (error) {

@@ -55,8 +55,10 @@ import BaseInput from "@/components/base/BaseInput.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
 import FormField from "@/components/forms/FormField.vue";
 import { changeMyPassword } from "@/services/userService";
+import { useAuthStore } from "@/stores/authStore";
 import { validateRequired } from "@/utils/validators";
 
+const auth = useAuthStore();
 const form = reactive({
   oldPassword: "",
   newPassword: "",
@@ -86,9 +88,12 @@ async function submit() {
   loading.value = true;
   try {
     await changeMyPassword({
+      id: auth.userId,
       oldPassword: form.oldPassword,
       newPassword: form.newPassword,
     });
+    auth.markPasswordChanged();
+    reset();
     message.value = "密碼已更新。";
   } finally {
     loading.value = false;
