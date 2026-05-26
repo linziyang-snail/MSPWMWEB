@@ -4,6 +4,7 @@
 - `POST /auth/login`：登入
 - `POST /auth/logout`：登出
 - `POST /auth/refresh`：刷新 access token
+- `PUT /auth/me/password`：修改自己的密碼
 
 ### User
 - `GET /api/users`：查詢使用者分頁
@@ -13,7 +14,6 @@
 - `DELETE /api/users/{id}`：停用使用者申請
 - `PUT /api/users/{id}/unlock`：解鎖使用者
 - `PUT /api/users/{id}/password`：重設使用者密碼
-- `PUT /api/users/me/password`：修改自己的密碼
 
 ### Role
 - `GET /api/roles`：查詢角色
@@ -46,6 +46,7 @@
 
 ## 前端仍缺正式 API
 
+- `/copies/all` 若需要文案列表，目前 Swagger 未提供 `GET /api/copies`；正式模式不可誤打不存在 API。
 - 文案列表查詢：全部 / 待審核 / 已核准 / 已駁回 / 已取消。
 - 文案詳情查詢。
 - 文案取消送審。
@@ -81,7 +82,7 @@
 
 - 成功 response 是否為 raw DTO / array / page object，或統一包 `{ code, desc, body }`。
 - `ChangeRequest.targetType` enum。
-- User role code / roleName / permission 對照表。
+- User role code / roleName / permission 對照表目前依 SQL 測試資料使用 `ADMIN` / `MANAGER` / `USER`。
 - User status enum：`PENDING`、`PENDING_MULTI`、`ACTIVE`、`DISABLED`、`DELETED`、`REJECTED` 是否為正式值。
 - Copy status enum：`PENDING`、`APPROVED`、`REJECTED`、`CANCELLED` 是否為正式值。
 - 密碼規則：最大長度、大小寫、數字、特殊符號、不可重複舊密碼等。

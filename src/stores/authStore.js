@@ -1,35 +1,55 @@
 import { defineStore } from "pinia";
 
 import { login as loginApi, logout as logoutApi } from "@/services/authService";
+import { normalizeRoles } from "@/utils/authRoles";
+import {
+  clearAuthStorage,
+  readAccessToken,
+  readAuthStorage,
+  writeAuthStorage,
+} from "@/utils/authStorage";
 import { getPermissionsByRoles, hasPermission } from "@/utils/permissions";
 
-const STORAGE_KEY = "mspwm.auth";
 const PASSWORD_REMINDER_DAYS = 25;
 const PASSWORD_EXPIRED_DAYS = 30;
 
 function readStoredAuth() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-  } catch {
+  const storedAuth = readAuthStorage();
+  const storedToken = readAccessToken();
+  if (!storedAuth?.accessToken || !storedToken) {
+    clearAuthStorage();
     return null;
   }
+  return storedAuth;
+}
+
+const normalizeLoginResponse = (response) => response?.body || response?.data || response || {};
+
+function createAuthError(response, desc) {
+  return {
+    status: response?.status,
+    code: response?.code,
+    desc,
+    body: response?.body,
+    raw: response,
+  };
 }
 
 export const useAuthStore = defineStore("auth", {
-  state: () => ({
-    accessToken:
-      readStoredAuth()?.accessToken ||
-      localStorage.getItem("mspwm.accessToken") ||
-      "",
-    userId: readStoredAuth()?.userId || "",
-    employeeId: readStoredAuth()?.employeeId || "",
-    userName: readStoredAuth()?.userName || "",
-    roles: readStoredAuth()?.roles || [],
-    mustChangePassword: readStoredAuth()?.mustChangePassword || false,
-    passwordResetByAdmin: readStoredAuth()?.passwordResetByAdmin || false,
-    passwordChangedAt: readStoredAuth()?.passwordChangedAt || "",
-    loading: false,
-  }),
+  state: () => {
+    const storedAuth = readStoredAuth();
+    return {
+      accessToken: storedAuth?.accessToken || "",
+      userId: storedAuth?.userId || "",
+      employeeId: storedAuth?.employeeId || "",
+      userName: storedAuth?.userName || "",
+      roles: normalizeRoles(storedAuth?.roles),
+      mustChangePassword: storedAuth?.mustChangePassword || false,
+      passwordResetByAdmin: storedAuth?.passwordResetByAdmin || false,
+      passwordChangedAt: storedAuth?.passwordChangedAt || "",
+      loading: false,
+    };
+  },
   getters: {
     isAuthenticated: (state) => Boolean(state.accessToken),
     permissions: (state) => getPermissionsByRoles(state.roles),
@@ -64,21 +84,32 @@ export const useAuthStore = defineStore("auth", {
         passwordResetByAdmin: this.passwordResetByAdmin,
         passwordChangedAt: this.passwordChangedAt,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      localStorage.setItem("mspwm.accessToken", this.accessToken);
+      writeAuthStorage(payload);
     },
     async login(payload) {
       this.loading = true;
       try {
+        clearAuthStorage();
         const response = await loginApi(payload);
-        this.accessToken = response.accessToken;
-        this.userId = response.userId;
-        this.employeeId = response.employeeId || response.userId;
-        this.userName = response.userName;
-        this.roles = response.roles;
-        this.mustChangePassword = Boolean(response.mustChangePassword);
-        this.passwordResetByAdmin = Boolean(response.passwordResetByAdmin);
-        this.passwordChangedAt = response.passwordChangedAt || "";
+        if (response?.code && response.code !== "0000") {
+          throw createAuthError(response, response.desc || "登入失敗");
+        }
+        const data = normalizeLoginResponse(response);
+        if (!data.accessToken) {
+          throw createAuthError(response, "登入成功回應缺少 accessToken");
+        }
+        const responseRoles = normalizeRoles(
+          Array.isArray(data.roles) ? data.roles : data.user?.roles,
+        );
+
+        this.accessToken = data.accessToken || "";
+        this.userId = data.userId || data.user?.userId || "";
+        this.employeeId = data.employeeId || data.user?.employeeId || this.userId;
+        this.userName = data.userName || data.user?.userName || "";
+        this.roles = responseRoles;
+        this.mustChangePassword = Boolean(data.mustChangePassword);
+        this.passwordResetByAdmin = Boolean(data.passwordResetByAdmin);
+        this.passwordChangedAt = data.passwordChangedAt || "";
         this.persist();
         return response;
       } finally {
@@ -86,7 +117,15 @@ export const useAuthStore = defineStore("auth", {
       }
     },
     async logout() {
-      await logoutApi();
+      try {
+        await logoutApi();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        this.clearAuth();
+      }
+    },
+    clearAuth() {
       this.accessToken = "";
       this.userId = "";
       this.employeeId = "";
@@ -95,8 +134,7 @@ export const useAuthStore = defineStore("auth", {
       this.mustChangePassword = false;
       this.passwordResetByAdmin = false;
       this.passwordChangedAt = "";
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem("mspwm.accessToken");
+      clearAuthStorage();
     },
     markPasswordChanged() {
       this.mustChangePassword = false;

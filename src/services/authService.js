@@ -10,7 +10,11 @@ import { useMock } from "./config";
 export async function login(payload) {
   const { userId, password } = payload || {};
   if (useMock) return mockLogin(userId, password);
-  return apiRequest.post("/auth/login", { userId, password });
+  return apiRequest.post(
+    "/auth/login",
+    { userId, password },
+    { skipAuth: true },
+  );
 }
 
 export async function logout() {
@@ -21,6 +25,13 @@ export async function logout() {
 export async function refreshToken() {
   if (useMock) return mockRefreshToken();
   return apiRequest.post("/auth/refresh", {});
+}
+
+export async function changeMyPassword(payload) {
+  const { id, oldPassword, newPassword } = payload || {};
+  const body = { id, oldPassword, newPassword };
+  if (useMock) return {};
+  return apiRequest.put("/auth/me/password", body);
 }
 
 /**
@@ -42,3 +53,10 @@ export const Logout = () => logout();
  * @returns {Promise} - 新的 Access Token
  */
 export const RefreshToken = () => refreshToken();
+
+/**
+ * 修改自己的密碼
+ * @param {Object} data - 修改密碼資料，包含 id、oldPassword、newPassword
+ * @returns {Promise} - 修改密碼結果
+ */
+export const ChangeMyPassword = (data) => changeMyPassword(data);

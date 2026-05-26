@@ -9,15 +9,12 @@ import CopySubmitView from "@/views/copies/CopySubmitView.vue";
 import ForbiddenView from "@/views/errors/ForbiddenView.vue";
 import NotFoundView from "@/views/errors/NotFoundView.vue";
 import OperationLogView from "@/views/operationLogs/OperationLogView.vue";
+import { getDefaultEntryPathForRoles } from "@/utils/authRoles";
+import { readAuthStorage } from "@/utils/authStorage";
 
 function getDefaultEntryPath() {
-  try {
-    const auth = JSON.parse(localStorage.getItem("mspwm.auth") || "null");
-    if (auth?.roles?.includes("ADMIN")) return "/accounts/pending-changes";
-  } catch {
-    return "/copies/all";
-  }
-  return "/copies/all";
+  const auth = readAuthStorage();
+  return getDefaultEntryPathForRoles(auth?.roles);
 }
 
 export const routes = [
@@ -41,37 +38,37 @@ export const routes = [
         path: "copies/all",
         name: "CopyAll",
         component: CopyStatusListView,
-        meta: { title: "全部文案", status: "", roles: ["EDITOR", "REVIEWER"] },
+        meta: { title: "全部文案", status: "", roles: ["USER", "MANAGER"] },
       },
       {
         path: "copies/pending",
         name: "CopyPending",
         component: CopyStatusListView,
-        meta: { title: "待審核文案", status: "PENDING", roles: ["EDITOR", "REVIEWER"] },
+        meta: { title: "待審核文案", status: "PENDING", roles: ["USER", "MANAGER"] },
       },
       {
         path: "copies/approved",
         name: "CopyApproved",
         component: CopyStatusListView,
-        meta: { title: "已核准文案", status: "APPROVED", roles: ["EDITOR", "REVIEWER"] },
+        meta: { title: "已核准文案", status: "APPROVED", roles: ["USER", "MANAGER"] },
       },
       {
         path: "copies/rejected",
         name: "CopyRejected",
         component: CopyStatusListView,
-        meta: { title: "已駁回文案", status: "REJECTED", roles: ["EDITOR", "REVIEWER"] },
+        meta: { title: "已駁回文案", status: "REJECTED", roles: ["USER", "MANAGER"] },
       },
       {
         path: "copies/cancelled",
         name: "CopyCancelled",
         component: CopyStatusListView,
-        meta: { title: "已取消文案", status: "CANCELLED", roles: ["EDITOR"] },
+        meta: { title: "已取消文案", status: "CANCELLED", roles: ["USER"] },
       },
       {
         path: "copies/submit",
         name: "CopySubmit",
         component: CopySubmitView,
-        meta: { roles: ["EDITOR"] },
+        meta: { roles: ["USER"] },
       },
       {
         path: "accounts/pending-changes",

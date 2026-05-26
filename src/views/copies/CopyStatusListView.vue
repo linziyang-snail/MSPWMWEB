@@ -88,7 +88,8 @@ const approveDialog = ref({ open: false, target: null });
 const rejectDialog = ref({ open: false, target: null });
 
 const routeStatus = computed(() => route.meta.status || "");
-const isReviewer = computed(() => auth.roles.includes("REVIEWER"));
+const authRoles = computed(() => (Array.isArray(auth.roles) ? auth.roles : []));
+const isReviewer = computed(() => authRoles.value.includes("MANAGER"));
 const copyCardMode = computed(() => (isReviewer.value ? "reviewer" : "editor"));
 
 onMounted(() => {

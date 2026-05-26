@@ -18,7 +18,7 @@ export const mockApprovals = [
     targetType: "USER",
     targetId: "R000002",
     action: "UPDATE",
-    payload: '{"userName":"審核主管","roles":["REVIEWER"]}',
+    payload: '{"userName":"覆核主管","roles":["MANAGER"]}',
     requesterId: "A000001",
     orgId: 1,
     status: "APPROVED",
@@ -67,7 +67,7 @@ export const mockOperationLogs = [
   {
     id: 3,
     userId: "R000002",
-    userName: "審核主管",
+    userName: "覆核主管",
     action: "UPDATE",
     module: "ACCOUNT",
     description: "審核帳號異動申請",

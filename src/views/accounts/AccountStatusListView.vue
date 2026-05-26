@@ -161,14 +161,14 @@
         <thead>
           <tr class="h-16 border-b border-border bg-background-hover">
             <th v-for="col in tableColumns" :key="col.key"
-              class="px-5 py-4 text-base font-bold leading-normal text-left text-natural" :class="col.class">
-              <button class="inline-flex items-center gap-2 font-bold transition hover:text-primary" type="button"
+              class="px-4 py-4 text-base font-bold leading-normal text-left text-natural xl:px-5" :class="col.class">
+              <button class="inline-flex items-center gap-2 text-left font-bold transition hover:text-primary" type="button"
                 @click="toggleSort(col.key)">
                 {{ col.label }}
                 <SortIcon :active="sortState.key === col.key" :direction="sortState.direction" />
               </button>
             </th>
-            <th class="w-1/5 px-5 py-4 text-base font-bold leading-normal text-center text-natural">
+            <th class="w-[22%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
               {{ trailingColumnLabel }}
             </th>
           </tr>
@@ -176,27 +176,27 @@
         <tbody>
           <tr v-for="row in filteredRows" :key="row.id"
             class="h-20 border-b border-border-muted last:border-0 hover:bg-background-hover">
-            <td class="px-5 py-4 text-base font-normal leading-normal text-natural">
+            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">
               {{ formatDate(row.createdAt) }}
             </td>
-            <td class="px-5 py-4 text-base font-bold leading-normal text-natural">{{ row.id }}</td>
-            <td class="px-5 py-4 text-base font-normal leading-normal text-natural">{{ row.userName }}</td>
-            <td class="px-5 py-4 text-base font-normal leading-normal text-natural">{{ row.orgName }}</td>
-            <td class="px-5 py-4 text-base font-normal leading-normal text-natural">
+            <td class="px-4 py-4 text-base font-bold leading-normal break-words text-natural xl:px-5">{{ row.id }}</td>
+            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">{{ row.userName }}</td>
+            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">{{ row.orgName }}</td>
+            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">
               {{ row.roleLabel || row.roles.join(", ") }}
             </td>
-            <td class="px-5 py-4">
+            <td class="px-4 py-4 xl:px-5">
               <span v-if="row.status === 'PENDING_MULTI'"
-                class="inline-flex h-8 items-center rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium leading-normal text-danger-text">
+                class="inline-flex h-8 items-center whitespace-nowrap rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium leading-normal text-danger-text">
                 等待其他管理員審核
               </span>
               <span v-else-if="row.status === 'PENDING'"
-                class="inline-flex h-8 items-center rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium leading-normal text-danger-text">
+                class="inline-flex h-8 items-center whitespace-nowrap rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium leading-normal text-danger-text">
                 待審核
               </span>
               <StatusBadge v-else :status="row.status" />
             </td>
-            <td class="px-5 py-4">
+            <td class="px-3 py-4 xl:px-5">
               <p v-if="routeStatus === 'DELETED'" class="text-base font-normal leading-normal text-center text-natural">
                 -
               </p>
@@ -205,7 +205,7 @@
                 type="button" @click="openRejectReason(row)">
                 {{ row.rejectReason || "權限選擇錯誤" }}
               </button>
-              <div v-else-if="isActivePage" class="flex items-center justify-center gap-8">
+              <div v-else-if="isActivePage" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
                 <button
                   class="grid transition rounded size-8 place-items-center text-natural hover:bg-background-hover hover:text-primary"
                   type="button" aria-label="重設密碼" @click="openPasswordReset(row)">
@@ -222,16 +222,16 @@
                   <img :src="accountDeleteIcon" alt="" class="size-6" />
                 </button>
               </div>
-              <div v-else class="flex items-center justify-center gap-12">
+              <div v-else class="flex flex-wrap items-center justify-center gap-2 2xl:gap-4">
                 <template v-if="row.status === 'PENDING'">
                   <button
                     class="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
-                    style="width: 96px; height: 40px" type="button" @click="confirm(row, 'approve')">
+                    type="button" @click="confirm(row, 'approve')">
                     <CheckIcon /> <span>核准</span>
                   </button>
                   <button
                     class="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-text-grey bg-background-surface px-4 py-2.5 text-base font-medium leading-normal text-natural transition hover:bg-background-hover"
-                    style="width: 96px; height: 40px" type="button" @click="confirm(row, 'reject')">
+                    type="button" @click="confirm(row, 'reject')">
                     <XIcon /> <span>駁回</span>
                   </button>
                 </template>
@@ -382,12 +382,12 @@ const committedActiveFilters = ref({
 });
 
 const columns = [
-  { key: "createdAt", label: "建立日期", class: "w-1/6" },
-  { key: "id", label: "員編", class: "w-1/6" },
-  { key: "userName", label: "姓名", class: "w-1/6" },
-  { key: "orgName", label: "科別", class: "w-1/6" },
-  { key: "roles", label: "權限", class: "w-1/6" },
-  { key: "status", label: "狀態", class: "w-1/6" },
+  { key: "createdAt", label: "建立日期", class: "w-[12%]" },
+  { key: "id", label: "員編", class: "w-[13%]" },
+  { key: "userName", label: "姓名", class: "w-[13%]" },
+  { key: "orgName", label: "科別", class: "w-[14%]" },
+  { key: "roles", label: "權限", class: "w-[10%]" },
+  { key: "status", label: "狀態", class: "w-[16%]" },
 ];
 const tableColumns = computed(() => {
   const dateLabelMap = {

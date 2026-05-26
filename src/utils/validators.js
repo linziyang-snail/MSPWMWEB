@@ -4,7 +4,6 @@ export function required(value) {
 
 export function validateUserId(value) {
   if (!required(value)) return "帳號必填";
-  if (!/^[a-zA-Z0-9]{1,7}$/.test(value)) return "帳號僅能為 1-7 碼英文與數字";
   return "";
 }
 

@@ -105,6 +105,7 @@ import SidebarAssetIcon from "@/components/layout/SidebarAssetIcon.vue";
 import { useAuthStore } from "@/stores/authStore";
 import { useCopyStore } from "@/stores/copyStore";
 import { useUserStore } from "@/stores/userStore";
+import { hasAnyRole, normalizeRoles } from "@/utils/authRoles";
 import { sidebarBottomItems, sidebarSections } from "@/utils/navigation";
 
 defineProps({
@@ -122,6 +123,7 @@ const route = useRoute();
 const auth = useAuthStore();
 const copyStore = useCopyStore();
 const userStore = useUserStore();
+const authRoles = computed(() => normalizeRoles(auth.roles));
 
 onMounted(() => {
   copyStore.ensureLoaded();
@@ -131,15 +133,14 @@ onMounted(() => {
 
 const visibleSidebarSections = computed(() =>
   sidebarSections.filter((section) => {
-    if (!section.roles?.length) return true;
-    return section.roles.some((role) => auth.roles.includes(role));
+    return hasAnyRole(authRoles.value, section.roles);
   }),
 );
 
 const normalBottomItems = computed(() =>
   sidebarBottomItems.filter((item) => {
     if (item.action === "logout") return false;
-    if (auth.roles.includes("EDITOR") || auth.roles.includes("REVIEWER")) {
+    if (authRoles.value.includes("USER") || authRoles.value.includes("MANAGER")) {
       return item.action === "changePassword";
     }
     return true;
@@ -158,8 +159,7 @@ const isSectionActive = (section) => {
 
 const visibleChildren = (section) =>
   section.children.filter((item) => {
-    if (!item.roles?.length) return true;
-    return item.roles.some((role) => auth.roles.includes(role));
+    return hasAnyRole(authRoles.value, item.roles);
   });
 
 const childCount = (item) => {

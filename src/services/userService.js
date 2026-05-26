@@ -9,20 +9,24 @@ import {
   mockUnlockUser,
   mockUpdateUser,
 } from "@/mocks/api/userApi";
+import { readAuthStorage } from "@/utils/authStorage";
 
-import apiRequest from "./apiRequest";
+import apiRequest, { unwrapApiBody } from "./apiRequest";
+import { changeMyPassword as changeMyPasswordApi } from "./authService";
 import { useMock } from "./config";
 
 export async function getUsers(params = {}) {
   const { page = 1, size = 20 } = params || {};
   if (useMock) return mockGetUsers(page, size);
-  return apiRequest.get("/api/users", { params: { page, size } });
+  return unwrapApiBody(
+    await apiRequest.get("/api/users", { params: { page, size } }),
+  );
 }
 
 export async function getUserById(params) {
   const { id } = normalizeIdParams(params);
   if (useMock) return mockGetUserById(id);
-  return apiRequest.get(`/api/users/${id}`);
+  return unwrapApiBody(await apiRequest.get(`/api/users/${id}`));
 }
 
 export async function createUser(payload) {
@@ -65,10 +69,10 @@ export async function resetUserPassword(params, legacyPayload) {
 }
 
 export async function changeMyPassword(payload) {
-  const { oldPassword, newPassword } = payload || {};
-  const body = { oldPassword, newPassword };
+  const { id = getStoredUserId(), oldPassword, newPassword } = payload || {};
+  const body = { id, oldPassword, newPassword };
   if (useMock) return mockChangeMyPassword(oldPassword, newPassword);
-  return apiRequest.put("/api/users/me/password", body);
+  return changeMyPasswordApi(body);
 }
 
 export async function getAccountChangeRequests() {
@@ -153,4 +157,8 @@ function normalizeUserUpdateParams(params, legacyPayload) {
 function normalizeResetPasswordParams(params, legacyPayload) {
   if (legacyPayload) return { id: params, ...legacyPayload };
   return params || {};
+}
+
+function getStoredUserId() {
+  return readAuthStorage()?.userId || "";
 }

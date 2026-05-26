@@ -27,7 +27,7 @@
       <template #cell-status="{ row }"
         ><BaseBadge :status="row.status"
       /></template>
-      <template #cell-roles="{ row }">{{ row.roles.join(", ") }}</template>
+      <template #cell-roles="{ row }">{{ formatRoles(row.roles) }}</template>
       <template #cell-createdAt="{ row }">{{
         formatDateTime(row.createdAt)
       }}</template>
@@ -35,7 +35,7 @@
         formatDateTime(row.lastLoginAt)
       }}</template>
       <template #actions="{ row }">
-        <div class="flex justify-end gap-2">
+        <div class="flex flex-wrap justify-end gap-2">
           <RouterLink class="text-primary" :to="`/users/${row.id}`"
             >查看</RouterLink
           >
@@ -86,6 +86,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar.vue";
 import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
 import { mockUsers } from "@/mocks/users.mock";
+import { roleLabelMap, statusLabelMap } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const keyword = ref("");
@@ -100,7 +101,7 @@ const columns = [
   { key: "lastLoginAt", label: "最後登入" },
 ];
 const statusOptions = ["ACTIVE", "DISABLED", "LOCKED", "PENDING"].map(
-  (value) => ({ label: value, value }),
+  (value) => ({ label: statusLabelMap[value] || value, value }),
 );
 const filteredUsers = computed(() =>
   mockUsers.filter((user) => {
@@ -126,5 +127,9 @@ function confirmAction(row, action) {
   };
   const [title, message, danger] = map[action];
   dialog.value = { open: true, title, message, danger };
+}
+
+function formatRoles(roles = []) {
+  return roles.map((role) => roleLabelMap[role] || role).join(", ");
 }
 </script>

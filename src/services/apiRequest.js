@@ -1,6 +1,8 @@
 import axios from "axios";
 
 import { useAppStore } from "@/stores/appStore";
+import { clearAuthStorage, readAccessToken } from "@/utils/authStorage";
+import { resolveApiErrorMessage } from "@/utils/resolveApiErrorMessage";
 
 import { apiBaseURL, useMock } from "./config";
 
@@ -9,7 +11,7 @@ let pendingRequests = 0;
 
 const apiRequest = axios.create({
   baseURL: apiBaseURL,
-  timeout: 30000,
+  timeout: 60000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -20,8 +22,12 @@ apiRequest.interceptors.request.use(
     pendingRequests += 1;
     useAppStore().setLoading(true);
 
-    const token = localStorage.getItem("mspwm.accessToken");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    const token = readAccessToken();
+    if (token && !config.skipAuth) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
+    }
     return config;
   },
   (error) => {
@@ -33,31 +39,18 @@ apiRequest.interceptors.request.use(
 apiRequest.interceptors.response.use(
   (response) => {
     settleRequest();
+    const apiError = normalizeBusinessError(response);
+    if (apiError) {
+      handleApiError(apiError, response.config);
+      return Promise.reject(apiError);
+    }
     return response.data;
   },
   (error) => {
     settleRequest();
-
-    const status = error?.response?.status;
-    const errorMessage = getErrorMessage(error);
-
-    // refresh token flow 尚未由後端規格確認，先只做安全導頁。
-    if (status === 401) {
-      localStorage.removeItem("mspwm.auth");
-      localStorage.removeItem("mspwm.accessToken");
-      window.location.href = "/login";
-    }
-
-    if (status === 403) {
-      window.location.href = "/403";
-    }
-
-    useAppStore().showAlert({
-      title: error?.response?.data?.code || "錯誤",
-      message: errorMessage,
-    });
-
-    return Promise.reject(error);
+    const apiError = normalizeApiError(error);
+    handleApiError(apiError, error?.config);
+    return Promise.reject(apiError);
   },
 );
 
@@ -66,32 +59,56 @@ function settleRequest() {
   if (pendingRequests === 0) useAppStore().setLoading(false);
 }
 
-function getErrorMessage(error) {
-  if (!window.navigator.onLine) return "網路連線中斷，請檢查您的網路連線";
-  if (error?.message?.includes("timeout")) return "連線超時，請稍後再試";
+function normalizeApiError(error) {
+  const data = error?.response?.data;
+  return {
+    status: error?.response?.status,
+    code: data?.code || data?.returnCode,
+    desc: data?.desc || data?.returnMsg || data?.message || error?.message,
+    body: data?.body,
+    raw: error,
+  };
+}
 
-  const responseData = error?.response?.data;
-  if (responseData?.desc) return responseData.desc;
-  if (responseData?.message) return responseData.message;
+function normalizeBusinessError(response) {
+  const data = response?.data;
+  if (!data || typeof data !== "object") return null;
+  if (!("code" in data) || data.code === "0000") return null;
+  return {
+    status: response?.status,
+    code: data.code,
+    desc: data.desc,
+    body: data.body,
+    raw: response,
+  };
+}
 
-  switch (error?.response?.status) {
-    case 400:
-      return "400：錯誤的請求";
-    case 401:
-      return "401：未授權的請求";
-    case 403:
-      return "403：禁止訪問";
-    case 404:
-      return "404：找不到頁面";
-    case 500:
-      return "500：伺服器內部錯誤";
-    case 502:
-      return "502：無效的伺服器回應";
-    case 504:
-      return "504：伺服器回應超時";
-    default:
-      return error?.message || "未知錯誤";
+function handleApiError(apiError, config = {}) {
+  if (apiError.status === 401) {
+    clearAuthStorage();
+    redirectToLogin();
+  }
+
+  if (!config?.skipGlobalErrorHandler) {
+    useAppStore().showAlert({
+      title: apiError.code || "系統提示",
+      message: resolveApiErrorMessage(apiError),
+    });
   }
 }
 
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === "/login") return;
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  window.location.assign(`/login?redirect=${encodeURIComponent(currentPath)}`);
+}
+
 export default apiRequest;
+
+export function unwrapApiBody(response) {
+  if (response && typeof response === "object" && "body" in response) {
+    return response.body;
+  }
+  return response;
+}

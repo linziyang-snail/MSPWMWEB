@@ -2,8 +2,8 @@
   <div
     class="overflow-hidden rounded-xl border border-border-muted bg-background-surface shadow-card"
   >
-    <div class="app-scrollbar overflow-x-auto">
-      <table class="min-w-full text-left text-sm">
+    <div class="overflow-hidden">
+      <table class="w-full table-fixed text-left text-sm">
         <thead
           class="bg-background-subtle text-sm font-bold text-text-secondary"
         >
@@ -11,13 +11,13 @@
             <th
               v-for="column in columns"
               :key="column.key"
-              class="h-16 whitespace-nowrap px-6"
+              class="h-16 px-4 align-middle xl:px-6"
             >
               {{ column.label }}
             </th>
             <th
               v-if="$slots.actions"
-              class="h-16 whitespace-nowrap px-6 text-right"
+              class="h-16 w-48 px-4 text-right align-middle xl:px-6"
             >
               操作
             </th>
@@ -32,7 +32,7 @@
             <td
               v-for="column in columns"
               :key="column.key"
-              class="whitespace-nowrap px-6 py-4"
+              class="break-words px-4 py-4 align-middle xl:px-6"
             >
               <slot :name="`cell-${column.key}`" :row="row">
                 {{ row[column.key] || "-" }}
@@ -40,7 +40,7 @@
             </td>
             <td
               v-if="$slots.actions"
-              class="whitespace-nowrap px-6 py-4 text-right"
+              class="px-4 py-4 text-right align-middle xl:px-6"
             >
               <slot name="actions" :row="row" />
             </td>

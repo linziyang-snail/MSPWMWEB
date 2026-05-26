@@ -59,6 +59,7 @@ import BaseButton from "@/components/base/BaseButton.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
+import { roleLabelMap } from "@/utils/constants";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -73,23 +74,19 @@ const departmentOptions = [
   { label: "消費促進科", value: "消費促進科" },
 ];
 const roleOptions = [
-  { label: "一般經辦", value: "EDITOR" },
-  { label: "覆核主管", value: "REVIEWER" },
+  { label: "經辦人員", value: "USER" },
+  { label: "覆核主管", value: "MANAGER" },
   { label: "超級管理員", value: "ADMIN" },
 ];
 const statusOptions = [
   { label: "啟用", value: "ACTIVE" },
   { label: "停用", value: "DISABLED" },
 ];
-const roleLabelMap = {
-  EDITOR: "經辦",
-  REVIEWER: "覆核主管",
-  ADMIN: "超級管理員",
-};
 const roleValueMap = {
-  經辦: "EDITOR",
-  一般經辦: "EDITOR",
-  覆核主管: "REVIEWER",
+  經辦: "USER",
+  經辦人員: "USER",
+  一般經辦: "USER",
+  覆核主管: "MANAGER",
   超級管理員: "ADMIN",
 };
 
@@ -97,7 +94,7 @@ const form = reactive({
   id: "",
   orgName: "話務科",
   userName: "",
-  role: "EDITOR",
+  role: "USER",
   status: "ACTIVE",
 });
 
@@ -116,7 +113,7 @@ function syncForm() {
     id: props.account?.id || "1193285",
     orgName: props.account?.orgName || "話務科",
     userName: props.account?.userName || "王吳王",
-    role: roleValueMap[props.account?.roleLabel] || props.account?.roles?.[0] || "EDITOR",
+    role: roleValueMap[props.account?.roleLabel] || props.account?.roles?.[0] || "USER",
     status: props.account?.status || "ACTIVE",
   });
 }

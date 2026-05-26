@@ -5,12 +5,12 @@ import {
   mockUpdateOrganization,
 } from "@/mocks/api/organizationApi";
 
-import apiRequest from "./apiRequest";
+import apiRequest, { unwrapApiBody } from "./apiRequest";
 import { useMock } from "./config";
 
 export async function getOrganizations() {
   if (useMock) return mockGetOrganizations();
-  return apiRequest.get("/api/organizations");
+  return unwrapApiBody(await apiRequest.get("/api/organizations"));
 }
 
 export async function createOrganization(payload) {

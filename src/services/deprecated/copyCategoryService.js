@@ -5,7 +5,7 @@ import {
   mockUpdateCopyCategory,
 } from "@/mocks/api/copyCategoryApi";
 
-import apiRequest from "../apiRequest";
+import apiRequest, { unwrapApiBody } from "../apiRequest";
 import { useMock } from "../config";
 
 /**
@@ -14,7 +14,9 @@ import { useMock } from "../config";
 export async function getCopyCategoriesByDepartment(params) {
   const { departmentId } = normalizeDepartmentParams(params);
   if (useMock) return mockGetCopyCategoriesByDepartmentId(departmentId);
-  return apiRequest.get(`/api/departments/copy-categories/${departmentId}`);
+  return unwrapApiBody(
+    await apiRequest.get(`/api/departments/copy-categories/${departmentId}`),
+  );
 }
 
 /**

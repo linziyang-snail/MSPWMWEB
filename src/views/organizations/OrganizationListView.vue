@@ -12,11 +12,14 @@
       >
     </PageTitle>
     <BaseTable :columns="columns" :rows="organizations">
+      <template #cell-orgType="{ row }">{{
+        orgTypeLabelMap[row.orgType] || row.orgType
+      }}</template>
       <template #cell-status="{ row }"
         ><BaseBadge :status="row.status"
       /></template>
       <template #actions="{ row }">
-        <div class="flex justify-end gap-2">
+        <div class="flex flex-wrap justify-end gap-2">
           <RouterLink class="text-primary" :to="`/organizations/${row.id}/edit`"
             >編輯</RouterLink
           >
@@ -43,6 +46,7 @@ import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
 import { mockOrganizations } from "@/mocks/organizations.mock";
+import { orgTypeLabelMap } from "@/utils/constants";
 
 const organizations = mockOrganizations;
 const selected = ref(null);

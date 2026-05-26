@@ -6,19 +6,21 @@ import {
   mockRejectChangeRequest,
 } from "@/mocks/api/approvalApi";
 
-import apiRequest from "./apiRequest";
+import apiRequest, { unwrapApiBody } from "./apiRequest";
 import { useMock } from "./config";
 
 export async function getPendingChangeRequests(params = {}) {
   if (useMock) return mockGetPendingChangeRequests(params.targetType);
-  return apiRequest.get("/api/change-requests", { params });
+  return unwrapApiBody(await apiRequest.get("/api/change-requests", { params }));
 }
 
 export async function getChangeRequestHistory(params = {}) {
   if (useMock) {
     return mockGetChangeRequestHistory(params.targetType, params.targetId);
   }
-  return apiRequest.get("/api/change-requests/history", { params });
+  return unwrapApiBody(
+    await apiRequest.get("/api/change-requests/history", { params }),
+  );
 }
 
 export async function approveChangeRequest(params) {

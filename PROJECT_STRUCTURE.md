@@ -46,6 +46,32 @@ VITE_API_BASE_URL=http://localhost:8081
 VITE_USE_MOCK=true
 ```
 
+正式環境透過 nginx `/MSP` proxy 轉發後端 API：
+
+```env
+VITE_APP_ENV=prod
+VITE_API_BASE_URL=/MSP
+VITE_USE_MOCK=false
+```
+
+API path 規則：
+
+- Swagger `/auth/...` -> 前端實際 `/MSP/auth/...`
+- Swagger `/api/...` -> 前端實際 `/MSP/api/...`
+- service 只寫 `/auth/login`、`/api/users` 這類原始 path，不可重複組 `/MSP`。
+
+角色 value 與顯示 label：
+
+- `ADMIN` = 超級管理員
+- `MANAGER` = 覆核主管
+- `USER` = 經辦人員
+
+欄位命名規則：
+
+- 後端 DB 使用 snake_case。
+- Swagger DTO、前端資料模型與 API payload 使用 camelCase。
+- 前端不傳中文 label、不傳 DB-only 欄位，例如 `mima`。
+
 ## API 呼叫流程
 
 標準流程：
@@ -104,7 +130,9 @@ component -> service -> apiRequest / mock api
 - Route meta 使用 `requiresAuth`、`roles` 管理登入與權限。
 - 現有登入 redirect 保留：
   - `ADMIN` -> `/accounts/pending-changes`
-  - 非 `ADMIN` -> `/copies/all`
+  - `MANAGER` / `USER` -> `/copies/all`
+- `ADMIN` 是最高權限，可進所有 requiresAuth 後台功能。
+- `/403` 不受角色 guard 擋住，回首頁會導回目前角色可進入的預設入口，避免 403 loop。
 - 未登入進入內頁需導回 `/login` 並保留 redirect query。
 
 ## Build / 部署
@@ -118,6 +146,25 @@ npm run build:dev
 npm run build:prod
 npm run preview
 ```
+
+Jenkins DEV 部署：
+
+```bash
+pwd
+export PATH="$PATH":/VCS/nodeJs/node-v23.1.0-linux-x64/bin
+echo $PATH
+node -v
+npm -v
+npm i
+npm run build:dev
+ssh DCUser@172.16.46.215 "cmd /c if exist D:\nginx\MSPWMWEB rmdir /S /Q D:\nginx\MSPWMWEB"
+ssh DCUser@172.16.46.215 "cmd /c mkdir D:\nginx\MSPWMWEB"
+scp -r dist/* DCUser@172.16.46.215:D:/nginx/MSPWMWEB/
+ssh DCUser@172.16.46.215 "cmd /c D:\nginx\nginx.exe -p D:\nginx -c conf\nginx.conf -t"
+echo "MSPWMWEB 部署完成"
+```
+
+部署後結構是 `D:/nginx/MSPWMWEB/index.html` 與 `D:/nginx/MSPWMWEB/assets/...`。靜態檔更新不需要 nginx reload，目前 Jenkins 不執行 nginx reload，避免 DCUser 對 nginx process 發 signal 時出現 `Access is denied`。
 
 ## 後續接正式 API 步驟
 

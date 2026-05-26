@@ -49,7 +49,7 @@
       <div class="grid grid-cols-2 gap-6">
         <div>
           <label class="mb-2 block text-sm font-bold leading-normal text-natural">權限等級</label>
-          <BaseSelect v-model="form.role" :options="roleOptions" placeholder="經辦" :error="Boolean(errors.role)" />
+          <BaseSelect v-model="form.role" :options="roleOptions" placeholder="經辦人員" :error="Boolean(errors.role)" />
           <p v-if="errors.role" class="mt-1.5 text-xs leading-normal text-danger">{{ errors.role }}</p>
         </div>
         <div>
@@ -86,6 +86,7 @@ import BaseButton from "@/components/base/BaseButton.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
+import { roleLabelMap } from "@/utils/constants";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -99,22 +100,16 @@ const departmentOptions = [
   { label: "消費促進科", value: "消費促進科" },
 ];
 const roleOptions = [
-  { label: "一般經辦", value: "EDITOR" },
-  { label: "覆核主管", value: "REVIEWER" },
+  { label: "經辦人員", value: "USER" },
+  { label: "覆核主管", value: "MANAGER" },
   { label: "超級管理員", value: "ADMIN" },
 ];
-const roleLabelMap = {
-  EDITOR: "經辦",
-  REVIEWER: "覆核主管",
-  ADMIN: "超級管理員",
-};
-
 const form = reactive({
   id: "",
   orgName: "話務科",
   password: "",
   userName: "",
-  role: "EDITOR",
+  role: "USER",
 });
 const errors = reactive({ id: "", orgName: "", password: "", userName: "", role: "" });
 const showPassword = ref(false);
@@ -128,7 +123,7 @@ watch(
       orgName: "話務科",
       password: "",
       userName: "",
-      role: "EDITOR",
+      role: "USER",
     });
     clearErrors();
     showPassword.value = false;

@@ -1,14 +1,8 @@
 /* 科別 (部門分類) */
 export const mockCopyCategories = [
-  { id: 1, categoryName: "話務科", status: "ACTIVE", departmentId: 1 },
-  { id: 2, categoryName: "消費促進科", status: "ACTIVE", departmentId: 1 },
-  { id: 3, categoryName: "聯合行銷科", status: "ACTIVE", departmentId: 2 },
-  { id: 4, categoryName: "數位金融科", status: "PENDING", departmentId: 2 },
-  { id: 5, categoryName: "信用卡處", status: "PENDING", departmentId: 3 },
-  { id: 6, categoryName: "財富管理科", status: "PENDING", departmentId: 3 },
-  { id: 7, categoryName: "法務科", status: "PENDING", departmentId: 1 },
-  { id: 8, categoryName: "舊科別A", status: "REJECTED", departmentId: 2 },
-  { id: 9, categoryName: "舊科別B", status: "DELETED", departmentId: 3 },
+  { id: 1, categoryName: "公告", status: "ACTIVE", departmentId: 1 },
+  { id: 2, categoryName: "活動", status: "ACTIVE", departmentId: 1 },
+  { id: 3, categoryName: "帳務", status: "ACTIVE", departmentId: 1 },
 ];
 
 export const WBK_CATEGORY_OPTIONS = [
@@ -34,8 +28,8 @@ export const RETENTION_OPTIONS = [
 ];
 
 export const CLICK_ACTION_OPTIONS = [
-  { label: "前往網頁", value: "OPEN_PAGE" },
   { label: "開啟連結", value: "OPEN_URL" },
+  { label: "跳轉頁面", value: "OPEN_PAGE" },
   { label: "無動作", value: "NONE" },
 ];
 

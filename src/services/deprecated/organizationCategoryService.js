@@ -5,7 +5,7 @@ import {
   mockRemoveOrganizationCategory,
 } from "@/mocks/api/organizationCategoryApi";
 
-import apiRequest from "../apiRequest";
+import apiRequest, { unwrapApiBody } from "../apiRequest";
 import { useMock } from "../config";
 
 /**
@@ -14,7 +14,7 @@ import { useMock } from "../config";
 export async function getOrganizationCategories(params) {
   const { orgId } = normalizeOrgParams(params);
   if (useMock) return mockGetOrganizationCategories(orgId);
-  return apiRequest.get(`/api/organizations/${orgId}/categories`);
+  return unwrapApiBody(await apiRequest.get(`/api/organizations/${orgId}/categories`));
 }
 
 /**
@@ -25,7 +25,7 @@ export async function assignOrganizationCategories(params, legacyPayload) {
     params,
     legacyPayload,
   );
-  const body = { categoryIds };
+  const body = { orgId, categoryIds };
   if (useMock) return mockAssignOrganizationCategories(orgId, categoryIds);
   return apiRequest.put(`/api/organizations/${orgId}/categories`, body);
 }

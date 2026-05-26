@@ -1,4 +1,5 @@
-export const apiBaseURL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
+const defaultApiBaseURL = "/MSP";
+
+export const apiBaseURL = import.meta.env.VITE_API_BASE_URL || defaultApiBaseURL;
 
 export const useMock = import.meta.env.VITE_USE_MOCK === "true";

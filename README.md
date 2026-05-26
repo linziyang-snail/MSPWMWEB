@@ -1,6 +1,6 @@
 # MSPWMWEB 推播文案編輯後台
 
-MSPWMWEB 是一套 Vue 3 內部後台前端專案，目前主要支援推播文案管理、人員管理、科別 / 申請單資訊查詢、登入與角色導覽。專案已整理成 mock / real API 可切換架構，預設仍使用 mock data，後續可透過環境變數切換到正式 API。
+MSPWMWEB 是一套 Vue 3 內部後台前端專案，目前主要支援推播文案管理、人員管理、科別 / 申請單資訊查詢、登入與角色導覽。專案已整理成 mock / real API 可切換架構，公司電腦 dev mode 可透過 `/MSP` 代理串接測試 API。
 
 本 README 依照目前實際檔案整理，非通用模板。若功能目前尚未有正式後端 API，會明確標註為「待後端補 API」或「mock-only compatibility」。
 
@@ -117,22 +117,23 @@ VITE_USE_MOCK=true
 
 ```env
 VITE_APP_ENV=dev
-VITE_API_BASE_URL=http://localhost:8081
-VITE_USE_MOCK=true
+VITE_API_BASE_URL=/MSP
+VITE_USE_MOCK=false
+VITE_DEV_PROXY_TARGET=http://172.16.46.215:443
 ```
 
 `.env.prod`：
 
 ```env
 VITE_APP_ENV=prod
-VITE_API_BASE_URL=
+VITE_API_BASE_URL=/MSP
 VITE_USE_MOCK=false
 ```
 
 變數說明：
 
 - `VITE_APP_ENV`：目前環境名稱。
-- `VITE_API_BASE_URL`：正式 API base URL。不要在 component 或 service function 中寫死正式 URL。
+- `VITE_API_BASE_URL`：正式 API base URL。公司內網 dev/prod 統一使用 `/MSP`；不要在 component 或 service function 中寫死正式 URL。
 - `VITE_USE_MOCK`：`true` 走 mock API，`false` 走 real API。
 
 注意：`.gitignore` 目前排除 `.env`、`.env.*`，但保留 `!.env.example`。正式機敏資訊不可 commit。
@@ -144,8 +145,10 @@ VITE_USE_MOCK=false
 - `src/services/config.js`
 
 ```js
+const defaultApiBaseURL = "/MSP";
+
 export const apiBaseURL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
+  import.meta.env.VITE_API_BASE_URL || defaultApiBaseURL;
 
 export const useMock = import.meta.env.VITE_USE_MOCK === "true";
 ```
@@ -171,6 +174,99 @@ component -> service -> apiRequest / mock api
 
 目前現行正式路由相關頁面已移除 direct mock import；舊 scaffold views 仍有殘留，見「Maintenance Notes」。
 
+## 公司電腦 dev 串接 API
+
+### 角色與欄位命名
+
+後端角色 value 與前端顯示 label：
+
+| Value | Label |
+|---|---|
+| `ADMIN` | 超級管理員 |
+| `MANAGER` | 覆核主管 |
+| `USER` | 經辦人員 |
+
+角色 value 永遠使用後端英文代碼；中文只作為畫面顯示，不可送回 API 當 payload value。
+
+欄位命名規則：
+
+- 後端 DB 欄位可為 snake_case，例如 `user_name`、`org_id`。
+- Swagger DTO、API payload 與前端畫面資料一律使用 camelCase，例如 `userName`、`orgId`。
+- 前端不使用 DB-only 欄位，例如 `mima`、`created_at`、`updated_at`。
+
+### 環境檔
+
+`.env.dev`
+
+```env
+VITE_APP_ENV=dev
+VITE_API_BASE_URL=/MSP
+VITE_USE_MOCK=false
+VITE_DEV_PROXY_TARGET=http://172.16.46.215:443
+```
+
+### 啟動方式
+
+```bash
+npm run dev -- --mode dev
+```
+
+`package.json` 的 `npm run dev` 已經是 `vite --mode dev`，所以也可直接執行：
+
+```bash
+npm run dev
+```
+
+### API Path 規則
+
+Swagger path `/auth/...` 實際由前端呼叫為 `/MSP/auth/...`。
+
+Swagger path `/api/...` 實際由前端呼叫為 `/MSP/api/...`。
+
+service 內只寫 Swagger 原始 path，例如 `/auth/login`、`/api/users`，由 `VITE_API_BASE_URL=/MSP` 組成實際路徑；不要硬寫 host，也不要組成 `/MSP/MSP/...`。
+
+### DEV 測試帳號
+
+| 帳號 | 密碼 | 角色 |
+|---|---|---|
+| `admin01` | `1234` | `ADMIN` |
+| `admin02` | `1234` | `ADMIN` |
+| `manager` | `1234` | `MANAGER` |
+| `user001` | `1234` | `USER` |
+
+### Jenkins DEV 部署
+
+DEV Jenkins 使用 Node v23.1.0 / npm 10.9.0：
+
+```bash
+pwd
+export PATH="$PATH":/VCS/nodeJs/node-v23.1.0-linux-x64/bin
+echo $PATH
+node -v
+npm -v
+npm i
+npm run build:dev
+ssh DCUser@172.16.46.215 "cmd /c if exist D:\nginx\MSPWMWEB rmdir /S /Q D:\nginx\MSPWMWEB"
+ssh DCUser@172.16.46.215 "cmd /c mkdir D:\nginx\MSPWMWEB"
+scp -r dist/* DCUser@172.16.46.215:D:/nginx/MSPWMWEB/
+ssh DCUser@172.16.46.215 "cmd /c D:\nginx\nginx.exe -p D:\nginx -c conf\nginx.conf -t"
+echo "MSPWMWEB 部署完成"
+```
+
+部署後產物必須在 `D:/nginx/MSPWMWEB/index.html` 與 `D:/nginx/MSPWMWEB/assets/...`，不可多一層 `dist`。
+
+靜態檔更新不需要 nginx reload。目前 Jenkins 不執行 nginx reload，避免 DCUser 對 nginx process 發 signal 時出現 `Access is denied`。
+
+### 登入 redirect
+
+如果直接進入受保護頁，例如 `/copies/all`，尚未登入時被導到 `/login?redirect=/copies/all` 是正常 router guard 行為，登入成功後應該回到原頁。
+
+### Mock 切換
+
+`VITE_USE_MOCK=true` 使用 mock。
+
+`VITE_USE_MOCK=false` 使用真實 API；Swagger 尚未提供的 API 會保留 compatibility service 或 mock-only 行為，缺口記錄在 `src/services/API_GAPS.md`。
+
 ## 8. API Layer
 
 ### API Client
@@ -179,11 +275,13 @@ component -> service -> apiRequest / mock api
 
 - 使用 Axios instance。
 - `baseURL` 來自 `src/services/config.js`。
-- timeout：`30000` ms。
+- timeout：`60000` ms。
 - request interceptor 會從 `localStorage.getItem("mspwm.accessToken")` 帶 `Authorization: Bearer <token>`。
-- response interceptor 回傳 `response.data`。
-- 401 會清除 `mspwm.auth`、`mspwm.accessToken` 並導向 `/login`。
-- 403 會導向 `/403`。
+- response interceptor 回傳後端 envelope `response.data`；需要資料內容的 service 會使用 `body`，登入則由 auth store 明確讀 `response.body.accessToken` 等欄位。
+- API error 會整理成 `{ status, code, desc, body, raw }`，並保留後端回傳的 `code` / `desc`。
+- HTTP 2xx 但 `code !== "0000"` 會視為業務錯誤並 reject。
+- 401 會清除 `mspwm.auth`、`mspwm.accessToken` 並導向 `/login?redirect=...`。
+- 400 / 403 / 500 不會被吞掉，仍會 reject 給呼叫端。
 - API error 會透過 `useAppStore().showAlert()` 顯示全域 alert。
 
 ### Domain Services
@@ -208,6 +306,7 @@ component -> service -> apiRequest / mock api
 | `Login(userId, password)` | `POST /auth/login` | 登入 |
 | `Logout()` | `POST /auth/logout` | 登出 |
 | `RefreshToken()` | `POST /auth/refresh` | 刷新 access token |
+| `ChangeMyPassword(data)` | `PUT /auth/me/password` | 修改自己的密碼 |
 
 ### User
 
@@ -220,7 +319,7 @@ component -> service -> apiRequest / mock api
 | `DeleteUser(id)` | `DELETE /api/users/{id}` | 停用使用者申請 |
 | `UnlockUser(id)` | `PUT /api/users/{id}/unlock` | 解鎖使用者 |
 | `ResetUserPassword(id, newPassword)` | `PUT /api/users/{id}/password` | 重設使用者密碼 |
-| `ChangeMyPassword(oldPassword, newPassword)` | `PUT /api/users/me/password` | 修改自己的密碼 |
+| `ChangeMyPassword(oldPassword, newPassword)` | `PUT /auth/me/password` | 修改自己的密碼 |
 | `GetAccountChangeRequests()` | mock-only compatibility | 帳號異動列表，待正式 API |
 
 ### Role
@@ -355,9 +454,10 @@ Navigation guard：
 目前角色：
 
 - `ADMIN`
-- `REVIEWER`
-- `EDITOR`
-- `VIEWER`
+- `MANAGER`
+- `USER`
+
+`ADMIN` 是最高權限；只要已登入且 roles 包含 `ADMIN`，不會因 route meta roles 未列出 `ADMIN` 被擋到 403。`/403` 本身不需要登入角色，回首頁會導向目前角色可進入的預設入口，避免 `/403` loop。
 
 Sidebar 顯示依 `src/utils/navigation.js` 的 `roles` 設定。
 

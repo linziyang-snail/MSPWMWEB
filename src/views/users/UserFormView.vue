@@ -34,7 +34,7 @@
             class="flex items-center gap-2 text-sm"
           >
             <input v-model="form.roleIds" type="checkbox" :value="role.id" />
-            {{ role.roleName }}
+            {{ roleLabelMap[role.roleName] || role.roleName }}
           </label>
         </div>
       </FormField>
@@ -68,6 +68,7 @@ import { mockOrganizations } from "@/mocks/organizations.mock";
 import { mockRoles } from "@/mocks/roles.mock";
 import { mockUsers } from "@/mocks/users.mock";
 import { createUser, updateUser } from "@/services/userService";
+import { roleLabelMap } from "@/utils/constants";
 import { validateRequired, validateUserId } from "@/utils/validators";
 
 const props = defineProps({

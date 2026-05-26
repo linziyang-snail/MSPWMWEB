@@ -16,7 +16,7 @@
         ><BaseBadge :status="row.status"
       /></template>
       <template #actions="{ row }">
-        <div class="flex justify-end gap-2">
+        <div class="flex flex-wrap justify-end gap-2">
           <RouterLink
             class="text-primary"
             :to="`/copy-categories/${row.id}/edit`"

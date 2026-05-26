@@ -1,9 +1,5 @@
-export const roleLabelMap = {
-  ADMIN: "超級管理員",
-  REVIEWER: "覆核主管",
-  EDITOR: "經辦人員",
-  VIEWER: "一般使用者",
-};
+import { normalizeRoles } from "@/utils/authRoles";
+import { roleLabelMap } from "@/utils/constants";
 
 export const sidebarSections = [
   {
@@ -11,13 +7,13 @@ export const sidebarSections = [
     to: "/copies/all",
     icon: "filetext",
     match: "/copies",
-    roles: ["EDITOR", "REVIEWER"],
+    roles: ["USER", "MANAGER"],
     children: [
       { label: "全部文案", to: "/copies/all" },
       { label: "待審核文案", to: "/copies/pending", countKey: "pending" },
       { label: "已核准文案", to: "/copies/approved" },
       { label: "已駁回文案", to: "/copies/rejected" },
-      { label: "已取消文案", to: "/copies/cancelled", roles: ["EDITOR"] },
+      { label: "已取消文案", to: "/copies/cancelled", roles: ["USER"] },
     ],
   },
   {
@@ -80,6 +76,6 @@ export const breadcrumbMap = {
 };
 
 export function getRoleLabel(roles = []) {
-  const role = roles.find((value) => roleLabelMap[value]);
+  const role = normalizeRoles(roles).find((value) => roleLabelMap[value]);
   return role ? roleLabelMap[role] : "經辦人員";
 }

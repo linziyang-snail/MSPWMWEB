@@ -40,7 +40,6 @@
       :subtitle="passwordSubtitle"
       @submitted="handlePasswordChanged"
     />
-    <GlobalAlertDialog />
     <div
       v-if="appStore.isLoading"
       class="fixed inset-0 z-50 grid place-items-center bg-background-overlay"
@@ -64,7 +63,6 @@ import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
-import GlobalAlertDialog from "@/components/common/GlobalAlertDialog.vue";
 import OperationHistoryDialog from "@/components/dialogs/OperationHistoryDialog.vue";
 import PasswordChangeModal from "@/components/dialogs/PasswordChangeModal.vue";
 import PasswordUpdateNotice from "@/components/dialogs/PasswordUpdateNotice.vue";

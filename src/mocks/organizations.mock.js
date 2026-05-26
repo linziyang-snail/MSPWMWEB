@@ -1,30 +1,23 @@
 export const mockOrganizations = [
   {
     id: 1,
-    orgName: "總行",
+    orgName: "信用卡處",
     parentId: null,
-    orgType: "HEAD_OFFICE",
+    orgType: "DEPARTMENT",
     status: "ACTIVE",
   },
   {
     id: 2,
-    orgName: "數位金融部",
+    orgName: "資訊科",
     parentId: 1,
-    orgType: "DEPARTMENT",
+    orgType: "SECTION",
     status: "ACTIVE",
   },
   {
     id: 3,
-    orgName: "信用卡處",
+    orgName: "聯合行銷科",
     parentId: 1,
-    orgType: "DEPARTMENT",
-    status: "PENDING",
-  },
-  {
-    id: 4,
-    orgName: "分行營運處",
-    parentId: 1,
-    orgType: "DEPARTMENT",
-    status: "DISABLED",
+    orgType: "SECTION",
+    status: "ACTIVE",
   },
 ];

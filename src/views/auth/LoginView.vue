@@ -123,7 +123,7 @@
 </template>
 
 <script setup>
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import loginBellIcon from "@/assets/loginBell.svg";
@@ -133,6 +133,7 @@ import loginSparkleIcon from "@/assets/loginSparkle.svg";
 import loginUserIcon from "@/assets/loginUser.svg";
 import ubotLogo from "@/assets/ubotLogo.svg";
 import { useAuthStore } from "@/stores/authStore";
+import { getDefaultEntryPathForRoles, normalizeRoles } from "@/utils/authRoles";
 import { validateRequired, validateUserId } from "@/utils/validators";
 
 const router = useRouter();
@@ -142,27 +143,35 @@ const showPassword = ref(false);
 const message = ref("");
 const form = reactive({ userId: "", password: "" });
 const errors = reactive({ userId: "", password: "" });
+const authRoles = computed(() => normalizeRoles(auth.roles));
 
 const handleLogin = async () => {
   errors.userId = validateUserId(form.userId);
   errors.password = validateRequired(form.password, "密碼");
   if (errors.userId || errors.password) return;
 
-  await auth.login(form);
-  message.value = "登入成功";
-  router.push(getLoginRedirect());
+  try {
+    await auth.login(form);
+    message.value = "登入成功";
+    router.push(getLoginRedirect());
+  } catch {
+    // API 錯誤由全站 interceptor 統一顯示。
+    message.value = "";
+  }
 };
 
 const getDefaultEntryPath = () => {
-  if (auth.roles.includes("ADMIN")) return "/accounts/pending-changes";
-  return "/copies/all";
+  return getDefaultEntryPathForRoles(authRoles.value);
 };
 
 const getLoginRedirect = () => {
   const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "";
   if (!redirect) return getDefaultEntryPath();
-  if (auth.roles.includes("ADMIN") && redirect.startsWith("/copies")) return getDefaultEntryPath();
-  if (!auth.roles.includes("ADMIN") && redirect.startsWith("/accounts")) return getDefaultEntryPath();
+  if (
+    !redirect.startsWith("/") ||
+    redirect.startsWith("/login") ||
+    redirect.startsWith("/403")
+  ) return getDefaultEntryPath();
   return redirect;
 };
 

@@ -32,6 +32,7 @@ import BaseBadge from "@/components/base/BaseBadge.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
 import { mockUsers } from "@/mocks/users.mock";
+import { roleLabelMap } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
@@ -42,7 +43,7 @@ const details = computed(() => [
   { label: "帳號", value: user.value?.id },
   { label: "姓名", value: user.value?.userName },
   { label: "組織 ID", value: user.value?.orgId },
-  { label: "角色", value: user.value?.roles.join(", ") },
+  { label: "角色", value: formatRoles(user.value?.roles) },
   { label: "密碼錯誤次數", value: user.value?.passwordAttempts },
   { label: "最後登入", value: formatDateTime(user.value?.lastLoginAt) },
   { label: "登入 IP", value: user.value?.loginIp || "-" },
@@ -51,4 +52,8 @@ const details = computed(() => [
     value: `${user.value?.createdBy} / ${formatDateTime(user.value?.createdAt)}`,
   },
 ]);
+
+function formatRoles(roles = []) {
+  return roles.map((role) => roleLabelMap[role] || role).join(", ");
+}
 </script>

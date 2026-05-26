@@ -47,6 +47,7 @@ import {
   createOrganization,
   updateOrganization,
 } from "@/services/organizationService";
+import { orgTypeLabelMap } from "@/utils/constants";
 import { validateRequired } from "@/utils/validators";
 
 const props = defineProps({
@@ -65,9 +66,8 @@ const errors = reactive({});
 const loading = ref(false);
 const message = ref("");
 const typeOptions = [
-  { label: "總行", value: "HEAD_OFFICE" },
-  { label: "部門", value: "DEPARTMENT" },
-  { label: "分行", value: "BRANCH" },
+  { label: orgTypeLabelMap.DEPARTMENT, value: "DEPARTMENT" },
+  { label: orgTypeLabelMap.SECTION, value: "SECTION" },
 ];
 
 async function submit() {

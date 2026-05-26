@@ -7,10 +7,20 @@
       <h1 class="mt-2 text-2xl font-semibold text-text-primary">沒有權限</h1>
       <p class="mt-3 text-sm text-text-muted">目前角色無法存取此功能。</p>
       <RouterLink
-        to="/dashboard"
+        :to="homePath"
         class="mt-6 inline-block text-sm font-medium text-primary"
         >回首頁</RouterLink
       >
     </div>
   </div>
 </template>
+
+<script setup>
+import { computed } from "vue";
+
+import { useAuthStore } from "@/stores/authStore";
+import { getDefaultEntryPathForRoles } from "@/utils/authRoles";
+
+const auth = useAuthStore();
+const homePath = computed(() => getDefaultEntryPathForRoles(auth.roles));
+</script>
