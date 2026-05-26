@@ -223,7 +223,7 @@
                 </button>
               </div>
               <div v-else class="flex flex-wrap items-center justify-center gap-2 2xl:gap-4">
-                <template v-if="row.status === 'PENDING'">
+                <template v-if="row.status === 'PENDING' && canReviewAccount(row)">
                   <button
                     class="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
                     type="button" @click="confirm(row, 'approve')">
@@ -235,6 +235,10 @@
                     <XIcon /> <span>駁回</span>
                   </button>
                 </template>
+                <span v-else-if="row.status === 'PENDING'"
+                  class="inline-flex min-h-10 items-center whitespace-nowrap rounded-lg border border-danger-text bg-danger-bg px-3 text-sm font-bold leading-normal text-danger-text">
+                  等待其他管理員審核
+                </span>
                 <BaseButton v-if="row.status === 'LOCKED'" variant="text" size="sm" @click="confirm(row, 'unlock')">
                   解鎖
                 </BaseButton>
@@ -655,14 +659,14 @@ function onCreateAccount(payload) {
     {
       id: payload.id,
       userName: payload.userName,
-      orgId: 0,
+      orgId: payload.orgId,
       orgName: payload.orgName,
       status: "PENDING",
       pendingType: "NEW",
       passwordAttempts: 0,
       lastLoginAt: "",
       loginIp: "",
-      createdBy: "9993285",
+      createdBy: auth.userId,
       createdAt: new Date().toISOString(),
       roles: [payload.role],
       roleLabel: payload.roleLabel,
@@ -673,6 +677,10 @@ function onCreateAccount(payload) {
 
 function canReviewRequest(request) {
   return request.createdBy !== auth.userId;
+}
+
+function canReviewAccount(account) {
+  return account.createdBy !== auth.userId;
 }
 
 function toggleOriginal(id) {

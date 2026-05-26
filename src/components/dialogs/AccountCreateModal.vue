@@ -16,9 +16,9 @@
         </div>
         <div>
           <label class="mb-2 block text-sm font-bold leading-normal text-natural">科別</label>
-          <BaseSelect v-model="form.orgName" :options="departmentOptions" placeholder="話務科"
-            :error="Boolean(errors.orgName)" />
-          <p v-if="errors.orgName" class="mt-1.5 text-xs leading-normal text-danger">{{ errors.orgName }}</p>
+          <BaseSelect v-model="form.orgId" :options="departmentOptions" placeholder="請選擇科別"
+            :error="Boolean(errors.orgId)" />
+          <p v-if="errors.orgId" class="mt-1.5 text-xs leading-normal text-danger">{{ errors.orgId }}</p>
         </div>
       </div>
 
@@ -71,13 +71,13 @@
 
     <template #footer>
       <BaseButton class="w-48" variant="secondary" @click="close">取消</BaseButton>
-      <BaseButton class="w-48" @click="submit">建立帳號</BaseButton>
+      <BaseButton class="w-48" :loading="submitting" @click="submit">建立帳號</BaseButton>
     </template>
   </BaseModal>
 </template>
 
 <script setup>
-import { h, reactive, ref, watch } from "vue";
+import { computed, h, onMounted, reactive, ref, watch } from "vue";
 
 import eyeCloseIcon from "@/assets/loginEyeClose.svg";
 import eyeOpenIcon from "@/assets/loginEyeOpen.svg";
@@ -86,7 +86,9 @@ import BaseButton from "@/components/base/BaseButton.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
-import { roleLabelMap } from "@/utils/constants";
+import { getOrganizations } from "@/services/organizationService";
+import { createUser } from "@/services/userService";
+import { roleIdMap, roleLabelMap } from "@/utils/constants";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -94,11 +96,6 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "submitted"]);
 
-const departmentOptions = [
-  { label: "話務科", value: "話務科" },
-  { label: "聯合行銷科", value: "聯合行銷科" },
-  { label: "消費促進科", value: "消費促進科" },
-];
 const roleOptions = [
   { label: "經辦人員", value: "USER" },
   { label: "覆核主管", value: "MANAGER" },
@@ -106,13 +103,31 @@ const roleOptions = [
 ];
 const form = reactive({
   id: "",
-  orgName: "話務科",
+  orgId: "",
   password: "",
   userName: "",
   role: "USER",
 });
-const errors = reactive({ id: "", orgName: "", password: "", userName: "", role: "" });
+const errors = reactive({ id: "", orgId: "", password: "", userName: "", role: "" });
 const showPassword = ref(false);
+const organizations = ref([]);
+const submitting = ref(false);
+
+const departmentOptions = computed(() => {
+  const activeOrganizations = organizations.value.filter(
+    (org) => !org.status || org.status === "ACTIVE",
+  );
+  const sections = activeOrganizations.filter((org) => org.orgType === "SECTION");
+  const source = sections.length ? sections : activeOrganizations;
+  return source.map((org) => ({
+    label: org.orgName,
+    value: org.id,
+  }));
+});
+
+const selectedOrganization = computed(() =>
+  organizations.value.find((org) => Number(org.id) === Number(form.orgId)),
+);
 
 watch(
   () => props.modelValue,
@@ -120,50 +135,100 @@ watch(
     if (!open) return;
     Object.assign(form, {
       id: "",
-      orgName: "話務科",
+      orgId: departmentOptions.value[0]?.value || "",
       password: "",
       userName: "",
       role: "USER",
     });
     clearErrors();
     showPassword.value = false;
+    fetchOrganizations();
   },
 );
 
+onMounted(fetchOrganizations);
+
 function clearErrors() {
-  Object.assign(errors, { id: "", orgName: "", password: "", userName: "", role: "" });
+  Object.assign(errors, { id: "", orgId: "", password: "", userName: "", role: "" });
 }
 
 function validate() {
   clearErrors();
-  errors.id = form.id ? (/^\d+$/.test(form.id) ? "" : "員編限輸入數字") : "請輸入員編";
-  errors.orgName = form.orgName ? "" : "請選擇科別";
-  errors.password = !form.password
-    ? "密碼必須至少12個字元"
-    : form.password.length < 12
-      ? "密碼必須至少12個字元"
-      : "";
+  const normalizedId = normalizeEmployeeId(form.id);
+  errors.id = validateEmployeeId(form.id);
+  errors.orgId = form.orgId ? "" : "請選擇科別";
+  errors.password = validatePassword(form.password, normalizedId);
   errors.userName = form.userName ? "" : "請輸入人員姓名";
   errors.role = form.role ? "" : "請選擇權限等級";
-  return !errors.id && !errors.orgName && !errors.password && !errors.userName && !errors.role;
+  return !errors.id && !errors.orgId && !errors.password && !errors.userName && !errors.role;
 }
 
-function submit() {
+async function submit() {
   if (!validate()) return;
-  emit("submitted", {
-    id: form.id,
-    userName: form.userName,
-    orgName: form.orgName,
+  const id = normalizeEmployeeId(form.id);
+  const roleIds = [roleIdMap[form.role]].filter(Boolean);
+  const payload = {
+    id,
     password: form.password,
-    status: "PENDING",
-    role: form.role,
-    roleLabel: roleLabelMap[form.role],
-  });
-  close();
+    userName: form.userName,
+    orgId: Number(form.orgId),
+    roleIds,
+  };
+  submitting.value = true;
+  try {
+    await createUser(payload);
+    emit("submitted", {
+      ...payload,
+      orgName: selectedOrganization.value?.orgName || "",
+      status: "PENDING",
+      role: form.role,
+      roleLabel: roleLabelMap[form.role],
+    });
+    close();
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function close() {
   emit("update:modelValue", false);
+}
+
+async function fetchOrganizations() {
+  try {
+    organizations.value = await getOrganizations();
+    if (!form.orgId) form.orgId = departmentOptions.value[0]?.value || "";
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function normalizeEmployeeId(value) {
+  return String(value || "").trim().padStart(7, "0");
+}
+
+function validateEmployeeId(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "請輸入員編";
+  if (!/^\d+$/.test(rawValue)) return "員編限輸入數字";
+  if (rawValue.length > 7) return "員編最多7碼";
+  return "";
+}
+
+function validatePassword(value, accountId) {
+  if (!value) return "密碼必須至少12個字元";
+  if (value.length < 12) return "密碼必須至少12個字元";
+  const categoryCount = [
+    /[a-z]/.test(value),
+    /[A-Z]/.test(value),
+    /\d/.test(value),
+    /[^A-Za-z0-9]/.test(value),
+  ].filter(Boolean).length;
+  if (categoryCount < 3) return "密碼須包含英文大小寫、數字、符號其中三項";
+  if (accountId && value.toLowerCase().includes(accountId.toLowerCase())) {
+    return "密碼不可包含帳號";
+  }
+  return "";
 }
 
 const UserPlusIcon = (_props = {}, context = {}) =>

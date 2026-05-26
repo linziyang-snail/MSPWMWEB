@@ -10,6 +10,12 @@ export const roleLabelMap = {
   USER: "經辦人員",
 };
 
+export const roleIdMap = {
+  ADMIN: 1,
+  MANAGER: 2,
+  USER: 3,
+};
+
 export const orgTypeLabelMap = {
   DEPARTMENT: "部門",
   SECTION: "科別",
