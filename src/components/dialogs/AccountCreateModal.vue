@@ -114,10 +114,13 @@ const organizations = ref([]);
 const submitting = ref(false);
 
 const departmentOptions = computed(() => {
-  const activeOrganizations = organizations.value.filter(
-    (org) => !org.status || org.status === "ACTIVE",
+  const organizationRows = Array.isArray(organizations.value) ? organizations.value : [];
+  const activeOrganizations = organizationRows.filter(
+    (org) => !org.status || ["ACTIVE", "啟用", "PENDING", "審核中"].includes(org.status),
   );
-  const sections = activeOrganizations.filter((org) => org.orgType === "SECTION");
+  const sections = activeOrganizations.filter((org) =>
+    ["SECTION", "科別"].includes(org.orgType),
+  );
   const source = sections.length ? sections : activeOrganizations;
   return source.map((org) => ({
     label: org.orgName,
@@ -126,7 +129,9 @@ const departmentOptions = computed(() => {
 });
 
 const selectedOrganization = computed(() =>
-  organizations.value.find((org) => Number(org.id) === Number(form.orgId)),
+  (Array.isArray(organizations.value) ? organizations.value : []).find(
+    (org) => Number(org.id) === Number(form.orgId),
+  ),
 );
 
 watch(
@@ -196,11 +201,21 @@ function close() {
 
 async function fetchOrganizations() {
   try {
-    organizations.value = await getOrganizations();
+    organizations.value = normalizeOrganizationRows(await getOrganizations());
     if (!form.orgId) form.orgId = departmentOptions.value[0]?.value || "";
   } catch (error) {
     console.error(error);
   }
+}
+
+function normalizeOrganizationRows(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.body)) return response.body;
+  if (Array.isArray(response?.content)) return response.content;
+  if (Array.isArray(response?.body?.content)) return response.body.content;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.content)) return response.data.content;
+  return [];
 }
 
 function normalizeEmployeeId(value) {

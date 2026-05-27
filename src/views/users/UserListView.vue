@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseButton from "@/components/base/BaseButton.vue";
@@ -85,13 +85,14 @@ import PageTitle from "@/components/common/PageTitle.vue";
 import SearchFilterBar from "@/components/common/SearchFilterBar.vue";
 import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
-import { mockUsers } from "@/mocks/users.mock";
+import { getUsers } from "@/services/userService";
 import { roleLabelMap, statusLabelMap } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const keyword = ref("");
 const status = ref("");
 const dialog = ref({ open: false });
+const users = ref([]);
 const columns = [
   { key: "id", label: "帳號" },
   { key: "userName", label: "姓名" },
@@ -104,7 +105,7 @@ const statusOptions = ["ACTIVE", "DISABLED", "LOCKED", "PENDING"].map(
   (value) => ({ label: statusLabelMap[value] || value, value }),
 );
 const filteredUsers = computed(() =>
-  mockUsers.filter((user) => {
+  users.value.filter((user) => {
     const matchKeyword =
       !keyword.value ||
       `${user.id}${user.userName}`
@@ -114,6 +115,11 @@ const filteredUsers = computed(() =>
     return matchKeyword && matchStatus;
   }),
 );
+
+onMounted(async () => {
+  const response = await getUsers({ page: 1, size: 200 });
+  users.value = response?.content ?? (Array.isArray(response) ? response : []);
+});
 
 function confirmAction(row, action) {
   const map = {

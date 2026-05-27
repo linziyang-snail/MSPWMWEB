@@ -10,13 +10,19 @@
 </template>
 
 <script setup>
+import { onMounted, ref } from "vue";
+
 import PageTitle from "@/components/common/PageTitle.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
-import { mockRoles } from "@/mocks/roles.mock";
+import { getRoles } from "@/services/roleService";
 
-const roles = mockRoles;
+const roles = ref([]);
 const columns = [
   { key: "id", label: "角色 ID" },
   { key: "roleName", label: "角色名稱" },
 ];
+
+onMounted(async () => {
+  roles.value = await getRoles();
+});
 </script>

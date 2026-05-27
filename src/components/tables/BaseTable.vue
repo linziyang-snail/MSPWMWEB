@@ -32,7 +32,7 @@
             <td
               v-for="column in columns"
               :key="column.key"
-              class="break-words px-4 py-4 align-middle xl:px-6"
+              class="wrap-break-word px-4 py-4 align-middle xl:px-6"
             >
               <slot :name="`cell-${column.key}`" :row="row">
                 {{ row[column.key] || "-" }}

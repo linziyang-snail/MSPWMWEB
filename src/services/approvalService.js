@@ -1,23 +1,10 @@
-import {
-  mockApproveChangeRequest,
-  mockCancelChangeRequest,
-  mockGetChangeRequestHistory,
-  mockGetPendingChangeRequests,
-  mockRejectChangeRequest,
-} from "@/mocks/api/approvalApi";
-
 import apiRequest, { unwrapApiBody } from "./apiRequest";
-import { useMock } from "./config";
 
 export async function getPendingChangeRequests(params = {}) {
-  if (useMock) return mockGetPendingChangeRequests(params.targetType);
   return unwrapApiBody(await apiRequest.get("/api/change-requests", { params }));
 }
 
 export async function getChangeRequestHistory(params = {}) {
-  if (useMock) {
-    return mockGetChangeRequestHistory(params.targetType, params.targetId);
-  }
   return unwrapApiBody(
     await apiRequest.get("/api/change-requests/history", { params }),
   );
@@ -25,20 +12,17 @@ export async function getChangeRequestHistory(params = {}) {
 
 export async function approveChangeRequest(params) {
   const { id } = normalizeIdParams(params);
-  if (useMock) return mockApproveChangeRequest(id);
   return apiRequest.put(`/api/change-requests/${id}/approve`, {});
 }
 
 export async function rejectChangeRequest(params, legacyPayload) {
   const { id, remark = "" } = normalizeRejectParams(params, legacyPayload);
   const body = { remark };
-  if (useMock) return mockRejectChangeRequest(id, remark);
   return apiRequest.put(`/api/change-requests/${id}/reject`, body);
 }
 
 export async function cancelChangeRequest(params) {
   const { id } = normalizeIdParams(params);
-  if (useMock) return mockCancelChangeRequest(id);
   return apiRequest.put(`/api/change-requests/${id}/cancel`, {});
 }
 

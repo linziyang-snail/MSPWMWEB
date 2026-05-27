@@ -57,17 +57,16 @@
 </template>
 
 <script setup>
-import { reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import FormField from "@/components/forms/FormField.vue";
-import { mockOrganizations } from "@/mocks/organizations.mock";
-import { mockRoles } from "@/mocks/roles.mock";
-import { mockUsers } from "@/mocks/users.mock";
-import { createUser, updateUser } from "@/services/userService";
+import { getOrganizations } from "@/services/organizationService";
+import { getRoles } from "@/services/roleService";
+import { createUser, getUserById, updateUser } from "@/services/userService";
 import { roleLabelMap } from "@/utils/constants";
 import { validateRequired, validateUserId } from "@/utils/validators";
 
@@ -77,25 +76,42 @@ const props = defineProps({
 });
 
 const router = useRouter();
-const source = mockUsers.find((user) => user.id === props.userId);
-const roles = mockRoles;
-const orgOptions = mockOrganizations.map((org) => ({
-  label: org.orgName,
-  value: org.id,
-}));
+const roles = ref([]);
+const organizations = ref([]);
+const orgOptions = computed(() =>
+  organizations.value.map((org) => ({
+    label: org.orgName,
+    value: org.id,
+  })),
+);
 const form = reactive({
-  id: source?.id || "",
+  id: "",
   password: "",
-  userName: source?.userName || "",
-  orgId: source?.orgId || "",
-  roleIds:
-    source?.roles
-      .map((role) => roles.find((item) => item.roleName === role)?.id)
-      .filter(Boolean) || [],
+  userName: "",
+  orgId: "",
+  roleIds: [],
 });
 const errors = reactive({});
 const loading = ref(false);
 const message = ref("");
+
+onMounted(async () => {
+  const [roleRows, organizationRows] = await Promise.all([
+    getRoles(),
+    getOrganizations(),
+  ]);
+  roles.value = Array.isArray(roleRows) ? roleRows : [];
+  organizations.value = Array.isArray(organizationRows) ? organizationRows : [];
+  if (props.mode !== "edit" || !props.userId) return;
+  const source = await getUserById({ id: props.userId });
+  form.id = source?.id || "";
+  form.userName = source?.userName || "";
+  form.orgId = source?.orgId || "";
+  form.roleIds =
+    source?.roles
+      ?.map((role) => roles.value.find((item) => item.roleName === role)?.id)
+      .filter(Boolean) || [];
+});
 
 async function submit() {
   errors.id = props.mode === "create" ? validateUserId(form.id) : "";

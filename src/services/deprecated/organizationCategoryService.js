@@ -1,19 +1,10 @@
-import {
-  mockAddOrganizationCategory,
-  mockAssignOrganizationCategories,
-  mockGetOrganizationCategories,
-  mockRemoveOrganizationCategory,
-} from "@/mocks/api/organizationCategoryApi";
-
 import apiRequest, { unwrapApiBody } from "../apiRequest";
-import { useMock } from "../config";
 
 /**
  * @deprecated Swagger 標註 OrganizationCategory API 已廢棄，使用前需向後端確認替代 API。
  */
 export async function getOrganizationCategories(params) {
   const { orgId } = normalizeOrgParams(params);
-  if (useMock) return mockGetOrganizationCategories(orgId);
   return unwrapApiBody(await apiRequest.get(`/api/organizations/${orgId}/categories`));
 }
 
@@ -26,7 +17,6 @@ export async function assignOrganizationCategories(params, legacyPayload) {
     legacyPayload,
   );
   const body = { orgId, categoryIds };
-  if (useMock) return mockAssignOrganizationCategories(orgId, categoryIds);
   return apiRequest.put(`/api/organizations/${orgId}/categories`, body);
 }
 
@@ -38,7 +28,6 @@ export async function addOrganizationCategory(params, legacyCategoryId) {
     params,
     legacyCategoryId,
   );
-  if (useMock) return mockAddOrganizationCategory(orgId, categoryId);
   return apiRequest.post(
     `/api/organizations/${orgId}/categories/${categoryId}`,
     {},
@@ -53,7 +42,6 @@ export async function removeOrganizationCategory(params, legacyCategoryId) {
     params,
     legacyCategoryId,
   );
-  if (useMock) return mockRemoveOrganizationCategory(orgId, categoryId);
   return apiRequest.delete(
     `/api/organizations/${orgId}/categories/${categoryId}`,
   );

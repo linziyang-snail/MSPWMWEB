@@ -1,23 +1,10 @@
-import {
-  mockChangeMyPassword,
-  mockCreateUser,
-  mockDeleteUser,
-  mockGetAccountChangeRequests,
-  mockGetUserById,
-  mockGetUsers,
-  mockResetUserPassword,
-  mockUnlockUser,
-  mockUpdateUser,
-} from "@/mocks/api/userApi";
 import { readAuthStorage } from "@/utils/authStorage";
 
 import apiRequest, { unwrapApiBody } from "./apiRequest";
 import { changeMyPassword as changeMyPasswordApi } from "./authService";
-import { useMock } from "./config";
 
 export async function getUsers(params = {}) {
   const { page = 1, size = 20 } = params || {};
-  if (useMock) return mockGetUsers(page, size);
   return unwrapApiBody(
     await apiRequest.get("/api/users", { params: { page, size } }),
   );
@@ -25,14 +12,12 @@ export async function getUsers(params = {}) {
 
 export async function getUserById(params) {
   const { id } = normalizeIdParams(params);
-  if (useMock) return mockGetUserById(id);
   return unwrapApiBody(await apiRequest.get(`/api/users/${id}`));
 }
 
 export async function createUser(payload) {
   const { id, password, userName, orgId, roleIds = [] } = payload || {};
   const body = { id, password, userName, orgId, roleIds };
-  if (useMock) return mockCreateUser(body);
   return apiRequest.post("/api/users", body);
 }
 
@@ -42,19 +27,16 @@ export async function updateUser(params, legacyPayload) {
     legacyPayload,
   );
   const body = { userName, orgId, roleIds };
-  if (useMock) return mockUpdateUser(id, body);
   return apiRequest.put(`/api/users/${id}`, body);
 }
 
 export async function disableUser(params) {
   const { id } = normalizeIdParams(params);
-  if (useMock) return mockDeleteUser(id);
   return apiRequest.delete(`/api/users/${id}`);
 }
 
 export async function unlockUser(params) {
   const { id } = normalizeIdParams(params);
-  if (useMock) return mockUnlockUser(id);
   return apiRequest.put(`/api/users/${id}/unlock`, {});
 }
 
@@ -64,20 +46,22 @@ export async function resetUserPassword(params, legacyPayload) {
     legacyPayload,
   );
   const body = { newPassword };
-  if (useMock) return mockResetUserPassword(id, newPassword);
   return apiRequest.put(`/api/users/${id}/password`, body);
 }
 
 export async function changeMyPassword(payload) {
   const { id = getStoredUserId(), oldPassword, newPassword } = payload || {};
   const body = { id, oldPassword, newPassword };
-  if (useMock) return mockChangeMyPassword(oldPassword, newPassword);
   return changeMyPasswordApi(body);
 }
 
 export async function getAccountChangeRequests() {
-  if (useMock) return mockGetAccountChangeRequests();
-  return [];
+  const rows = unwrapApiBody(
+    await apiRequest.get("/api/change-requests", {
+      params: { targetType: "USER" },
+    }),
+  );
+  return Array.isArray(rows) ? rows : [];
 }
 
 /**

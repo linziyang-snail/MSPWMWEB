@@ -4,9 +4,8 @@ import { useAppStore } from "@/stores/appStore";
 import { clearAuthStorage, readAccessToken } from "@/utils/authStorage";
 import { resolveApiErrorMessage } from "@/utils/resolveApiErrorMessage";
 
-import { apiBaseURL, useMock } from "./config";
+import { apiBaseURL } from "./config";
 
-export const USE_MOCK = useMock;
 let pendingRequests = 0;
 
 const apiRequest = axios.create({

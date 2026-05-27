@@ -62,27 +62,38 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import PageTitle from "@/components/common/PageTitle.vue";
-import { mockApprovals } from "@/mocks/approvals.mock";
-import { mockOrganizations } from "@/mocks/organizations.mock";
-import { mockUsers } from "@/mocks/users.mock";
+import { getPendingChangeRequests } from "@/services/approvalService";
+import { getOrganizations } from "@/services/organizationService";
+import { getUsers } from "@/services/userService";
 import { TARGET_TYPE_LABEL_MAP } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
-const approvals = computed(() =>
-  mockApprovals.filter((item) => item.status === "PENDING"),
-);
+const approvals = ref([]);
+const users = ref([]);
+const organizations = ref([]);
 const targetMap = TARGET_TYPE_LABEL_MAP;
-const cards = [
-  { label: "使用者", value: mockUsers.length, hint: "含待審與鎖定帳號" },
-  { label: "組織", value: mockOrganizations.length, hint: "可管理組織" },
+const cards = computed(() => [
+  { label: "使用者", value: users.value.length, hint: "含待審與鎖定帳號" },
+  { label: "組織", value: organizations.value.length, hint: "可管理組織" },
   {
     label: "待審核",
     value: approvals.value.length,
     hint: "待主管或管理員處理",
   },
-  { label: "Mock 模式", value: "ON", hint: "API service 已預留" },
-];
+  { label: "正式 API", value: "ON", hint: "已停用前端 mock" },
+]);
+
+onMounted(async () => {
+  const [approvalRows, userPage, organizationRows] = await Promise.all([
+    getPendingChangeRequests({}),
+    getUsers({ page: 1, size: 200 }),
+    getOrganizations(),
+  ]);
+  approvals.value = Array.isArray(approvalRows) ? approvalRows : [];
+  users.value = userPage?.content ?? (Array.isArray(userPage) ? userPage : []);
+  organizations.value = Array.isArray(organizationRows) ? organizationRows : [];
+});
 </script>

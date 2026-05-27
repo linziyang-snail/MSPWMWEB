@@ -51,7 +51,7 @@
     <BaseModal
       v-model="confirm.open"
       :title="confirm.title"
-      @confirm="confirm.open = false"
+      @confirm="submitConfirm"
     >
       <p class="text-sm text-text-secondary">{{ confirm.message }}</p>
       <FormField v-if="confirm.type === 'reject'" class="mt-4" label="駁回原因"
@@ -62,7 +62,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
@@ -72,12 +72,18 @@ import PageTitle from "@/components/common/PageTitle.vue";
 import SearchFilterBar from "@/components/common/SearchFilterBar.vue";
 import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
-import { mockApprovals } from "@/mocks/approvals.mock";
+import {
+  approveChangeRequest,
+  cancelChangeRequest,
+  getPendingChangeRequests,
+  rejectChangeRequest,
+} from "@/services/approvalService";
 import { ACTION_LABEL_MAP, TARGET_TYPE_LABEL_MAP } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const targetType = ref("");
 const remark = ref("");
+const approvals = ref([]);
 const targetMap = TARGET_TYPE_LABEL_MAP;
 const actionMap = ACTION_LABEL_MAP;
 const confirm = ref({ open: false });
@@ -94,12 +100,16 @@ const columns = [
   { key: "createdAt", label: "申請時間" },
 ];
 const filteredApprovals = computed(() =>
-  mockApprovals.filter(
+  approvals.value.filter(
     (item) =>
       item.status === "PENDING" &&
       (!targetType.value || item.targetType === targetType.value),
   ),
 );
+
+onMounted(async () => {
+  approvals.value = await getPendingChangeRequests({});
+});
 
 function openConfirm(row, type) {
   const map = {
@@ -109,9 +119,21 @@ function openConfirm(row, type) {
   };
   confirm.value = {
     open: true,
+    row,
     type,
     title: map[type][0],
     message: map[type][1],
   };
+}
+
+async function submitConfirm() {
+  const { row, type } = confirm.value;
+  if (!row) return;
+  if (type === "approve") await approveChangeRequest({ id: row.id });
+  if (type === "reject") await rejectChangeRequest({ id: row.id, remark: remark.value });
+  if (type === "cancel") await cancelChangeRequest({ id: row.id });
+  approvals.value = approvals.value.filter((item) => item.id !== row.id);
+  confirm.value = { open: false };
+  remark.value = "";
 }
 </script>

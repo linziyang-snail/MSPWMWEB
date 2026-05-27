@@ -26,7 +26,7 @@
 
       <!-- 手機預覽框 -->
       <section
-        class="rounded-2xl bg-gradient-to-br from-slate-200 via-slate-300 to-slate-400 px-28 pt-8 pb-7">
+        class="rounded-2xl bg-linear-to-br from-slate-200 via-slate-300 to-slate-400 px-28 pt-8 pb-7">
         <div class="mb-5 flex items-center justify-between px-2 text-xs font-bold text-text-heading">
           <span>9:41</span>
           <span class="inline-flex items-center gap-1">
@@ -51,7 +51,7 @@
                 {{ title }}
               </p>
               <p
-                class="mt-1 max-h-16 overflow-hidden break-words text-sm font-normal leading-normal text-text-heading">
+                class="mt-1 max-h-16 overflow-hidden wrap-break-word text-sm font-normal leading-normal text-text-heading">
                 {{ renderedContent || "（請輸入文案內容）" }}
               </p>
             </div>

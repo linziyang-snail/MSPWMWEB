@@ -1,19 +1,10 @@
-import {
-  mockCreateCopyCategory,
-  mockDisableCopyCategory,
-  mockGetCopyCategoriesByDepartmentId,
-  mockUpdateCopyCategory,
-} from "@/mocks/api/copyCategoryApi";
-
 import apiRequest, { unwrapApiBody } from "../apiRequest";
-import { useMock } from "../config";
 
 /**
  * @deprecated Swagger 標註 CopyCategory API 已廢棄，使用前需向後端確認替代 API。
  */
 export async function getCopyCategoriesByDepartment(params) {
   const { departmentId } = normalizeDepartmentParams(params);
-  if (useMock) return mockGetCopyCategoriesByDepartmentId(departmentId);
   return unwrapApiBody(
     await apiRequest.get(`/api/departments/copy-categories/${departmentId}`),
   );
@@ -32,7 +23,6 @@ export async function getCopyCategoriesByDepartmentId(params) {
 export async function createCopyCategory(payload) {
   const { categoryName } = payload || {};
   const body = { categoryName };
-  if (useMock) return mockCreateCopyCategory(categoryName);
   return apiRequest.post("/api/departments/copy-categories", body);
 }
 
@@ -45,7 +35,6 @@ export async function updateCopyCategory(params, legacyPayload) {
     legacyPayload,
   );
   const body = { categoryName };
-  if (useMock) return mockUpdateCopyCategory(copyCategoryId, categoryName);
   return apiRequest.put(
     `/api/departments/copy-categories/${copyCategoryId}`,
     body,
@@ -57,7 +46,6 @@ export async function updateCopyCategory(params, legacyPayload) {
  */
 export async function disableCopyCategory(params) {
   const { copyCategoryId } = normalizeCopyCategoryIdParams(params);
-  if (useMock) return mockDisableCopyCategory(copyCategoryId);
   return apiRequest.delete(
     `/api/departments/copy-categories/${copyCategoryId}`,
   );

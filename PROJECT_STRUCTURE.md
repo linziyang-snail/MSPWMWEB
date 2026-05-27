@@ -38,15 +38,16 @@
 - `VITE_API_BASE_URL`：正式 API base URL。
 - `VITE_USE_MOCK`：`true` 走 mock，`false` 走 axios API。
 
-目前預設：
+公司 DEV 預設：
 
 ```env
 VITE_APP_ENV=dev
-VITE_API_BASE_URL=http://localhost:8081
-VITE_USE_MOCK=true
+VITE_API_BASE_URL=/MSP
+VITE_USE_MOCK=false
+VITE_DEV_PROXY_TARGET=http://172.16.46.215:443
 ```
 
-正式環境透過 nginx `/MSP` proxy 轉發後端 API：
+正式環境同樣透過 nginx `/MSP` proxy 轉發後端 API：
 
 ```env
 VITE_APP_ENV=prod
@@ -56,9 +57,10 @@ VITE_USE_MOCK=false
 
 API path 規則：
 
-- Swagger `/auth/...` -> 前端實際 `/MSP/auth/...`
-- Swagger `/api/...` -> 前端實際 `/MSP/api/...`
-- service 只寫 `/auth/login`、`/api/users` 這類原始 path，不可重複組 `/MSP`。
+- Swagger `/auth/...` -> 前端 `/MSP/auth/...`
+- Swagger `/api/...` -> 前端 `/MSP/api/...`
+- service 只寫 `/auth/login`、`/api/users` 這類原始 path，由 `VITE_API_BASE_URL=/MSP` 組成實際 URL。
+- 禁止在 service 寫死 host 或 `/MSP/auth/login`，避免 `/MSP/MSP/...`。
 
 角色 value 與顯示 label：
 
@@ -131,8 +133,9 @@ component -> service -> apiRequest / mock api
 - 現有登入 redirect 保留：
   - `ADMIN` -> `/accounts/pending-changes`
   - `MANAGER` / `USER` -> `/copies/all`
-- `ADMIN` 只可進入人員管理、申請單資訊查詢、查看操作記錄與自身帳號功能。
-- `USER` / `MANAGER` 只可進入文案管理與自身帳號功能；`USER` 可新增文案，`MANAGER` 可核准與駁回文案。
+- 側邊欄依目前角色顯示主要功能：`ADMIN` 顯示人員管理、申請單資訊查詢、查看操作記錄與自身帳號功能；`USER` / `MANAGER` 顯示文案管理與自身帳號功能。
+- router guard 中 `ADMIN` 視為最高權限，避免後端已回 `ADMIN` 卻因 route meta 舊設定被擋到 403。
+- `USER` 可新增文案；`MANAGER` 可核准與駁回文案。
 - `/403` 不受角色 guard 擋住，回首頁會導回目前角色可進入的預設入口，避免 403 loop。
 - 未登入進入內頁需導回 `/login` 並保留 redirect query。
 
@@ -148,7 +151,16 @@ npm run build:prod
 npm run preview
 ```
 
-Jenkins DEV 部署：
+公司 Jenkins DEV 環境：
+
+```text
+Jenkins workspace: /root/.jenkins/workspace/MSPWMWEB_DEV
+Node: v23.1.0
+npm: 10.9.0
+Node path: /VCS/nodeJs/node-v23.1.0-linux-x64/bin
+```
+
+Jenkins DEV 部署流程：
 
 ```bash
 pwd
@@ -165,7 +177,13 @@ ssh DCUser@172.16.46.215 "cmd /c D:\nginx\nginx.exe -p D:\nginx -c conf\nginx.co
 echo "MSPWMWEB 部署完成"
 ```
 
-部署後結構是 `D:/nginx/MSPWMWEB/index.html` 與 `D:/nginx/MSPWMWEB/assets/...`。靜態檔更新不需要 nginx reload，目前 Jenkins 不執行 nginx reload，避免 DCUser 對 nginx process 發 signal 時出現 `Access is denied`。
+部署注意：
+
+- 產物使用 `dist/`。
+- Windows Nginx root 為 `D:/nginx/MSPWMWEB`。
+- 遠端目錄應為 `D:/nginx/MSPWMWEB/index.html` 與 `D:/nginx/MSPWMWEB/assets/...`。
+- 靜態檔部署不需要 nginx reload。
+- Jenkins 不執行 `nginx.exe -s reload`；`nginx.exe -t` 僅檢查 config。
 
 ## 後續接正式 API 步驟
 

@@ -1,10 +1,6 @@
-import { mockGetRoles } from "@/mocks/api/roleApi";
-
 import apiRequest, { unwrapApiBody } from "./apiRequest";
-import { useMock } from "./config";
 
 export async function getRoles() {
-  if (useMock) return mockGetRoles();
   return unwrapApiBody(await apiRequest.get("/api/roles"));
 }
 

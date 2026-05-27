@@ -176,13 +176,13 @@
         <tbody>
           <tr v-for="row in filteredRows" :key="row.id"
             class="h-20 border-b border-border-muted last:border-0 hover:bg-background-hover">
-            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">
+            <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">
               {{ formatDate(row.createdAt) }}
             </td>
-            <td class="px-4 py-4 text-base font-bold leading-normal break-words text-natural xl:px-5">{{ row.id }}</td>
-            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">{{ row.userName }}</td>
-            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">{{ row.orgName }}</td>
-            <td class="px-4 py-4 text-base font-normal leading-normal break-words text-natural xl:px-5">
+            <td class="px-4 py-4 text-base font-bold leading-normal wrap-break-word text-natural xl:px-5">{{ row.id }}</td>
+            <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">{{ row.userName }}</td>
+            <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">{{ row.orgName }}</td>
+            <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">
               {{ row.roleLabel || row.roles.join(", ") }}
             </td>
             <td class="px-4 py-4 xl:px-5">

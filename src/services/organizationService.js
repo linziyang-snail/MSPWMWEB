@@ -1,22 +1,12 @@
-import {
-  mockCreateOrganization,
-  mockDisableOrganization,
-  mockGetOrganizations,
-  mockUpdateOrganization,
-} from "@/mocks/api/organizationApi";
-
 import apiRequest, { unwrapApiBody } from "./apiRequest";
-import { useMock } from "./config";
 
 export async function getOrganizations() {
-  if (useMock) return mockGetOrganizations();
   return unwrapApiBody(await apiRequest.get("/api/organizations"));
 }
 
 export async function createOrganization(payload) {
   const { orgName, orgType } = payload || {};
   const body = { orgName, orgType };
-  if (useMock) return mockCreateOrganization(body);
   return apiRequest.post("/api/organizations", body);
 }
 
@@ -26,13 +16,11 @@ export async function updateOrganization(params, legacyPayload) {
     legacyPayload,
   );
   const body = { orgName };
-  if (useMock) return mockUpdateOrganization(id, body);
   return apiRequest.put(`/api/organizations/${id}`, body);
 }
 
 export async function disableOrganization(params) {
   const { id } = normalizeIdParams(params);
-  if (useMock) return mockDisableOrganization(id);
   return apiRequest.delete(`/api/organizations/${id}`);
 }
 

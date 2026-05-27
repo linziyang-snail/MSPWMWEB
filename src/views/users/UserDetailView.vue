@@ -25,20 +25,18 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
-import { mockUsers } from "@/mocks/users.mock";
+import { getUserById } from "@/services/userService";
 import { roleLabelMap } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
-const user = computed(() =>
-  mockUsers.find((item) => item.id === route.params.id),
-);
+const user = ref(null);
 const details = computed(() => [
   { label: "帳號", value: user.value?.id },
   { label: "姓名", value: user.value?.userName },
@@ -56,4 +54,8 @@ const details = computed(() => [
 function formatRoles(roles = []) {
   return roles.map((role) => roleLabelMap[role] || role).join(", ");
 }
+
+onMounted(async () => {
+  user.value = await getUserById({ id: route.params.id });
+});
 </script>

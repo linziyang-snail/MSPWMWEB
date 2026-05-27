@@ -1,15 +1,7 @@
-import {
-  mockLogin,
-  mockLogout,
-  mockRefreshToken,
-} from "@/mocks/api/authApi";
-
 import apiRequest from "./apiRequest";
-import { useMock } from "./config";
 
 export async function login(payload) {
   const { userId, password } = payload || {};
-  if (useMock) return mockLogin(userId, password);
   return apiRequest.post(
     "/auth/login",
     { userId, password },
@@ -18,19 +10,16 @@ export async function login(payload) {
 }
 
 export async function logout() {
-  if (useMock) return mockLogout();
   return apiRequest.post("/auth/logout", {});
 }
 
 export async function refreshToken() {
-  if (useMock) return mockRefreshToken();
   return apiRequest.post("/auth/refresh", {});
 }
 
 export async function changeMyPassword(payload) {
   const { id, oldPassword, newPassword } = payload || {};
   const body = { id, oldPassword, newPassword };
-  if (useMock) return {};
   return apiRequest.put("/auth/me/password", body);
 }
 

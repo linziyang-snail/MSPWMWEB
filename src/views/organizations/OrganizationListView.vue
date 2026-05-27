@@ -38,17 +38,17 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseButton from "@/components/base/BaseButton.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
-import { mockOrganizations } from "@/mocks/organizations.mock";
+import { getOrganizations } from "@/services/organizationService";
 import { orgTypeLabelMap } from "@/utils/constants";
 
-const organizations = mockOrganizations;
+const organizations = ref([]);
 const selected = ref(null);
 const confirmOpen = computed({
   get: () => Boolean(selected.value),
@@ -63,4 +63,8 @@ const columns = [
   { key: "orgType", label: "類型" },
   { key: "status", label: "狀態" },
 ];
+
+onMounted(async () => {
+  organizations.value = await getOrganizations();
+});
 </script>

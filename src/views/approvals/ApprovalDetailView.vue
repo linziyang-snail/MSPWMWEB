@@ -37,9 +37,9 @@
       </div>
     </div>
     <EmptyState v-else title="找不到審核案件" />
-    <BaseModal v-model="modalOpen" :title="modalTitle" @confirm="modal = ''">
+    <BaseModal v-model="modalOpen" :title="modalTitle" @confirm="submitAction">
       <p class="text-sm text-text-secondary">
-        此操作目前為 mock 行為，未來會串接 Approval API。
+        確認送出此審核動作？
       </p>
       <FormField v-if="modal === 'reject'" class="mt-4" label="駁回原因"
         ><BaseTextarea v-model="remark"
@@ -49,7 +49,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import BaseBadge from "@/components/base/BaseBadge.vue";
@@ -59,16 +59,19 @@ import BaseTextarea from "@/components/base/BaseTextarea.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
 import FormField from "@/components/forms/FormField.vue";
-import { mockApprovals } from "@/mocks/approvals.mock";
+import {
+  approveChangeRequest,
+  cancelChangeRequest,
+  getPendingChangeRequests,
+  rejectChangeRequest,
+} from "@/services/approvalService";
 import { ACTION_LABEL_MAP, TARGET_TYPE_LABEL_MAP } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
 const modal = ref("");
 const remark = ref("");
-const approval = computed(() =>
-  mockApprovals.find((item) => String(item.id) === String(route.params.id)),
-);
+const approval = ref(null);
 const modalOpen = computed({
   get: () => Boolean(modal.value),
   set: (value) => !value && (modal.value = ""),
@@ -89,4 +92,17 @@ const details = computed(() => [
   { label: "結案時間", value: formatDateTime(approval.value?.closedAt) },
   { label: "備註", value: approval.value?.remark || "-" },
 ]);
+
+onMounted(async () => {
+  const rows = await getPendingChangeRequests({});
+  approval.value = rows.find((item) => String(item.id) === String(route.params.id)) || null;
+});
+
+async function submitAction() {
+  if (!approval.value) return;
+  if (modal.value === "approve") await approveChangeRequest({ id: approval.value.id });
+  if (modal.value === "reject") await rejectChangeRequest({ id: approval.value.id, remark: remark.value });
+  if (modal.value === "cancel") await cancelChangeRequest({ id: approval.value.id });
+  modal.value = "";
+}
 </script>

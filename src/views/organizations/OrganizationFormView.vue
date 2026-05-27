@@ -35,16 +35,16 @@
 </template>
 
 <script setup>
-import { reactive, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import FormField from "@/components/forms/FormField.vue";
-import { mockOrganizations } from "@/mocks/organizations.mock";
 import {
   createOrganization,
+  getOrganizations,
   updateOrganization,
 } from "@/services/organizationService";
 import { orgTypeLabelMap } from "@/utils/constants";
@@ -55,12 +55,9 @@ const props = defineProps({
   orgId: { type: [String, Number], default: "" },
 });
 const router = useRouter();
-const source = mockOrganizations.find(
-  (item) => String(item.id) === String(props.orgId),
-);
 const form = reactive({
-  orgName: source?.orgName || "",
-  orgType: source?.orgType || "",
+  orgName: "",
+  orgType: "",
 });
 const errors = reactive({});
 const loading = ref(false);
@@ -69,6 +66,16 @@ const typeOptions = [
   { label: orgTypeLabelMap.DEPARTMENT, value: "DEPARTMENT" },
   { label: orgTypeLabelMap.SECTION, value: "SECTION" },
 ];
+
+onMounted(async () => {
+  if (props.mode !== "edit" || !props.orgId) return;
+  const organizations = await getOrganizations();
+  const source = organizations.find(
+    (item) => String(item.id) === String(props.orgId),
+  );
+  form.orgName = source?.orgName || "";
+  form.orgType = source?.orgType || "";
+});
 
 async function submit() {
   errors.orgName = validateRequired(form.orgName, "組織名稱");

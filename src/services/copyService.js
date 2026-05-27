@@ -1,15 +1,4 @@
-import {
-  mockApproveCompatibleCopy,
-  mockCancelCompatibleCopy,
-  mockCreateCompatibleCopy,
-  mockGetCompatibleCopies,
-  mockGetCompatibleCopyCounts,
-  mockRejectCompatibleCopy,
-  mockSubmitCopy,
-} from "@/mocks/api/copyApi";
-
 import apiRequest from "./apiRequest";
-import { useMock } from "./config";
 
 export async function submitCopy(payload) {
   const {
@@ -36,37 +25,30 @@ export async function submitCopy(payload) {
     retentionMonths,
     expiredAt,
   };
-  if (useMock) return mockSubmitCopy(body);
   return apiRequest.post("/api/copies", body);
 }
 
 export const getCompatibleCopies = () => {
-  if (useMock) return mockGetCompatibleCopies();
   return Promise.resolve([]);
 };
 
 export const getCompatibleCopyCounts = () => {
-  if (useMock) return mockGetCompatibleCopyCounts();
   return Promise.resolve({});
 };
 
 export const createCompatibleCopy = (payload) => {
-  if (useMock) return mockCreateCompatibleCopy(payload);
   return submitCopy(payload);
 };
 
-export const cancelCompatibleCopy = (id) => {
-  if (useMock) return mockCancelCompatibleCopy(id);
+export const cancelCompatibleCopy = () => {
   return Promise.reject(new Error("正式 API 尚未提供文案取消送審 endpoint"));
 };
 
-export const approveCompatibleCopy = (id) => {
-  if (useMock) return mockApproveCompatibleCopy(id);
+export const approveCompatibleCopy = () => {
   return Promise.reject(new Error("正式 API 尚未提供文案核准 endpoint"));
 };
 
-export const rejectCompatibleCopy = (id, reason) => {
-  if (useMock) return mockRejectCompatibleCopy(id, reason);
+export const rejectCompatibleCopy = () => {
   return Promise.reject(new Error("正式 API 尚未提供文案駁回 endpoint"));
 };
 

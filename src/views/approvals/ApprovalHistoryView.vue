@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
@@ -44,12 +44,13 @@ import PageTitle from "@/components/common/PageTitle.vue";
 import SearchFilterBar from "@/components/common/SearchFilterBar.vue";
 import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
-import { mockApprovals } from "@/mocks/approvals.mock";
+import { getChangeRequestHistory } from "@/services/approvalService";
 import { ACTION_LABEL_MAP, TARGET_TYPE_LABEL_MAP } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const targetType = ref("");
 const targetId = ref("");
+const history = ref([]);
 const targetMap = TARGET_TYPE_LABEL_MAP;
 const actionMap = ACTION_LABEL_MAP;
 const targetOptions = Object.entries(TARGET_TYPE_LABEL_MAP).map(
@@ -65,11 +66,16 @@ const columns = [
   { key: "closedAt", label: "結案時間" },
 ];
 const filteredHistory = computed(() =>
-  mockApprovals.filter((item) => {
+  history.value.filter((item) => {
     const matchType = !targetType.value || item.targetType === targetType.value;
     const matchId =
       !targetId.value || String(item.targetId).includes(targetId.value);
     return matchType && matchId;
   }),
 );
+
+onMounted(async () => {
+  const rows = await getChangeRequestHistory({});
+  history.value = Array.isArray(rows) ? rows : [];
+});
 </script>
