@@ -23,8 +23,8 @@ export const sidebarSections = [
     match: "/accounts",
     roles: ["ADMIN"],
     children: [
-      { label: "待審核新帳號", to: "/accounts/pending-changes", countKey: "accountPendingNew" },
-      { label: "待審核帳號異動", to: "/accounts/pending-review", countKey: "accountPendingChange" },
+      { label: "待審核新帳號", to: "/accounts/pending-changes", countKey: "AccountPendingChanges" },
+      { label: "待審核帳號異動", to: "/accounts/pending-review", countKey: "AccountPendingReview" },
       { label: "已啟用帳號", to: "/accounts/active" },
       { label: "已停用帳號", to: "/accounts/disabled" },
       { label: "已駁回帳號", to: "/accounts/rejected" },
@@ -74,6 +74,26 @@ export const breadcrumbMap = {
   OperationLogs: ["查看操作記錄"],
   ChangePassword: ["修改個人密碼"],
 };
+
+export function getBreadcrumbItems(route) {
+  const mappedItems = breadcrumbMap[route?.name];
+  if (mappedItems) return mappedItems;
+
+  const normalizedPath = normalizePath(route?.path);
+  const matchedSection = sidebarSections.find((section) =>
+    section.children.some((item) => normalizePath(item.to) === normalizedPath),
+  );
+  if (!matchedSection) return ["文案管理", "全部文案"];
+
+  const matchedChild = matchedSection.children.find(
+    (item) => normalizePath(item.to) === normalizedPath,
+  );
+  return [`推播${matchedSection.label}`, matchedChild?.label].filter(Boolean);
+}
+
+function normalizePath(path = "") {
+  return String(path).replace(/\/+$/, "") || "/";
+}
 
 export function getRoleLabel(roles = []) {
   const role = normalizeRoles(roles).find((value) => roleLabelMap[value]);

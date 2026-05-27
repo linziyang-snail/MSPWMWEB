@@ -1,6 +1,9 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center px-4 bg-background-overlay"
+    <div v-if="modelValue" :class="[
+      'fixed inset-0 flex items-center justify-center px-4 bg-background-overlay',
+      overlayClass,
+    ]"
       @click.self="handleOverlayClick">
       <section :class="[
         'flex max-h-modal-shell-max w-full flex-col overflow-hidden rounded-2xl bg-background-surface shadow-popup',
@@ -68,6 +71,7 @@ const props = defineProps({
   headerClass: { type: String, default: "" },
   footerClass: { type: String, default: "" },
   iconContainerClass: { type: String, default: "" },
+  overlayClass: { type: String, default: "z-50" },
   hideHeader: { type: Boolean, default: false },
   hideClose: { type: Boolean, default: false },
   closeOnOverlay: { type: Boolean, default: false },

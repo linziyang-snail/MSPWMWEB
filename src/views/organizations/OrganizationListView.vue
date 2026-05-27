@@ -32,7 +32,9 @@
       title="停用組織"
       :message="`確認送出停用 ${selected?.orgName || ''} 的審核申請？`"
       danger
-      @confirm="selected = null"
+      confirm-text="確認停用"
+      :loading="disabling"
+      @confirm="confirmDisable"
     />
   </div>
 </template>
@@ -45,11 +47,17 @@ import BaseButton from "@/components/base/BaseButton.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
-import { getOrganizations } from "@/services/organizationService";
+import {
+  disableOrganization,
+  getOrganizations,
+} from "@/services/organizationService";
+import { useAppStore } from "@/stores/appStore";
 import { orgTypeLabelMap } from "@/utils/constants";
 
+const appStore = useAppStore();
 const organizations = ref([]);
 const selected = ref(null);
+const disabling = ref(false);
 const confirmOpen = computed({
   get: () => Boolean(selected.value),
   set: (value) => {
@@ -65,6 +73,28 @@ const columns = [
 ];
 
 onMounted(async () => {
-  organizations.value = await getOrganizations();
+  await refreshOrganizations();
 });
+
+async function refreshOrganizations() {
+  organizations.value = await getOrganizations();
+}
+
+async function confirmDisable() {
+  if (!selected.value?.id) return;
+  disabling.value = true;
+  try {
+    await disableOrganization({ id: selected.value.id });
+    await refreshOrganizations();
+    appStore.showAlert({
+      title: "系統提示",
+      message: "已送出停用組織申請，等待審核",
+    });
+    selected.value = null;
+  } catch (error) {
+    console.error(error);
+  } finally {
+    disabling.value = false;
+  }
+}
 </script>

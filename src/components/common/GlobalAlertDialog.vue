@@ -6,6 +6,7 @@
     body-class="px-6 pt-4 pb-2"
     footer-class="px-6 py-4"
     icon-container-class="bg-danger-bg"
+    overlay-class="z-[1000]"
   >
     <template #icon>
       <AlertIcon class="size-6 text-danger-text" />

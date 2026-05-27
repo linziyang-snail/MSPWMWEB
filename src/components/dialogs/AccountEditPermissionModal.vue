@@ -23,7 +23,7 @@
         </div>
         <div>
           <label class="mb-2 block text-sm font-bold leading-normal text-natural">科別</label>
-          <BaseSelect v-model="form.orgName" :options="departmentOptions" />
+          <BaseSelect v-model="form.orgId" :options="departmentOptions" />
         </div>
       </div>
 
@@ -52,13 +52,14 @@
 </template>
 
 <script setup>
-import { computed, h, reactive, watch } from "vue";
+import { computed, h, reactive, ref, watch } from "vue";
 
 import userCogIcon from "@/assets/useredit.svg";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
+import { getOrganizations } from "@/services/organizationService";
 import { roleLabelMap } from "@/utils/constants";
 
 const props = defineProps({
@@ -68,11 +69,6 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "submitted"]);
 
-const departmentOptions = [
-  { label: "話務科", value: "話務科" },
-  { label: "聯合行銷科", value: "聯合行銷科" },
-  { label: "消費促進科", value: "消費促進科" },
-];
 const roleOptions = [
   { label: "經辦人員", value: "USER" },
   { label: "覆核主管", value: "MANAGER" },
@@ -92,11 +88,28 @@ const roleValueMap = {
 
 const form = reactive({
   id: "",
-  orgName: "話務科",
+  orgId: "",
   userName: "",
   role: "USER",
   status: "ACTIVE",
 });
+const organizations = ref([]);
+
+const departmentOptions = computed(() => {
+  const rows = Array.isArray(organizations.value) ? organizations.value : [];
+  const activeRows = rows.filter(
+    (org) => !org.status || ["ACTIVE", "啟用", "PENDING", "審核中"].includes(org.status),
+  );
+  const sections = activeRows.filter((org) => ["SECTION", "科別"].includes(org.orgType));
+  const source = sections.length ? sections : activeRows;
+  return source.map((org) => ({ label: org.orgName, value: org.id }));
+});
+
+const selectedOrganization = computed(() =>
+  (Array.isArray(organizations.value) ? organizations.value : []).find(
+    (org) => Number(org.id) === Number(form.orgId),
+  ),
+);
 
 const subtitle = computed(() => `員編：${props.account?.id || "1193285"}`);
 
@@ -105,13 +118,14 @@ watch(
   (open) => {
     if (!open) return;
     syncForm();
+    fetchOrganizations();
   },
 );
 
 function syncForm() {
   Object.assign(form, {
     id: props.account?.id || "1193285",
-    orgName: props.account?.orgName || "話務科",
+    orgId: props.account?.orgId != null ? Number(props.account.orgId) : "",
     userName: props.account?.userName || "王吳王",
     role: roleValueMap[props.account?.roleLabel] || props.account?.roles?.[0] || "USER",
     status: props.account?.status || "ACTIVE",
@@ -122,13 +136,37 @@ function submit() {
   emit("submitted", {
     id: form.id,
     userName: form.userName,
-    orgName: form.orgName,
+    orgId: Number(form.orgId),
+    orgName: selectedOrganization.value?.orgName || props.account?.orgName || "",
     status: form.status,
     originalStatus: props.account?.status || "",
     roles: [form.role],
     roleLabel: roleLabelMap[form.role],
   });
   close();
+}
+
+async function fetchOrganizations() {
+  try {
+    organizations.value = normalizeOrganizationRows(await getOrganizations());
+    if (!form.orgId) {
+      form.orgId = props.account?.orgId != null
+        ? Number(props.account.orgId)
+        : departmentOptions.value[0]?.value || "";
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function normalizeOrganizationRows(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.body)) return response.body;
+  if (Array.isArray(response?.content)) return response.content;
+  if (Array.isArray(response?.body?.content)) return response.body.content;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.content)) return response.data.content;
+  return [];
 }
 
 function close() {

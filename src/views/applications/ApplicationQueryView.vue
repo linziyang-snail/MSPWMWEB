@@ -2,12 +2,13 @@
   <div v-if="isCategoryPage" class="space-y-5">
     <!-- 新增科別按鈕 -->
     <div class="flex justify-end">
-      <BaseButton @click="categoryCreateOpen = true">
+      <BaseButton @click="openCreateCategory">
         <PlusIcon /> 新增科別
       </BaseButton>
     </div>
     <CategoryCreateModal
       v-model="categoryCreateOpen"
+      :category="selectedCategory"
       @submitted="onCategoryCreated"
     />
 
@@ -47,13 +48,22 @@
               {{ category.categoryName }}
             </span>
           </div>
-          <button
-            class="grid size-8 place-items-center text-danger-text transition hover:scale-110"
-            type="button"
-            @click="openDeleteCategory(category)"
-          >
-            <TrashIcon />
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              class="grid size-8 place-items-center text-primary transition hover:scale-110"
+              type="button"
+              @click="openEditCategory(category)"
+            >
+              <EditIcon />
+            </button>
+            <button
+              class="grid size-8 place-items-center text-danger-text transition hover:scale-110"
+              type="button"
+              @click="openDeleteCategory(category)"
+            >
+              <TrashIcon />
+            </button>
+          </div>
         </article>
       </div>
 
@@ -66,6 +76,7 @@
       :message="deleteCategoryMessage"
       danger
       confirm-text="確認刪除"
+      :loading="deletingCategory"
       @confirm="confirmDeleteCategory"
     />
   </div>
@@ -124,6 +135,7 @@ import { useRoute } from "vue-router";
 
 import addIcon from "@/assets/add.svg";
 import buildingIcon from "@/assets/building2.svg";
+import editIcon from "@/assets/edit.svg";
 import trashIcon from "@/assets/icon-trash.svg";
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import CategoryCreateModal from "@/components/dialogs/CategoryCreateModal.vue";
@@ -138,36 +150,51 @@ import SearchFilterBar from "@/components/common/SearchFilterBar.vue";
 import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
 import { GetChangeRequestHistory } from "@/services/approvalService";
-import { GetCompatibleCopyCategories } from "@/services/categoryCompatibilityService";
+import {
+  disableOrganization,
+  getOrganizations,
+} from "@/services/organizationService";
+import { useAppStore } from "@/stores/appStore";
 import {
   ACTION_LABEL_MAP,
   STATUS_LABEL_MAP,
   TARGET_TYPE_LABEL_MAP,
+  orgTypeLabelMap,
+  statusLabelMap,
 } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
+const appStore = useAppStore();
 const filters = reactive({ id: "", targetType: "", status: "" });
 const categoryCreateOpen = ref(false);
 const deleteCategoryDialogOpen = ref(false);
 const selectedCategory = ref(null);
+const deletingCategory = ref(false);
 const approvals = ref([]);
-const copyCategories = ref([]);
+const organizations = ref([]);
 
 onMounted(async () => {
   try {
-    const [approvalRows, categoryRows] = await Promise.all([
-      GetChangeRequestHistory("", ""),
-      GetCompatibleCopyCategories(),
-    ]);
+    const [approvalRows] = await Promise.all([GetChangeRequestHistory("", "")]);
     approvals.value = approvalRows ?? [];
-    copyCategories.value = categoryRows ?? [];
+    await refreshOrganizations();
   } catch (error) {
     console.error(error);
   }
 });
 
-const onCategoryCreated = () => {};
+const onCategoryCreated = async (payload) => {
+  await refreshOrganizations();
+  appStore.showAlert({
+    title: "系統提示",
+    message:
+      payload?.mode === "edit"
+        ? "已送出組織修改申請，等待審核"
+        : "已送出新增組織申請，等待審核",
+  });
+  selectedCategory.value = null;
+};
 
 const categoryStatusByRoute = {
   CategoryAll: "ACTIVE",
@@ -193,17 +220,79 @@ const deleteCategoryMessage = computed(
 );
 const categoryRows = computed(() => {
   const status = categoryStatusByRoute[route.name];
-  return copyCategories.value.filter((item) => item.status === status);
+  return organizations.value
+    .filter((item) => isSectionOrg(item))
+    .map(toCategoryRow)
+    .filter((item) => !status || normalizeStatus(item.status) === status);
 });
+
+const openCreateCategory = () => {
+  selectedCategory.value = null;
+  categoryCreateOpen.value = true;
+};
+
+const openEditCategory = (category) => {
+  selectedCategory.value = category;
+  categoryCreateOpen.value = true;
+};
 
 const openDeleteCategory = (category) => {
   selectedCategory.value = category;
   deleteCategoryDialogOpen.value = true;
 };
 
-const confirmDeleteCategory = () => {
-  deleteCategoryDialogOpen.value = false;
+const confirmDeleteCategory = async () => {
+  if (!selectedCategory.value?.id) return;
+  deletingCategory.value = true;
+  try {
+    await disableOrganization({ id: selectedCategory.value.id });
+    await refreshOrganizations();
+    deleteCategoryDialogOpen.value = false;
+    appStore.showAlert({
+      title: "系統提示",
+      message: "已送出停用組織申請，等待審核",
+    });
+    selectedCategory.value = null;
+  } catch (error) {
+    console.error(error);
+  } finally {
+    deletingCategory.value = false;
+  }
 };
+
+async function refreshOrganizations() {
+  organizations.value = normalizeOrganizationRows(await getOrganizations());
+}
+
+function normalizeOrganizationRows(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.body)) return response.body;
+  if (Array.isArray(response?.content)) return response.content;
+  if (Array.isArray(response?.body?.content)) return response.body.content;
+  return [];
+}
+
+function isSectionOrg(org = {}) {
+  return ["SECTION", "科別"].includes(org.orgType);
+}
+
+function toCategoryRow(org = {}) {
+  return {
+    ...org,
+    categoryName: org.orgName || "",
+    departmentId: org.parentId,
+    orgTypeLabel: orgTypeLabelMap[org.orgType] || org.orgType || "-",
+    statusLabel: statusLabelMap[org.status] || org.status || "-",
+  };
+}
+
+function normalizeStatus(status) {
+  if (["ACTIVE", "啟用"].includes(status)) return "ACTIVE";
+  if (["PENDING", "PENDING_APPROVAL", "審核中"].includes(status)) return "PENDING";
+  if (["REJECTED", "已駁回"].includes(status)) return "REJECTED";
+  if (["DELETED", "DISABLED", "INACTIVE", "停用", "已刪除"].includes(status)) return "DELETED";
+  return status;
+}
 
 const columns = [
   { key: "id", label: "申請單編號" },
@@ -220,7 +309,7 @@ const columns = [
 const targetTypeOptions = Object.entries(TARGET_TYPE_LABEL_MAP).map(
   ([value, label]) => ({ value, label }),
 );
-const statusOptions = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].map(
+const statusOptions = ["PENDING", "APPROVED", "REJECTED", "CANCELED"].map(
   (value) => ({
     value,
     label: STATUS_LABEL_MAP[value],
@@ -228,7 +317,7 @@ const statusOptions = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].map(
 );
 const rows = computed(() =>
   approvals.value.filter((item) => {
-    const matchId = !filters.id || item.id.includes(filters.id);
+    const matchId = !filters.id || String(item.id).includes(filters.id);
     const matchType =
       !filters.targetType || item.targetType === filters.targetType;
     const matchStatus = !filters.status || item.status === filters.status;
@@ -247,4 +336,5 @@ const noop = () => {};
 const PlusIcon = () => h("img", { src: addIcon, alt: "", "aria-hidden": "true", class: "size-4" });
 
 const TrashIcon = () => h("img", { src: trashIcon, alt: "", "aria-hidden": "true", class: "size-4" });
+const EditIcon = () => h("img", { src: editIcon, alt: "", "aria-hidden": "true", class: "size-4" });
 </script>

@@ -16,10 +16,8 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 
-import { breadcrumbMap } from "@/utils/navigation";
+import { getBreadcrumbItems } from "@/utils/navigation";
 
 const route = useRoute();
-const crumbs = computed(
-  () => breadcrumbMap[route.name] || ["文案管理", "全部文案"],
-);
+const crumbs = computed(() => getBreadcrumbItems(route));
 </script>

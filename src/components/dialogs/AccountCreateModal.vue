@@ -77,7 +77,7 @@
 </template>
 
 <script setup>
-import { computed, h, onMounted, reactive, ref, watch } from "vue";
+import { computed, h, reactive, ref, watch } from "vue";
 
 import eyeCloseIcon from "@/assets/loginEyeClose.svg";
 import eyeOpenIcon from "@/assets/loginEyeOpen.svg";
@@ -150,8 +150,6 @@ watch(
     fetchOrganizations();
   },
 );
-
-onMounted(fetchOrganizations);
 
 function clearErrors() {
   Object.assign(errors, { id: "", orgId: "", password: "", userName: "", role: "" });

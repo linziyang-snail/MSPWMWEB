@@ -47,7 +47,7 @@ import {
   getOrganizations,
   updateOrganization,
 } from "@/services/organizationService";
-import { orgTypeLabelMap } from "@/utils/constants";
+import { orgTypeLabelMap, orgTypeValueMap } from "@/utils/constants";
 import { validateRequired } from "@/utils/validators";
 
 const props = defineProps({
@@ -74,7 +74,7 @@ onMounted(async () => {
     (item) => String(item.id) === String(props.orgId),
   );
   form.orgName = source?.orgName || "";
-  form.orgType = source?.orgType || "";
+  form.orgType = orgTypeValueMap[source?.orgType] || source?.orgType || "";
 });
 
 async function submit() {
@@ -84,9 +84,18 @@ async function submit() {
   if (Object.values(errors).some(Boolean)) return;
   loading.value = true;
   try {
-    if (props.mode === "create") await createOrganization(form);
-    else await updateOrganization({ id: props.orgId, orgName: form.orgName });
-    message.value = "組織異動申請已送出。";
+    if (props.mode === "create") {
+      await createOrganization({
+        orgName: form.orgName,
+        orgType: orgTypeValueMap[form.orgType] || form.orgType,
+      });
+    } else {
+      await updateOrganization({ id: props.orgId, orgName: form.orgName });
+    }
+    message.value =
+      props.mode === "create"
+        ? "已送出新增組織申請，等待審核。"
+        : "已送出組織修改申請，等待審核。";
     setTimeout(() => router.push("/organizations"), 700);
   } finally {
     loading.value = false;

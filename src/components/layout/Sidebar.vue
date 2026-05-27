@@ -127,8 +127,7 @@ const authRoles = computed(() => normalizeRoles(auth.roles));
 
 onMounted(() => {
   copyStore.ensureLoaded();
-  userStore.fetchUsers({ size: 100 });
-  userStore.fetchAccountChangeRequests();
+  userStore.ensureLoaded();
 });
 
 const visibleSidebarSections = computed(() =>
@@ -170,10 +169,10 @@ const isChildActive = (item) =>
 
 const childCount = (item) => {
   if (!item.countKey) return 0;
-  if (item.countKey === "accountPendingNew") {
+  if (["accountPendingNew", "AccountPendingChanges"].includes(item.countKey)) {
     return userStore.pendingNewCount;
   }
-  if (item.countKey === "accountPendingChange") {
+  if (["accountPendingChange", "AccountPendingReview"].includes(item.countKey)) {
     return userStore.pendingChangeCount;
   }
   return copyStore.counts[item.countKey] || 0;

@@ -33,8 +33,10 @@ const props = defineProps({
 /* 預設標籤 — Sidebar / 表格 */
 const STATUS_LABELS_DEFAULT = {
   PENDING: "待審核",
+  PENDING_APPROVAL: "審核中",
   APPROVED: "已核准",
   REJECTED: "已駁回",
+  CANCELED: "已取消",
   CANCELLED: "已取消",
   ACTIVE: "已啟用",
   DISABLED: "已停用",
@@ -52,6 +54,9 @@ const STATUS_LABELS_DEFAULT = {
   REMOVE: "刪除",
   CANCEL: "取消",
   REVIEW: "待審核",
+  啟用: "啟用",
+  停用: "停用",
+  審核中: "審核中",
 };
 
 /* 文案卡片用 — 核准 / 駁回 / 取消（無「已」） */
@@ -59,6 +64,7 @@ const STATUS_LABELS_COPY = {
   PENDING: "待審核",
   APPROVED: "核准",
   REJECTED: "駁回",
+  CANCELED: "取消",
   CANCELLED: "取消",
 };
 
@@ -73,8 +79,10 @@ const displayLabel = computed(() => {
 
 const TONE_BY_STATUS = {
   PENDING: "danger",
+  PENDING_APPROVAL: "warning",
   APPROVED: "success",
   REJECTED: "rejected",
+  CANCELED: "natural",
   CANCELLED: "natural",
   ACTIVE: "success",
   DISABLED: "natural",
@@ -93,6 +101,9 @@ const TONE_BY_STATUS = {
   DISABLE: "natural",
   CANCEL: "natural",
   REVIEW: "danger",
+  啟用: "success",
+  停用: "natural",
+  審核中: "warning",
 };
 
 const TONE_CLASSES = {

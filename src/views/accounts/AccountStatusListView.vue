@@ -41,7 +41,7 @@
         </button>
       </div>
 
-      <article v-for="request in accountChangeRows" :key="request.id"
+      <article v-for="request in pendingAccountChangeRows" :key="request.id"
         class="p-6 rounded-2xl bg-background-surface shadow-card">
         <header class="flex items-start justify-between gap-4 pb-5 border-b border-border">
           <h2 class="text-2xl font-bold leading-normal text-text-heading">
@@ -107,11 +107,6 @@
                   class="grid w-24 px-3 text-sm font-bold leading-normal text-center border rounded-lg min-h-20 place-items-center border-danger-text bg-danger-bg text-danger-text">
                   等待其他<br />管理員審核
                 </div>
-                <button
-                  class="inline-flex h-10 w-24 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-text-grey bg-background-surface px-4 py-2.5 text-base font-medium text-natural hover:bg-background-hover"
-                  type="button">
-                  <XIcon /> <span>取消</span>
-                </button>
               </div>
             </aside>
           </div>
@@ -126,9 +121,9 @@
         <BaseSearchInput v-model="accountKeyword" class="flex-1 min-w-80" placeholder="請輸入員編、人員姓名" size="md"
           @submit="applyActiveFilters" />
         <div class="flex items-center gap-4">
-          <BaseDateInput v-model="activeStartDate" class="w-36" placeholder="年/月/日" />
+          <BaseDateInput v-model="activeStartDate" class="w-36" placeholder="年/月/日" :max="activeEndDate" />
           <span class="text-base font-normal text-text-placeholder">~</span>
-          <BaseDateInput v-model="activeEndDate" class="w-36" placeholder="年/月/日" />
+          <BaseDateInput v-model="activeEndDate" class="w-36" placeholder="年/月/日" :min="activeStartDate" />
         </div>
         <button
           class="inline-flex items-center justify-center h-10 py-2 text-sm font-medium leading-normal transition rounded-lg min-w-20 bg-primary px-7 text-text-inverse shadow-control hover:bg-primary-hover"
@@ -272,7 +267,7 @@
           </button>
           <span
             class="grid px-4 border rounded h-7 min-w-10 place-items-center border-primary bg-primary text-text-inverse">
-            1
+            {{ currentPage }}
           </span>
           <button
             class="px-4 text-center transition border rounded h-7 border-text-grey bg-background-surface hover:bg-background-hover disabled:opacity-60"
@@ -313,19 +308,19 @@
     <!-- 一般確認 Dialog -->
     <ConfirmDialog v-model="dialog.open" :title="dialog.title" :subtitle="dialog.subtitle" :message="dialog.message"
       :danger="dialog.danger" :success="dialog.success" :confirm-text="dialog.confirmText"
-      @confirm="dialog.open = false" />
+      @confirm="onDialogConfirm" />
 
     <!-- 駁回原因 Dialog -->
     <RejectReasonDialog v-model="rejectDialog.open" :title="rejectDialog.title" :subtitle="rejectDialog.subtitle"
       @confirm="onRejectConfirm" />
     <AccountCreateModal v-model="createDialogOpen" @submitted="onCreateAccount" />
-    <AccountPasswordResetModal v-model="passwordResetOpen" :account="selected" />
+    <AccountPasswordResetModal v-model="passwordResetOpen" :account="selected" @submitted="onPasswordReset" />
     <AccountEditPermissionModal v-model="editPermissionOpen" :account="selected" @submitted="onEditPermission" />
   </div>
 </template>
 
 <script setup>
-import { computed, h, onMounted, ref } from "vue";
+import { computed, h, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import accountDeleteIcon from "@/assets/account-delete.svg";
@@ -350,17 +345,29 @@ import AccountCreateModal from "@/components/dialogs/AccountCreateModal.vue";
 import AccountEditPermissionModal from "@/components/dialogs/AccountEditPermissionModal.vue";
 import AccountPasswordResetModal from "@/components/dialogs/AccountPasswordResetModal.vue";
 import {
-  GetAccountChangeRequests,
-  GetUsers,
+  approveChangeRequest,
+  getChangeRequestHistory,
+  rejectChangeRequest,
+} from "@/services/approvalService";
+import {
+  disableUser,
+  getUserById,
+  resetUserPassword,
+  unlockUser,
+  updateUser,
 } from "@/services/userService";
 import { useAuthStore } from "@/stores/authStore";
+import { useUserStore } from "@/stores/userStore";
+import { roleIdMap, roleLabelMap, statusLabelMap } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
 const auth = useAuthStore();
+const userStore = useUserStore();
 const selected = ref(null);
 const dialog = ref({
   open: false,
+  action: "",
   title: "",
   subtitle: "",
   message: "",
@@ -376,6 +383,7 @@ const editPermissionOpen = ref(false);
 const users = ref([]);
 const accountChangeRows = ref([]);
 const expandedChangeIds = ref([]);
+const currentPage = ref(1);
 const sortState = ref({ key: "createdAt", direction: "desc" });
 const accountKeyword = ref("");
 const activeStartDate = ref("");
@@ -384,6 +392,18 @@ const committedActiveFilters = ref({
   keyword: "",
   startDate: "",
   endDate: "",
+});
+
+watch(activeStartDate, (startDate) => {
+  if (startDate && activeEndDate.value && normalizeDate(activeEndDate.value) < normalizeDate(startDate)) {
+    activeEndDate.value = startDate;
+  }
+});
+
+watch(activeEndDate, (endDate) => {
+  if (endDate && activeStartDate.value && normalizeDate(activeStartDate.value) > normalizeDate(endDate)) {
+    activeStartDate.value = endDate;
+  }
 });
 
 const columns = [
@@ -414,15 +434,14 @@ const isPendingPage = computed(() => routeStatus.value === "PENDING");
 const isChangeReviewPage = computed(() => route.name === "AccountPendingReview");
 const isActivePage = computed(() => routeStatus.value === "ACTIVE");
 const showAccountFilters = computed(() => !isChangeReviewPage.value);
+const pendingAccountChangeRows = computed(() =>
+  accountChangeRows.value.filter((row) => row.action !== "CREATE"),
+);
 
 onMounted(async () => {
   try {
-    const [userResponse, changeRequests] = await Promise.all([
-      GetUsers(1, 100),
-      GetAccountChangeRequests(),
-    ]);
-    users.value = userResponse.content ?? [];
-    accountChangeRows.value = changeRequests ?? [];
+    await userStore.ensureLoaded();
+    await syncAccountRowsFromStore();
   } catch (error) {
     console.error(error);
   }
@@ -432,9 +451,11 @@ const filteredRows = computed(() => {
   let rows = [];
   if (!routeStatus.value) return users.value;
   if (routeStatus.value === "PENDING") {
-    rows = users.value.filter(
+    const pendingUsers = users.value.filter(
       (u) => u.status === "PENDING" || u.status === "PENDING_MULTI",
     );
+    const pendingCreateRows = getPendingCreateRows(pendingUsers);
+    rows = [...pendingCreateRows, ...pendingUsers];
     return sortRows(filterRowsByAccountFilters(rows));
   }
   rows = users.value.filter((u) => u.status === routeStatus.value);
@@ -443,20 +464,25 @@ const filteredRows = computed(() => {
 });
 
 function filterRowsByAccountFilters(rows) {
-  if (!showAccountFilters.value) return rows;
   const keyword = committedActiveFilters.value.keyword.trim().toLowerCase();
-  const startDate = normalizeDate(committedActiveFilters.value.startDate);
-  const endDate = normalizeDate(committedActiveFilters.value.endDate);
+  const startTime = getStartOfDayTime(committedActiveFilters.value.startDate);
+  const endTime = getEndOfDayTime(committedActiveFilters.value.endDate);
+  const hasDateFilter = startTime !== null || endTime !== null;
 
   return rows.filter((row) => {
-    const rowDate = normalizeDate(formatDate(row.createdAt));
     const textMatched =
       !keyword ||
-      [row.id, row.userName, row.orgName, row.roleLabel, ...(row.roles || [])]
+      [row.id, row.userName]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(keyword));
-    const startMatched = !startDate || rowDate >= startDate;
-    const endMatched = !endDate || rowDate <= endDate;
+    if (!textMatched) return false;
+    if (!hasDateFilter) return true;
+
+    const createdAtTime = getDateTime(row.createdAt);
+    if (createdAtTime === null) return false;
+
+    const startMatched = startTime === null || createdAtTime >= startTime;
+    const endMatched = endTime === null || createdAtTime <= endTime;
     return textMatched && startMatched && endMatched;
   });
 }
@@ -464,7 +490,7 @@ function filterRowsByAccountFilters(rows) {
 const pendingCount = computed(
   () =>
     isChangeReviewPage.value
-      ? accountChangeRows.value.filter((item) => canReviewRequest(item)).length
+      ? pendingAccountChangeRows.value.length
       : filteredRows.value.filter((u) => u.status === "PENDING").length,
 );
 
@@ -487,7 +513,27 @@ function normalizeDate(value) {
   return String(value).replaceAll("/", "-").slice(0, 10);
 }
 
+function getDateTime(value) {
+  if (!value) return null;
+  const date = new Date(String(value));
+  const time = date.getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+function getStartOfDayTime(value) {
+  const normalizedDate = normalizeDate(value);
+  if (!normalizedDate) return null;
+  return getDateTime(`${normalizedDate}T00:00:00`);
+}
+
+function getEndOfDayTime(value) {
+  const normalizedDate = normalizeDate(value);
+  if (!normalizedDate) return null;
+  return getDateTime(`${normalizedDate}T23:59:59.999`);
+}
+
 function applyActiveFilters() {
+  currentPage.value = 1;
   committedActiveFilters.value = {
     keyword: accountKeyword.value,
     startDate: activeStartDate.value,
@@ -496,6 +542,7 @@ function applyActiveFilters() {
 }
 
 function resetActiveFilters() {
+  currentPage.value = 1;
   accountKeyword.value = "";
   activeStartDate.value = "";
   activeEndDate.value = "";
@@ -545,6 +592,157 @@ function compareSortValue(a, b) {
   return valueA.localeCompare(valueB, "zh-Hant", { numeric: true, sensitivity: "base" });
 }
 
+async function normalizeAccountChangeRows(rows = []) {
+  const normalizedRows = rows.map((row) => {
+    if (row.before || row.after || row.userId || row.userName) {
+      return {
+        ...row,
+        action: String(row.action || "UPDATE").toUpperCase(),
+        requesterId: getRequesterId(row),
+        targetType: row.targetType || "USER",
+      };
+    }
+
+    const payload = parseChangePayload(row.payload);
+    const before = payload.before || payload.oldData || payload.original || {};
+    const after = payload.after || payload.newData || payload.data || payload;
+    const action = String(row.action || payload.action || "UPDATE").toUpperCase();
+    const userId = row.targetId || payload.id || payload.userId || after.id || before.id || "";
+    const userName = after.userName || before.userName || payload.userName || "";
+
+    return {
+      ...row,
+      userId,
+      userName,
+      action,
+      type: normalizeChangeType(action),
+      title: getChangeRequestTitle(action),
+      createdBy: row.requesterId,
+      requesterId: row.requesterId,
+      createdByName: row.requesterName || row.requesterId || "-",
+      before: normalizeAccountInfo(before),
+      after: normalizeAccountInfo(after),
+    };
+  });
+  return Promise.all(normalizedRows.map(hydrateAccountChangeHistory));
+}
+
+async function hydrateAccountChangeHistory(row) {
+  if (row.action === "CREATE" || hasMeaningfulAccountInfo(row.before)) return row;
+  try {
+    const historyRows = await getChangeRequestHistory({
+      targetType: "USER",
+      targetId: row.targetId || row.userId,
+    });
+    const previousPayload = findPreviousAccountPayload(historyRows, row.id);
+    if (!previousPayload) return row;
+    return {
+      ...row,
+      before: normalizeAccountInfo(previousPayload),
+    };
+  } catch (error) {
+    console.error(error);
+    return row;
+  }
+}
+
+function findPreviousAccountPayload(historyRows = [], currentId) {
+  if (!Array.isArray(historyRows)) return null;
+  const previousRows = historyRows
+    .filter((item) => String(item.id) !== String(currentId))
+    .filter((item) => item.status !== "PENDING")
+    .sort((a, b) => String(b.closedAt || b.createdAt || "").localeCompare(String(a.closedAt || a.createdAt || "")));
+  const previous = previousRows[0];
+  if (!previous) return null;
+  const payload = parseChangePayload(previous.payload);
+  return payload.after || payload.newData || payload.data || payload;
+}
+
+function hasMeaningfulAccountInfo(info = {}) {
+  return Boolean(info.orgName && info.orgName !== "-") ||
+    Boolean(info.roleLabel && info.roleLabel !== "-") ||
+    Boolean(info.statusLabel && info.statusLabel !== "-");
+}
+
+function getPendingCreateRows(existingRows = []) {
+  const existingIds = new Set(existingRows.map((row) => String(row.id)));
+  return accountChangeRows.value
+    .filter((row) => row.action === "CREATE")
+    .filter((row) => !existingIds.has(String(row.userId)))
+    .map((row) => ({
+      id: row.userId,
+      userName: row.userName,
+      orgId: row.orgId,
+      orgName: row.after?.orgName || row.before?.orgName || "-",
+      status: "PENDING",
+      passwordAttempts: 0,
+      lastLoginAt: "",
+      loginIp: "",
+      createdBy: row.requesterId,
+      requesterId: row.requesterId,
+      createdAt: row.createdAt,
+      roles: extractRolesFromAccountInfo(row.after),
+      roleLabel: row.after?.roleLabel,
+      targetType: row.targetType,
+      action: row.action,
+      changeRequestId: row.id,
+    }));
+}
+
+function extractRolesFromAccountInfo(info = {}) {
+  if (Array.isArray(info.roles)) return info.roles;
+  const role = Object.entries(roleLabelMap).find(([, label]) => label === info.roleLabel)?.[0];
+  return role ? [role] : [];
+}
+
+function parseChangePayload(payload) {
+  if (!payload) return {};
+  if (typeof payload === "object") return payload;
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return {};
+  }
+}
+
+function normalizeChangeType(action = "") {
+  const normalizedAction = String(action).toUpperCase();
+  if (["DELETE", "DISABLE"].includes(normalizedAction)) return "DELETE";
+  if (normalizedAction === "CREATE") return "CREATE";
+  return "PERMISSION";
+}
+
+function getChangeRequestTitle(action = "") {
+  const normalizedAction = String(action).toUpperCase();
+  return (
+    {
+      CREATE: "待覆核新增帳號",
+      UPDATE: "待覆核帳號異動",
+      DELETE: "待覆核刪除帳號",
+      DISABLE: "待覆核停用帳號",
+    }[normalizedAction] || "待覆核帳號異動"
+  );
+}
+
+function normalizeAccountInfo(data = {}) {
+  const roleValue = data.roles?.[0] || data.role || data.roleName;
+  return {
+    roles: Array.isArray(data.roles) ? data.roles : roleValue ? [roleValue] : [],
+    orgName: data.orgName || data.organizationName || data.orgId || "-",
+    roleLabel: data.roleLabel || roleLabelMap[roleValue] || formatRoleIds(data.roleIds),
+    statusLabel: data.statusLabel || statusLabelMap[data.status] || data.status || "-",
+  };
+}
+
+function formatRoleIds(roleIds = []) {
+  if (!Array.isArray(roleIds) || !roleIds.length) return "-";
+  return roleIds
+    .map((id) => Object.entries(roleIdMap).find(([, roleId]) => roleId === Number(id))?.[0])
+    .map((role) => roleLabelMap[role] || role)
+    .filter(Boolean)
+    .join(", ") || "-";
+}
+
 function openDetail(row) {
   selected.value = row;
   detailOpen.value = true;
@@ -555,9 +753,20 @@ function openPasswordReset(row) {
   passwordResetOpen.value = true;
 }
 
-function openEditPermission(row) {
-  selected.value = row;
-  editPermissionOpen.value = true;
+async function openEditPermission(row) {
+  try {
+    const latestUser = await getUserById({ id: row.id });
+    selected.value = {
+      ...row,
+      ...latestUser,
+      roles: latestUser?.roles?.length ? latestUser.roles : row.roles,
+      roleLabel: latestUser?.roleLabel || row.roleLabel,
+      orgName: latestUser?.orgName || row.orgName,
+    };
+    editPermissionOpen.value = true;
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 function openRejectReason(row) {
@@ -570,11 +779,13 @@ function openRejectReason(row) {
 
 function confirm(row, action) {
   selected.value = row;
+  if (["approve", "reject"].includes(action) && !canReviewAccount(row)) return;
+  const targetLabel = getReviewTargetLabel(row);
   if (action === "reject") {
     rejectDialog.value = {
       open: true,
-      title: "駁回新帳號",
-      subtitle: `員編：${row.id}`,
+      title: `駁回${targetLabel}`,
+      subtitle: `員編：${getDisplayUserId(row)}`,
     };
     return;
   }
@@ -615,9 +826,9 @@ function confirm(row, action) {
       confirmText: "確認停用",
     },
     approve: {
-      title: "核准新帳號",
-      subtitle: `員編：${row.id}`,
-      message: `確定要核准新帳號「${row.userName}」嗎？`,
+      title: `核准${targetLabel}`,
+      subtitle: `員編：${getDisplayUserId(row)}`,
+      message: `確定要核准${targetLabel}「${getDisplayUserName(row)}」嗎？`,
       danger: false,
       success: true,
       confirmText: "確認核准",
@@ -625,24 +836,55 @@ function confirm(row, action) {
   };
   const cfg = configs[action];
   if (cfg) {
-    dialog.value = { open: true, ...cfg };
+    dialog.value = { open: true, action, ...cfg };
   }
 }
 
-function onEditPermission(payload) {
+function getReviewTargetLabel(row) {
+  if (row?.action === "CREATE") return "新帳號";
+  if (isChangeRequestRow(row) || isChangeReviewPage.value) return "帳號異動";
+  return "新帳號";
+}
+
+function getDisplayUserId(row = {}) {
+  return row.userId || row.id || "-";
+}
+
+function getDisplayUserName(row = {}) {
+  return row.userName || row.targetId || row.userId || row.id || "-";
+}
+
+async function onDialogConfirm() {
+  if (dialog.value.action === "approve" && isChangeRequestRow(selected.value)) {
+    await approveChangeRequest({ id: getChangeRequestId(selected.value) });
+    await reloadAccountData();
+    showSuccessDialog("審核已核准", `員編：${getDisplayUserId(selected.value)}`, "已核准此筆申請");
+  }
+  if (["delete", "disable"].includes(dialog.value.action) && selected.value?.id) {
+    await disableUser({ id: selected.value.id });
+    await reloadAccountData();
+    showSuccessDialog("停用申請已送出", `員編：${selected.value.id}`, "已送出停用使用者申請，等待其他管理員審核");
+  }
+  if (dialog.value.action === "unlock" && selected.value?.id) {
+    await unlockUser({ id: selected.value.id });
+    await reloadAccountData();
+    showSuccessDialog("帳號已解鎖", `員編：${selected.value.id}`, "已完成帳號解鎖");
+  }
+  if (!["approve", "delete", "disable", "unlock"].includes(dialog.value.action)) {
+    dialog.value.open = false;
+  }
+}
+
+async function onEditPermission(payload) {
+  await updateUser({
+    id: payload.id,
+    userName: payload.userName,
+    orgId: Number(payload.orgId),
+    roleIds: payload.roles.map((role) => roleIdMap[role]).filter(Boolean),
+  });
+  await reloadAccountData();
+  showSuccessDialog("帳號修改申請已送出", `員編：${payload.id}`, "已送出帳號修改申請，等待其他管理員審核");
   const isReactivation = payload.originalStatus && payload.originalStatus !== "ACTIVE" && payload.status === "ACTIVE";
-  users.value = users.value.map((user) =>
-    user.id === payload.id
-      ? {
-        ...user,
-        userName: payload.userName,
-        orgName: payload.orgName,
-        status: payload.status,
-        roles: payload.roles,
-        roleLabel: payload.roleLabel,
-      }
-      : user,
-  );
   if (isReactivation) {
     const updated = users.value.find((user) => user.id === payload.id) || selected.value;
     window.setTimeout(() => {
@@ -651,39 +893,27 @@ function onEditPermission(payload) {
   }
 }
 
-function onRejectConfirm() {
+async function onPasswordReset(payload) {
+  await resetUserPassword({
+    id: payload.account?.id,
+    newPassword: payload.password,
+  });
+  await reloadAccountData();
+  showSuccessDialog("密碼已重設", `員編：${payload.account?.id}`, "已完成此帳號密碼重設");
+}
+
+async function onRejectConfirm(reason) {
+  if (isChangeRequestRow(selected.value)) {
+    await rejectChangeRequest({ id: getChangeRequestId(selected.value), remark: reason });
+    await reloadAccountData();
+    showSuccessDialog("審核已駁回", `員編：${getDisplayUserId(selected.value)}`, "已駁回此筆申請");
+  }
   rejectDialog.value = { open: false, title: "", subtitle: "" };
 }
 
-function onCreateAccount(payload) {
-  users.value = [
-    {
-      id: payload.id,
-      userName: payload.userName,
-      orgId: payload.orgId,
-      orgName: payload.orgName,
-      status: "PENDING",
-      pendingType: "NEW",
-      passwordAttempts: 0,
-      lastLoginAt: "",
-      loginIp: "",
-      createdBy: auth.userId,
-      requesterId: auth.userId,
-      createdAt: new Date().toISOString(),
-      roles: [payload.role],
-      roleLabel: payload.roleLabel,
-    },
-    ...users.value,
-  ];
-  dialog.value = {
-    open: true,
-    title: "新增使用者申請已送出",
-    subtitle: `員編：${payload.id}`,
-    message: "已送出新增使用者申請，等待其他管理員審核",
-    danger: false,
-    success: true,
-    confirmText: "確認",
-  };
+async function onCreateAccount(payload) {
+  await reloadAccountData();
+  showSuccessDialog("新增使用者申請已送出", `員編：${payload.id}`, "已送出新增使用者申請，等待其他管理員審核");
 }
 
 function canReviewRequest(request) {
@@ -700,6 +930,46 @@ function isOwnPendingAccount(account) {
 
 function getRequesterId(item = {}) {
   return item.requesterId || item.createdBy || item.createdById || "";
+}
+
+function isChangeRequestRow(item = {}) {
+  return item.targetType === "USER" && Number.isInteger(Number(getChangeRequestId(item)));
+}
+
+function getChangeRequestId(item = {}) {
+  return item.changeRequestId || item.id;
+}
+
+function removeAccountChangeRequest(id) {
+  accountChangeRows.value = accountChangeRows.value.filter(
+    (item) => String(item.id) !== String(id),
+  );
+  userStore.accountChangeRequests = userStore.accountChangeRequests.filter(
+    (item) => String(item.id) !== String(id),
+  );
+}
+
+async function reloadAccountData() {
+  await userStore.refreshAll({ size: 100 });
+  await syncAccountRowsFromStore();
+}
+
+async function syncAccountRowsFromStore() {
+  users.value = userStore.users;
+  accountChangeRows.value = await normalizeAccountChangeRows(userStore.accountChangeRequests);
+}
+
+function showSuccessDialog(title, subtitle, message) {
+  dialog.value = {
+    open: true,
+    action: "",
+    title,
+    subtitle,
+    message,
+    danger: false,
+    success: true,
+    confirmText: "確認",
+  };
 }
 
 function toggleOriginal(id) {

@@ -1,3 +1,5 @@
+import { orgTypeValueMap } from "@/utils/constants";
+
 import apiRequest, { unwrapApiBody } from "./apiRequest";
 
 export async function getOrganizations() {
@@ -6,7 +8,7 @@ export async function getOrganizations() {
 
 export async function createOrganization(payload) {
   const { orgName, orgType } = payload || {};
-  const body = { orgName, orgType };
+  const body = { orgName, orgType: normalizeOrgTypeValue(orgType) };
   return apiRequest.post("/api/organizations", body);
 }
 
@@ -61,4 +63,8 @@ function normalizeIdParams(params) {
 function normalizeOrganizationUpdateParams(params, legacyPayload) {
   if (legacyPayload) return { id: params, ...legacyPayload };
   return params || {};
+}
+
+function normalizeOrgTypeValue(orgType) {
+  return orgTypeValueMap[orgType] || orgType;
 }

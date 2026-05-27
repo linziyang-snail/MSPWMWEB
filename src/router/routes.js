@@ -78,7 +78,7 @@ export const routes = [
       },
       {
         path: "accounts/pending-review",
-        name: "ApplicationQueryView",
+        name: "AccountPendingReview",
         component: AccountStatusListView,
         meta: { title: "待審核帳號異動", status: "PENDING", roles: ["ADMIN"] },
       },

@@ -7,9 +7,9 @@
         <BaseSearchInput v-model="keyword" class="flex-1 min-w-80" placeholder="搜尋人員姓名、標題或動作..." size="md"
           @submit="loadRows" />
 
-        <BaseDateInput v-model="startDate" class="w-modal-date shrink-0" placeholder="年/月/日" />
+        <BaseDateInput v-model="startDate" class="w-modal-date shrink-0" placeholder="年/月/日" :max="endDate" />
         <span class="text-lg font-medium text-text-disabled">~</span>
-        <BaseDateInput v-model="endDate" class="w-modal-date shrink-0" placeholder="年/月/日" />
+        <BaseDateInput v-model="endDate" class="w-modal-date shrink-0" placeholder="年/月/日" :min="startDate" />
 
         <BaseButton class="w-24" :loading="loading" @click="loadRows">
           查詢
@@ -117,6 +117,18 @@ const clearFilter = () => {
   loadRows();
 };
 
+watch(startDate, (value) => {
+  if (value && endDate.value && normalizeDate(endDate.value) < normalizeDate(value)) {
+    endDate.value = value;
+  }
+});
+
+watch(endDate, (value) => {
+  if (value && startDate.value && normalizeDate(startDate.value) > normalizeDate(value)) {
+    startDate.value = value;
+  }
+});
+
 const toggleDateSort = () => {
   dateSortDirection.value = dateSortDirection.value === "desc" ? "asc" : "desc";
 };
@@ -125,6 +137,11 @@ const getTime = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 };
+
+function normalizeDate(value) {
+  if (!value) return "";
+  return String(value).replaceAll("/", "-").slice(0, 10);
+}
 
 const formatOperationDateTime = (value) => {
   if (!value) return "-";

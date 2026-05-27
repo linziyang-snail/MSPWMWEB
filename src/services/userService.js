@@ -63,7 +63,12 @@ export async function getAccountChangeRequests() {
       params: { targetType: "USER" },
     }),
   );
-  return Array.isArray(rows) ? rows : [];
+  if (!Array.isArray(rows)) return [];
+  return rows.filter((item) => {
+    const targetType = item?.targetType || "USER";
+    const status = item?.status || "PENDING";
+    return targetType === "USER" && status === "PENDING";
+  });
 }
 
 /**

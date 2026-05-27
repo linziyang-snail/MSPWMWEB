@@ -70,9 +70,11 @@
                 v-for="day in calendarDays"
                 :key="day.key"
                 type="button"
+                :disabled="isDateDisabled(day.date)"
                 :class="[
                   'grid h-6 place-items-center rounded text-base font-semibold leading-tight transition',
                   day.inCurrentMonth ? 'text-text-heading' : 'text-text-heading',
+                  isDateDisabled(day.date) && 'cursor-not-allowed text-text-disabled opacity-40',
                   isSameDate(day.date, draftDate) && 'bg-primary text-text-inverse',
                 ]"
                 @click.stop="selectDate(day.date)"
@@ -153,6 +155,8 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   readonly: { type: Boolean, default: false },
   error: { type: Boolean, default: false },
+  min: { type: String, default: "" },
+  max: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue", "blur"]);
@@ -191,6 +195,8 @@ const { floatingStyle, updateFloatingPosition, resetFloatingPosition } = useFloa
 });
 
 const displayValue = computed(() => props.modelValue);
+const minDate = computed(() => parseValue(props.min));
+const maxDate = computed(() => parseValue(props.max));
 
 const headerLabel = computed(() => {
   if (mode.value === "date") return `${monthLabels[viewMonth.value]} ${viewYear.value}`;
@@ -228,6 +234,13 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => [props.min, props.max],
+  () => {
+    syncFromValue();
+  },
+);
+
 function parseValue(value) {
   if (!value) return null;
   const normalized = value.includes("/") ? value.replaceAll("/", "-") : value;
@@ -238,7 +251,7 @@ function parseValue(value) {
 
 function syncFromValue() {
   const parsed = parseValue(props.modelValue);
-  const source = parsed || today;
+  const source = clampDate(parsed || today);
   viewYear.value = source.getFullYear();
   viewMonth.value = source.getMonth();
   draftDate.value = new Date(source.getFullYear(), source.getMonth(), source.getDate());
@@ -298,6 +311,7 @@ function goNext() {
 }
 
 function selectDate(date) {
+  if (isDateDisabled(date)) return;
   draftDate.value = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   viewYear.value = date.getFullYear();
   viewMonth.value = date.getMonth();
@@ -327,8 +341,27 @@ function cancel() {
 }
 
 function confirm() {
-  emit("update:modelValue", formatDate(draftDate.value));
+  emit("update:modelValue", formatDate(clampDate(draftDate.value)));
   closePicker();
+}
+
+function clampDate(date) {
+  if (minDate.value && compareDate(date, minDate.value) < 0) return minDate.value;
+  if (maxDate.value && compareDate(date, maxDate.value) > 0) return maxDate.value;
+  return date;
+}
+
+function isDateDisabled(date) {
+  return Boolean(
+    (minDate.value && compareDate(date, minDate.value) < 0) ||
+    (maxDate.value && compareDate(date, maxDate.value) > 0),
+  );
+}
+
+function compareDate(a, b) {
+  const dateA = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+  const dateB = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+  return dateA - dateB;
 }
 
 function isSameDate(a, b) {

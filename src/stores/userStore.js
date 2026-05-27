@@ -12,15 +12,55 @@ export const useUserStore = defineStore("users", {
     page: 1,
     size: 20,
     accountChangeRequests: [],
+    loaded: false,
+    loadingPromise: null,
     loading: false,
     error: "",
   }),
   getters: {
-    pendingNewCount: (state) =>
-      state.users.filter((user) => user.status === "PENDING").length,
-    pendingChangeCount: (state) => state.accountChangeRequests.length,
+    pendingNewCount: (state) => {
+      const pendingIds = new Set(
+        state.users
+          .filter((user) => user.status === "PENDING")
+          .map((user) => String(user.id)),
+      );
+      state.accountChangeRequests.forEach((item) => {
+        const targetType = item?.targetType || "USER";
+        const status = item?.status || "PENDING";
+        const action = String(item?.action || "").toUpperCase();
+        if (targetType === "USER" && status === "PENDING" && action === "CREATE") {
+          pendingIds.add(String(item.targetId || item.userId || item.id));
+        }
+      });
+      return pendingIds.size;
+    },
+    pendingChangeCount: (state) =>
+      state.accountChangeRequests.filter((item) => {
+        const targetType = item?.targetType || "USER";
+        const status = item?.status || "PENDING";
+        const action = String(item?.action || "").toUpperCase();
+        return targetType === "USER" && status === "PENDING" && action !== "CREATE";
+      }).length,
   },
   actions: {
+    async ensureLoaded(params = {}) {
+      if (this.loaded) return;
+      if (this.loadingPromise) return this.loadingPromise;
+      this.loadingPromise = Promise.all([
+        this.fetchUsers({ size: 100, ...params }),
+        this.fetchAccountChangeRequests(),
+      ]).then(() => {
+        this.loaded = true;
+      }).finally(() => {
+        this.loadingPromise = null;
+      });
+      return this.loadingPromise;
+    },
+    async refreshAll(params = {}) {
+      this.loaded = false;
+      this.loadingPromise = null;
+      await this.ensureLoaded(params);
+    },
     async fetchUsers(params = {}) {
       this.loading = true;
       this.error = "";

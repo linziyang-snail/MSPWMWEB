@@ -23,6 +23,7 @@
 - `POST /api/organizations`：新增組織
 - `PUT /api/organizations/{id}`：修改組織
 - `DELETE /api/organizations/{id}`：停用組織
+- 目前已串接於申請單資訊查詢 / 科別管理；列表 response 的 `orgType` / `status` 可能回中文（例如「科別」「審核中」），request `orgType` 仍送英文 `DEPARTMENT` / `SECTION`。
 
 ### Approval
 - `GET /api/change-requests`：查詢待審核列表
@@ -53,7 +54,7 @@
 - 文案核准 / 駁回。現有 Approval API 可能可承接，但仍缺 `targetType` enum 與 payload schema。
 - 文案複製新建是否為前端行為或後端 API。
 - 操作歷程查詢 API。
-- 科別全部列表 / 狀態列表正式主流程 API。目前 CopyCategory API 標示 deprecated。
+- 文案分類 CopyCategory API 仍標示 deprecated；申請單資訊查詢 / 科別管理已改以 Organization API 的 `SECTION` 資料呈現。
 - 帳號異動待審核列表。現有 Approval API 可能可承接，但仍缺 target schema。
 - 首次登入 / 管理員重設密碼後強制改密碼欄位。
 - 密碼到期第 25 天提醒與第 30 天鎖定欄位。

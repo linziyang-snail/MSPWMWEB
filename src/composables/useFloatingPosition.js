@@ -57,10 +57,11 @@ export function useFloatingPosition(triggerRef, floatingRef, options = {}) {
     const triggerRect = triggerRef.value.getBoundingClientRect();
     const floatingRect = floatingRef.value?.getBoundingClientRect();
     const preferredWidth = override.width ?? options.width ?? triggerRect.width;
+    const desiredHeight = override.height ?? floatingRect?.height ?? options.height ?? 240;
     const position = getFloatingPosition({
       triggerRect,
       floatingWidth: preferredWidth,
-      floatingHeight: override.height ?? floatingRect?.height ?? options.height ?? 240,
+      floatingHeight: desiredHeight,
       minWidth: override.minWidth ?? options.minWidth ?? triggerRect.width,
       maxHeight: override.maxHeight ?? options.maxHeight ?? 754,
       gap: override.gap ?? options.gap ?? DEFAULT_GAP,
@@ -74,7 +75,7 @@ export function useFloatingPosition(triggerRef, floatingRef, options = {}) {
       top: `${position.top}px`,
       width: `${position.width}px`,
       maxHeight: `${position.maxHeight}px`,
-      overflowY: "auto",
+      overflowY: position.maxHeight < desiredHeight ? "auto" : "visible",
     };
   };
 

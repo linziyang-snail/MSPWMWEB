@@ -19,6 +19,15 @@ export const roleIdMap = {
 export const orgTypeLabelMap = {
   DEPARTMENT: "部門",
   SECTION: "科別",
+  部門: "部門",
+  科別: "科別",
+};
+
+export const orgTypeValueMap = {
+  DEPARTMENT: "DEPARTMENT",
+  SECTION: "SECTION",
+  部門: "DEPARTMENT",
+  科別: "SECTION",
 };
 
 export const statusLabelMap = {
@@ -28,16 +37,22 @@ export const statusLabelMap = {
   DELETED: "已刪除",
   LOCKED: "已鎖定",
   PENDING: "待覆核",
+  PENDING_APPROVAL: "審核中",
   PENDING_MULTI: "待覆核",
   APPROVED: "已放行",
   REJECTED: "已駁回",
+  CANCELED: "已取消",
   CANCELLED: "已取消",
+  啟用: "啟用",
+  停用: "停用",
+  審核中: "審核中",
 };
 
 export const requestStatusLabelMap = {
   PENDING: "待覆核",
   APPROVED: "已放行",
   REJECTED: "已駁回",
+  CANCELED: "已取消",
   CANCELLED: "已取消",
 };
 
@@ -74,6 +89,7 @@ export const copyStatusLabelMap = {
   APPROVED: "已放行",
   PENDING: "待覆核",
   REJECTED: "已駁回",
+  CANCELED: "已取消",
   DISABLED: "已停用",
   CANCELLED: "已取消",
 };

@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     :model-value="modelValue"
-    title="新增科別"
+    :title="modalTitle"
     subtitle="提交後需另一位超級管理員審核"
     size="sm"
     body-class="px-6 pt-4 pb-2"
@@ -45,14 +45,19 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import buildingIcon from "@/assets/building2.svg";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
+import {
+  createOrganization,
+  updateOrganization,
+} from "@/services/organizationService";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
+  category: { type: Object, default: null },
 });
 
 const emit = defineEmits(["update:modelValue", "submitted"]);
@@ -60,12 +65,14 @@ const emit = defineEmits(["update:modelValue", "submitted"]);
 const name = ref("");
 const errorMsg = ref("");
 const submitting = ref(false);
+const isEditMode = computed(() => Boolean(props.category?.id));
+const modalTitle = computed(() => (isEditMode.value ? "修改科別" : "新增科別"));
 
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      name.value = "";
+      name.value = props.category?.categoryName || props.category?.orgName || "";
       errorMsg.value = "";
     }
   },
@@ -79,9 +86,25 @@ async function submit() {
   errorMsg.value = "";
   try {
     submitting.value = true;
-    await new Promise((r) => setTimeout(r, 400));
-    emit("submitted", { name: name.value.trim() });
+    if (isEditMode.value) {
+      await updateOrganization({
+        id: props.category.id,
+        orgName: name.value.trim(),
+      });
+    } else {
+      await createOrganization({
+        orgName: name.value.trim(),
+        orgType: "SECTION",
+      });
+    }
+    emit("submitted", {
+      id: props.category?.id,
+      name: name.value.trim(),
+      mode: isEditMode.value ? "edit" : "create",
+    });
     emit("update:modelValue", false);
+  } catch (error) {
+    console.error(error);
   } finally {
     submitting.value = false;
   }
