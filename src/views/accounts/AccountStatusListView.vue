@@ -186,7 +186,7 @@
               {{ row.roleLabel || row.roles.join(", ") }}
             </td>
             <td class="px-4 py-4 xl:px-5">
-              <span v-if="row.status === 'PENDING_MULTI'"
+              <span v-if="isOwnPendingAccount(row) || row.status === 'PENDING_MULTI'"
                 class="inline-flex h-8 items-center whitespace-nowrap rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium leading-normal text-danger-text">
                 等待其他管理員審核
               </span>
@@ -223,7 +223,8 @@
                 </button>
               </div>
               <div v-else class="flex flex-wrap items-center justify-center gap-2 2xl:gap-4">
-                <template v-if="row.status === 'PENDING' && canReviewAccount(row)">
+                <span v-if="isOwnPendingAccount(row)" aria-hidden="true"></span>
+                <template v-else-if="row.status === 'PENDING' && canReviewAccount(row)">
                   <button
                     class="inline-flex h-10 w-24 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
                     type="button" @click="confirm(row, 'approve')">
@@ -235,7 +236,7 @@
                     <XIcon /> <span>駁回</span>
                   </button>
                 </template>
-                <span v-else-if="row.status === 'PENDING'"
+                <span v-else-if="row.status === 'PENDING_MULTI'"
                   class="inline-flex min-h-10 items-center whitespace-nowrap rounded-lg border border-danger-text bg-danger-bg px-3 text-sm font-bold leading-normal text-danger-text">
                   等待其他管理員審核
                 </span>
@@ -417,7 +418,7 @@ const showAccountFilters = computed(() => !isChangeReviewPage.value);
 onMounted(async () => {
   try {
     const [userResponse, changeRequests] = await Promise.all([
-      GetUsers(1, 200),
+      GetUsers(1, 100),
       GetAccountChangeRequests(),
     ]);
     users.value = userResponse.content ?? [];
@@ -667,20 +668,38 @@ function onCreateAccount(payload) {
       lastLoginAt: "",
       loginIp: "",
       createdBy: auth.userId,
+      requesterId: auth.userId,
       createdAt: new Date().toISOString(),
       roles: [payload.role],
       roleLabel: payload.roleLabel,
     },
     ...users.value,
   ];
+  dialog.value = {
+    open: true,
+    title: "新增使用者申請已送出",
+    subtitle: `員編：${payload.id}`,
+    message: "已送出新增使用者申請，等待其他管理員審核",
+    danger: false,
+    success: true,
+    confirmText: "確認",
+  };
 }
 
 function canReviewRequest(request) {
-  return request.createdBy !== auth.userId;
+  return getRequesterId(request) !== auth.userId;
 }
 
 function canReviewAccount(account) {
-  return account.createdBy !== auth.userId;
+  return getRequesterId(account) !== auth.userId;
+}
+
+function isOwnPendingAccount(account) {
+  return account?.status === "PENDING" && getRequesterId(account) === auth.userId;
+}
+
+function getRequesterId(item = {}) {
+  return item.requesterId || item.createdBy || item.createdById || "";
 }
 
 function toggleOriginal(id) {

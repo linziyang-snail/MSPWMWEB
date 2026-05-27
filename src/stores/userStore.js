@@ -33,7 +33,7 @@ export const useUserStore = defineStore("users", {
         this.users = response?.content || [];
         this.totalElements = response?.totalElements || 0;
         this.page = response?.page || params.page || this.page;
-        this.size = response?.size || params.size || this.size;
+        this.size = response?.size || Math.min(params.size || this.size, 100);
       } catch (error) {
         this.error = "查詢使用者失敗";
         console.error(error);

@@ -89,7 +89,7 @@ const cards = computed(() => [
 onMounted(async () => {
   const [approvalRows, userPage, organizationRows] = await Promise.all([
     getPendingChangeRequests({}),
-    getUsers({ page: 1, size: 200 }),
+    getUsers({ page: 1, size: 100 }),
     getOrganizations(),
   ]);
   approvals.value = Array.isArray(approvalRows) ? approvalRows : [];

@@ -60,7 +60,7 @@ export const breadcrumbMap = {
   CopyApproved: ["推播文案管理", "已核准文案"],
   CopyRejected: ["推播文案管理", "已駁回文案"],
   CopyCancelled: ["推播文案管理", "已取消文案"],
-  AccountPendingChanges: ["推播人員管理", "待審核帳號異動"],
+  AccountPendingChanges: ["推播人員管理", "待審核新帳號"],
   AccountPendingReview: ["推播人員管理", "待審核帳號異動"],
   AccountActive: ["推播人員管理", "已啟用帳號"],
   AccountDisabled: ["推播人員管理", "已停用帳號"],

@@ -44,7 +44,7 @@
         </RouterLink>
 
         <div
-          v-if="section.children.length && isSectionActive(section)"
+          v-if="visibleChildren(section).length && isSectionActive(section)"
           class="space-y-1 pt-1.5 pb-4 pl-4"
         >
           <RouterLink
@@ -53,7 +53,7 @@
             :to="item.to"
             :class="[
               'flex h-sidebar-child items-center rounded px-4 text-sm font-medium leading-none text-text-secondary transition hover:bg-primary-soft hover:font-bold hover:text-primary',
-              route.path === item.to &&
+              isChildActive(item) &&
                 'bg-primary-soft font-bold text-primary',
             ]"
             @click="$emit('close')"
@@ -127,7 +127,7 @@ const authRoles = computed(() => normalizeRoles(auth.roles));
 
 onMounted(() => {
   copyStore.ensureLoaded();
-  userStore.fetchUsers({ size: 200 });
+  userStore.fetchUsers({ size: 100 });
   userStore.fetchAccountChangeRequests();
 });
 
@@ -154,13 +154,19 @@ const isSectionActive = (section) => {
   const matches = Array.isArray(section.match)
     ? section.match
     : [section.match];
-  return matches.some((match) => route.path.startsWith(match));
+  return matches.some((match) => route.path.startsWith(match)) ||
+    section.children.some((item) => isChildActive(item));
 };
 
 const visibleChildren = (section) =>
   section.children.filter((item) => {
     return hasAnyRole(authRoles.value, item.roles);
   });
+
+const normalizePath = (path = "") => String(path).replace(/\/+$/, "") || "/";
+
+const isChildActive = (item) =>
+  normalizePath(route.path) === normalizePath(item.to);
 
 const childCount = (item) => {
   if (!item.countKey) return 0;

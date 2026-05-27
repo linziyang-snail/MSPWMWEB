@@ -1,5 +1,7 @@
 import AppLayout from "@/layouts/AppLayout.vue";
 import AuthLayout from "@/layouts/AuthLayout.vue";
+import { getDefaultEntryPathForRoles } from "@/utils/authRoles";
+import { readAuthStorage } from "@/utils/authStorage";
 import ChangePasswordView from "@/views/account/ChangePasswordView.vue";
 import AccountStatusListView from "@/views/accounts/AccountStatusListView.vue";
 import ApplicationQueryView from "@/views/applications/ApplicationQueryView.vue";
@@ -9,8 +11,6 @@ import CopySubmitView from "@/views/copies/CopySubmitView.vue";
 import ForbiddenView from "@/views/errors/ForbiddenView.vue";
 import NotFoundView from "@/views/errors/NotFoundView.vue";
 import OperationLogView from "@/views/operationLogs/OperationLogView.vue";
-import { getDefaultEntryPathForRoles } from "@/utils/authRoles";
-import { readAuthStorage } from "@/utils/authStorage";
 
 function getDefaultEntryPath() {
   const auth = readAuthStorage();
@@ -78,7 +78,7 @@ export const routes = [
       },
       {
         path: "accounts/pending-review",
-        name: "AccountPendingReview",
+        name: "ApplicationQueryView",
         component: AccountStatusListView,
         meta: { title: "待審核帳號異動", status: "PENDING", roles: ["ADMIN"] },
       },

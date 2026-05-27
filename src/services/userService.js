@@ -6,7 +6,9 @@ import { changeMyPassword as changeMyPasswordApi } from "./authService";
 export async function getUsers(params = {}) {
   const { page = 1, size = 20 } = params || {};
   return unwrapApiBody(
-    await apiRequest.get("/api/users", { params: { page, size } }),
+    await apiRequest.get("/api/users", {
+      params: { page, size: clampUserPageSize(size) },
+    }),
   );
 }
 
@@ -129,6 +131,12 @@ export const ChangeMyPassword = (params, newPassword) => {
 };
 
 export const GetAccountChangeRequests = () => getAccountChangeRequests();
+
+function clampUserPageSize(size) {
+  const parsedSize = Number(size);
+  if (!Number.isFinite(parsedSize) || parsedSize <= 0) return 20;
+  return Math.min(Math.trunc(parsedSize), 100);
+}
 
 function normalizeIdParams(params) {
   if (params && typeof params === "object") return params;

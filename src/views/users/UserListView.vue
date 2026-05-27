@@ -117,7 +117,7 @@ const filteredUsers = computed(() =>
 );
 
 onMounted(async () => {
-  const response = await getUsers({ page: 1, size: 200 });
+  const response = await getUsers({ page: 1, size: 100 });
   users.value = response?.content ?? (Array.isArray(response) ? response : []);
 });
 

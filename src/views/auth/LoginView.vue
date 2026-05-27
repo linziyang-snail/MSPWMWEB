@@ -133,7 +133,11 @@ import loginSparkleIcon from "@/assets/loginSparkle.svg";
 import loginUserIcon from "@/assets/loginUser.svg";
 import ubotLogo from "@/assets/ubotLogo.svg";
 import { useAuthStore } from "@/stores/authStore";
-import { getDefaultEntryPathForRoles, normalizeRoles } from "@/utils/authRoles";
+import {
+  getDefaultEntryPathForRoles,
+  hasAdminRole,
+  normalizeRoles,
+} from "@/utils/authRoles";
 import { validateRequired, validateUserId } from "@/utils/validators";
 
 const router = useRouter();
@@ -165,6 +169,8 @@ const getDefaultEntryPath = () => {
 };
 
 const getLoginRedirect = () => {
+  if (hasAdminRole(authRoles.value)) return getDefaultEntryPath();
+
   const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "";
   if (!redirect) return getDefaultEntryPath();
   if (
