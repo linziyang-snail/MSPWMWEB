@@ -320,7 +320,7 @@
 </template>
 
 <script setup>
-import { computed, h, onMounted, ref, watch } from "vue";
+import { computed, h, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import accountDeleteIcon from "@/assets/account-delete.svg";
@@ -437,21 +437,6 @@ const isActivePage = computed(() => routeStatus.value === "ACTIVE");
 const showAccountFilters = computed(() => !isChangeReviewPage.value);
 const pendingAccountChangeRows = computed(() =>
   accountChangeRows.value.filter((row) => row.action !== "CREATE"),
-);
-
-onMounted(async () => {
-  try {
-    await reloadAccountData();
-  } catch (error) {
-    console.error(error);
-  }
-});
-
-watch(
-  () => route.name,
-  async () => {
-    await reloadAccountData();
-  },
 );
 
 const filteredRows = computed(() => {
@@ -874,17 +859,17 @@ async function onDialogConfirm() {
   try {
     if (action === "approve" && isChangeRequestRow(selected.value)) {
       await approveChangeRequest({ id: getChangeRequestId(selected.value) });
-      await reloadAccountData();
+      await reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: true });
       return;
     }
     if (["delete", "disable"].includes(action) && selected.value?.id) {
       await disableUser({ id: selected.value.id });
-      await reloadAccountData();
+      await reloadAccountData({ forceUsers: true, forceRequests: true });
       return;
     }
     if (action === "unlock" && selected.value?.id) {
       await unlockUser({ id: selected.value.id });
-      await reloadAccountData();
+      await reloadAccountData({ forceUsers: true, forceRequests: false });
     }
   } catch (error) {
     console.error(error);
@@ -901,7 +886,7 @@ async function onEditPermission(payload) {
       orgId: Number(payload.orgId),
       roleIds: payload.roles.map((role) => roleIdMap[role]).filter(Boolean),
     });
-    await reloadAccountData();
+    await reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: true });
     const isReactivation = payload.originalStatus && payload.originalStatus !== "ACTIVE" && payload.status === "ACTIVE";
     if (isReactivation) {
       const updated = users.value.find((user) => user.id === payload.id) || selected.value;
@@ -920,7 +905,7 @@ async function onPasswordReset(payload) {
       id: payload.account?.id,
       newPassword: payload.password,
     });
-    await reloadAccountData();
+    await reloadAccountData({ forceUsers: true, forceRequests: false });
   } catch (error) {
     console.error(error);
   }
@@ -930,7 +915,7 @@ async function onRejectConfirm(reason) {
   try {
     if (isChangeRequestRow(selected.value)) {
       await rejectChangeRequest({ id: getChangeRequestId(selected.value), remark: reason });
-      await reloadAccountData();
+      await reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: true });
     }
   } catch (error) {
     console.error(error);
@@ -941,7 +926,12 @@ async function onRejectConfirm(reason) {
 
 async function onCreateAccount(payload) {
   try {
-    await reloadAccountData();
+    await reloadAccountData({
+      forceUsers: true,
+      forceRequests: true,
+      usersStatus: "PENDING_APPROVAL",
+      requestStatus: "PENDING",
+    });
   } catch (error) {
     console.error(error);
   }
@@ -982,16 +972,31 @@ function removeAccountChangeRequest(id) {
   );
 }
 
-async function reloadAccountData() {
-  await userStore.refreshAll({ size: 100, status: accountRouteApiStatus.value });
-  await userStore.fetchAccountChangeRequests(accountRouteRequestStatus.value);
-  await syncAccountRowsFromStore();
+async function reloadAccountData(options = {}) {
+  const {
+    forceUsers = false,
+    forceRequests = false,
+    usersStatus = accountRouteApiStatus.value,
+    requestStatus = accountRouteRequestStatus.value,
+  } = options;
+  const tasks = [];
+  if (routeNeedsUsers.value) {
+    tasks.push(userStore.fetchUsers({ page: 1, size: 100, status: usersStatus, force: forceUsers }));
+  }
+  if (routeNeedsChangeRequests.value) {
+    tasks.push(userStore.fetchAccountChangeRequests(requestStatus, { force: forceRequests }));
+  } else {
+    tasks.push(userStore.fetchAccountChangeRequests("PENDING", { force: false }));
+  }
+  await Promise.all(tasks);
+  await syncAccountRowsFromStore({ usersStatus, requestStatus });
 }
 
 const accountRouteApiStatus = computed(() => {
   if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
-  if (route.name === "AccountPendingReview") return "ACTIVE";
   if (route.name === "AccountDisabled" || route.name === "AccountDeleted") return "DISABLED";
+  if (route.name === "AccountLocked") return "LOCKED";
+  if (route.name === "AccountPasswordInvalid") return "PASSWORD_INVALID";
   if (route.name === "AccountActive") return "ACTIVE";
   return "ACTIVE";
 });
@@ -1000,6 +1005,26 @@ const accountRouteRequestStatus = computed(() => {
   if (route.name === "AccountRejected") return "REJECTED";
   return "PENDING";
 });
+
+const routeNeedsUsers = computed(() =>
+  !["AccountPendingReview", "AccountRejected"].includes(route.name),
+);
+
+const routeNeedsChangeRequests = computed(() =>
+  ["AccountPendingChanges", "AccountPendingReview", "AccountRejected"].includes(route.name),
+);
+
+watch(
+  () => route.name,
+  async () => {
+    try {
+      await reloadAccountData();
+    } catch (error) {
+      console.error(error);
+    }
+  },
+  { immediate: true },
+);
 
 function getReviewedAccountRows(status) {
   return accountChangeRows.value
@@ -1017,9 +1042,13 @@ function getReviewedAccountRows(status) {
     }));
 }
 
-async function syncAccountRowsFromStore() {
-  users.value = userStore.users.map(normalizeAccountRowStatus);
-  accountChangeRows.value = await normalizeAccountChangeRows(userStore.accountChangeRequests);
+async function syncAccountRowsFromStore(options = {}) {
+  const {
+    usersStatus = accountRouteApiStatus.value,
+    requestStatus = accountRouteRequestStatus.value,
+  } = options;
+  users.value = userStore.getCachedUsers(usersStatus).map(normalizeAccountRowStatus);
+  accountChangeRows.value = await normalizeAccountChangeRows(userStore.getCachedChangeRequests(requestStatus));
 }
 
 function normalizeAccountRowStatus(row = {}) {

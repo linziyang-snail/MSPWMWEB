@@ -2,19 +2,38 @@ import { normalizeOrgTypeValue } from "@/utils/constants";
 
 import apiRequest, { unwrapApiBody } from "./apiRequest";
 
+let activeOrganizationsCache = null;
+let activeOrganizationsPromise = null;
+
 export async function getOrganizations(params = {}) {
-  const { status } = params || {};
-  return unwrapApiBody(
-    await apiRequest.get("/api/organizations", {
+  const { status, force = false } = params || {};
+  if (status === "ACTIVE" && activeOrganizationsCache && !force) {
+    return activeOrganizationsCache;
+  }
+  if (status === "ACTIVE" && activeOrganizationsPromise && !force) {
+    return activeOrganizationsPromise;
+  }
+  const requestPromise = apiRequest.get("/api/organizations", {
       params: pruneEmptyParams({ status }),
-    }),
-  );
+    }).then(unwrapApiBody);
+  if (status !== "ACTIVE") return requestPromise;
+  activeOrganizationsPromise = Promise.resolve(requestPromise)
+    .then((rows) => {
+      activeOrganizationsCache = rows;
+      return rows;
+    })
+    .finally(() => {
+      activeOrganizationsPromise = null;
+    });
+  return activeOrganizationsPromise;
 }
 
 export async function createOrganization(payload) {
   const { orgName, orgType } = payload || {};
   const body = { orgName, orgType: normalizeOrgTypeValue(orgType) };
-  return apiRequest.post("/api/organizations", body);
+  const response = await apiRequest.post("/api/organizations", body);
+  invalidateOrganizationsCache();
+  return response;
 }
 
 export async function updateOrganization(params, legacyPayload) {
@@ -23,12 +42,21 @@ export async function updateOrganization(params, legacyPayload) {
     legacyPayload,
   );
   const body = { orgName };
-  return apiRequest.put(`/api/organizations/${id}`, body);
+  const response = await apiRequest.put(`/api/organizations/${id}`, body);
+  invalidateOrganizationsCache();
+  return response;
 }
 
 export async function disableOrganization(params) {
   const { id } = normalizeIdParams(params);
-  return apiRequest.delete(`/api/organizations/${id}`);
+  const response = await apiRequest.delete(`/api/organizations/${id}`);
+  invalidateOrganizationsCache();
+  return response;
+}
+
+export function invalidateOrganizationsCache() {
+  activeOrganizationsCache = null;
+  activeOrganizationsPromise = null;
 }
 
 /**

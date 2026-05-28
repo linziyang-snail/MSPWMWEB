@@ -63,7 +63,7 @@
         <article
           v-for="category in categoryRows"
           :key="category.rowKey"
-          class="flex h-18 items-center justify-between rounded-xl border border-border bg-background-page px-5 transition hover:shadow-card-soft"
+          class="flex h-header items-center justify-between rounded-xl border border-border bg-background-page px-5 transition hover:shadow-card-soft"
         >
           <div class="flex items-center gap-4">
             <span
@@ -127,7 +127,7 @@
       v-if="isTableCategoryPage"
       class="overflow-x-auto overflow-y-hidden border rounded-xl border-border bg-background-surface"
     >
-      <div class="flex min-w-[960px] justify-end gap-4 px-4 py-4 border-b min-h-header border-border-muted bg-background-page/50">
+      <div class="flex min-w-modal-xl justify-end gap-4 px-4 py-4 border-b min-h-header border-border-muted bg-background-page/50">
         <button
           class="inline-flex h-10 w-40 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
           type="button"
@@ -143,7 +143,7 @@
         </button>
       </div>
 
-      <table class="min-w-[960px] w-full text-sm table-fixed">
+      <table class="min-w-modal-xl w-full text-sm table-fixed">
         <thead>
           <tr class="h-16 border-b border-border bg-background-hover">
             <th
@@ -226,7 +226,7 @@
         </tbody>
       </table>
 
-      <div class="flex min-w-[960px] items-center justify-between h-16 px-6 text-xs font-normal leading-normal bg-background-page text-natural">
+      <div class="flex min-w-modal-xl items-center justify-between h-16 px-6 text-xs font-normal leading-normal bg-background-page text-natural">
         <span>顯示共 {{ displayedCategoryRows.length }} 筆</span>
         <div class="flex items-center gap-2 text-xs font-bold leading-normal text-natural">
           <button class="px-4 text-center transition border rounded h-7 border-text-grey bg-background-surface hover:bg-background-hover disabled:opacity-60" type="button" disabled>
