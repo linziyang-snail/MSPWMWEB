@@ -1,12 +1,26 @@
 import apiRequest, { unwrapApiBody } from "./apiRequest";
 
+const changeRequestsCache = {};
+const changeRequestsInFlight = {};
+
 export async function getChangeRequests(params = {}) {
-  const { targetType, status = "PENDING" } = params || {};
-  return unwrapApiBody(
-    await apiRequest.get("/api/change-requests", {
+  const { targetType, status = "PENDING", force = false } = params || {};
+  const cacheKey = buildChangeRequestsKey({ targetType, status });
+  if (changeRequestsCache[cacheKey] && !force) return changeRequestsCache[cacheKey];
+  if (changeRequestsInFlight[cacheKey] && !force) return changeRequestsInFlight[cacheKey];
+
+  changeRequestsInFlight[cacheKey] = apiRequest.get("/api/change-requests", {
       params: pruneEmptyParams({ targetType, status }),
-    }),
-  );
+    })
+    .then(unwrapApiBody)
+    .then((rows) => {
+      changeRequestsCache[cacheKey] = rows;
+      return rows;
+    })
+    .finally(() => {
+      delete changeRequestsInFlight[cacheKey];
+    });
+  return changeRequestsInFlight[cacheKey];
 }
 
 export async function getPendingChangeRequests(params = {}) {
@@ -58,6 +72,18 @@ export async function rejectChangeRequest(params, legacyPayload) {
 export async function cancelChangeRequest(params) {
   const { id } = normalizeIdParams(params);
   return apiRequest.put(`/api/change-requests/${id}/cancel`, {});
+}
+
+export function invalidateChangeRequests(params = {}) {
+  const { targetType, status } = params || {};
+  if (targetType || status) {
+    const cacheKey = buildChangeRequestsKey({ targetType, status: status || "PENDING" });
+    delete changeRequestsCache[cacheKey];
+    delete changeRequestsInFlight[cacheKey];
+    return;
+  }
+  Object.keys(changeRequestsCache).forEach((key) => delete changeRequestsCache[key]);
+  Object.keys(changeRequestsInFlight).forEach((key) => delete changeRequestsInFlight[key]);
 }
 
 /**
@@ -138,4 +164,8 @@ function toYyyyMmDd(value) {
     return `${value.getFullYear()}${month}${date}`;
   }
   return String(value).replaceAll("/", "").replaceAll("-", "").slice(0, 8);
+}
+
+function buildChangeRequestsKey(params = {}) {
+  return `changeRequests:${params.targetType || "ALL"}:${params.status || "PENDING"}`;
 }

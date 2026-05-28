@@ -175,6 +175,9 @@
               {{ category.categoryName }}
             </td>
             <td class="px-4 py-4 text-base font-normal leading-normal text-natural xl:px-5">
+              <BaseBadge :status="category.action" :label="category.actionLabel" />
+            </td>
+            <td class="px-4 py-4 text-base font-normal leading-normal text-natural xl:px-5">
               {{ category.actorName }}
             </td>
             <td class="px-4 py-4 text-base font-normal leading-normal text-natural xl:px-5">
@@ -348,12 +351,14 @@ import BaseTable from "@/components/tables/BaseTable.vue";
 import {
   approveChangeRequest,
   getPendingChangeRequests,
+  invalidateChangeRequests,
   rejectChangeRequest,
   searchChangeRequests,
 } from "@/services/approvalService";
 import {
   disableOrganization,
   getOrganizations,
+  invalidateOrganizations,
 } from "@/services/organizationService";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -415,7 +420,16 @@ watch(
 );
 
 const onCategoryCreated = async () => {
-  await refreshCategoryData();
+  invalidateOrganizations("PENDING");
+  invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
+  if (isPendingCategoryPage.value) {
+    await refreshCategoryData({ forceOrganizations: true, forceRequests: true });
+  } else {
+    await Promise.all([
+      getOrganizations({ status: "PENDING", force: true }),
+      refreshCategoryChangeRequests("PENDING", { force: true }),
+    ]);
+  }
   selectedCategory.value = null;
 };
 
@@ -474,10 +488,11 @@ const categoryColumns = computed(() => {
     CategoryDeleted: "刪除人",
   };
   return [
-    { key: "date", label: dateLabelMap[route.name] || "建立日期", class: "w-[20%]" },
+    { key: "date", label: dateLabelMap[route.name] || "建立日期", class: "w-[18%]" },
     { key: "categoryName", label: "科別", class: "w-[20%]" },
-    { key: "actorName", label: actorLabelMap[route.name] || "建立人", class: "w-[20%]" },
-    { key: "status", label: "狀態", class: "w-[20%]" },
+    { key: "action", label: "申請類型", class: "w-[18%]" },
+    { key: "actorName", label: actorLabelMap[route.name] || "建立人", class: "w-[18%]" },
+    { key: "status", label: "狀態", class: "w-[18%]" },
   ];
 });
 
@@ -501,7 +516,9 @@ const confirmDeleteCategory = async () => {
   deletingCategory.value = true;
   try {
     await disableOrganization({ id: selectedCategory.value.id });
-    await refreshCategoryData();
+    invalidateOrganizations("PENDING");
+    invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
+    await refreshCategoryData({ forceOrganizations: true });
   } catch (error) {
     console.error(error);
   } finally {
@@ -511,27 +528,35 @@ const confirmDeleteCategory = async () => {
   }
 };
 
-async function refreshCategoryData() {
+async function refreshCategoryData(options = {}) {
+  const { forceOrganizations = false, forceRequests = false } = options;
   if (isPendingCategoryPage.value) {
     await Promise.all([
-      refreshOrganizations({ status: "PENDING" }),
-      refreshCategoryChangeRequests("PENDING"),
+      refreshOrganizations({ status: "PENDING", force: forceOrganizations }),
+      refreshCategoryChangeRequests("PENDING", { force: forceRequests }),
     ]);
     return;
   }
   if (isRejectedCategoryPage.value) {
-    await refreshCategoryChangeRequests("REJECTED");
+    await refreshCategoryChangeRequests("REJECTED", { force: forceRequests });
     return;
   }
-  await refreshOrganizations({ status: categoryStatusByRoute[route.name] || "ACTIVE" });
+  await refreshOrganizations({
+    status: categoryStatusByRoute[route.name] || "ACTIVE",
+    force: forceOrganizations,
+  });
 }
 
 async function refreshOrganizations(params = {}) {
   organizations.value = normalizeOrganizationRows(await getOrganizations(params));
 }
 
-async function refreshCategoryChangeRequests(status = "PENDING") {
-  categoryChangeRequests.value = await getPendingChangeRequests({ targetType: "ORGANIZATION", status }) ?? [];
+async function refreshCategoryChangeRequests(status = "PENDING", options = {}) {
+  categoryChangeRequests.value = await getPendingChangeRequests({
+    targetType: "ORGANIZATION",
+    status,
+    force: Boolean(options.force),
+  }) ?? [];
 }
 
 function normalizeOrganizationRows(response) {
@@ -560,6 +585,8 @@ function toCategoryRow(org = {}) {
     badgeStatus: normalizedStatus,
     orgTypeLabel: orgTypeLabelMap[org.orgType] || orgTypeLabelMap[normalizedOrgType] || org.orgType || "-",
     statusLabel: displayStatus || statusLabelMap[org.status] || statusLabelMap[normalizedStatus] || org.status || "-",
+    action: "",
+    actionLabel: "-",
     actorName: org.createdBy || org.requesterId || "-",
   };
 }
@@ -598,8 +625,14 @@ function toPendingCategoryRow(row = {}) {
   const payload = parsePayload(row.payload);
   const after = payload.after || payload.newData || payload.data || payload;
   const sourceOrg = organizations.value.find((org) => String(org.id) === String(row.targetId));
-  const orgName = after.orgName || after.categoryName || payload.orgName || payload.categoryName || row.targetId || "";
-  const orgType = normalizeOrgTypeValue(after.orgType || payload.orgType || sourceOrg?.orgType || "");
+  const action = String(row.action || payload.action || "").toUpperCase();
+  const orgName = after.orgName ||
+    after.categoryName ||
+    payload.orgName ||
+    payload.categoryName ||
+    sourceOrg?.orgName ||
+    (row.targetId ? `科別 ID：${row.targetId}` : "");
+  const orgType = normalizeOrgTypeValue(after.orgType || payload.orgType || sourceOrg?.orgType || "SECTION");
   return {
     ...row,
     rowKey: `request-${row.id}`,
@@ -608,13 +641,28 @@ function toPendingCategoryRow(row = {}) {
     categoryName: orgName,
     orgName,
     orgType,
+    action,
+    actionLabel: getOrganizationActionLabel(action),
     status: row.status || "PENDING",
     badgeStatus: row.status || "PENDING",
     statusLabel: statusLabelMap[row.status] || "待審核",
     actorName: row.requesterName || row.requesterId || row.createdBy || "-",
     requesterId: row.requesterId || row.createdBy || "",
     createdAt: row.createdAt,
+    closedAt: row.closedAt,
+    rejectReason: row.remark || row.rejectReason || "-",
   };
+}
+
+function getOrganizationActionLabel(action = "") {
+  return (
+    {
+      CREATE: "新增科別",
+      UPDATE: "修改科別",
+      DELETE: "停用科別",
+      DISABLE: "停用科別",
+    }[String(action).toUpperCase()] || "科別異動"
+  );
 }
 
 function parsePayload(payload) {
@@ -737,8 +785,10 @@ async function approveSelectedCategory() {
   if (!selectedCategory.value?.changeRequestId) return;
   reviewingCategory.value = true;
   try {
+    const action = selectedCategory.value.action;
     await approveChangeRequest({ id: selectedCategory.value.changeRequestId });
-    await refreshCategoryData();
+    invalidateCategoryCachesAfterApprove(action);
+    await refreshCategoryData({ forceOrganizations: true, forceRequests: true });
   } catch (error) {
     console.error(error);
   } finally {
@@ -752,13 +802,37 @@ async function rejectSelectedCategory(reason) {
   reviewingCategory.value = true;
   try {
     await rejectChangeRequest({ id: selectedCategory.value.changeRequestId, remark: reason });
-    await refreshCategoryData();
+    invalidateCategoryCachesAfterReject();
+    await refreshCategoryData({ forceOrganizations: true, forceRequests: true });
   } catch (error) {
     console.error(error);
   } finally {
     rejectCategoryDialogOpen.value = false;
     reviewingCategory.value = false;
   }
+}
+
+function invalidateCategoryCachesAfterApprove(action = "") {
+  const normalizedAction = String(action || "").toUpperCase();
+  invalidateOrganizations("PENDING");
+  invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
+  if (["CREATE", "UPDATE"].includes(normalizedAction)) {
+    invalidateOrganizations("ACTIVE");
+  }
+  if (["DELETE", "DISABLE"].includes(normalizedAction)) {
+    invalidateOrganizations("ACTIVE");
+    invalidateOrganizations("DISABLED");
+  }
+  if (!normalizedAction) {
+    invalidateOrganizations("ACTIVE");
+    invalidateOrganizations("DISABLED");
+  }
+}
+
+function invalidateCategoryCachesAfterReject() {
+  invalidateOrganizations("PENDING");
+  invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
+  invalidateChangeRequests({ targetType: "ORGANIZATION", status: "REJECTED" });
 }
 
 const columns = [
