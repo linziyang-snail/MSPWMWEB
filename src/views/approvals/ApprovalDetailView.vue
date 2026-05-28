@@ -1,14 +1,7 @@
 <template>
   <div>
-    <PageTitle
-      title="審核詳情"
-      :description="approval ? `案件 #${approval.id}` : '查無資料'"
-      eyebrow="Approvals"
-    />
-    <div
-      v-if="approval"
-      class="space-y-4 rounded-lg border border-border-muted bg-background-surface p-5"
-    >
+    <PageTitle title="審核詳情" :description="approval ? `案件 #${approval.id}` : '查無資料'" eyebrow="Approvals" />
+    <div v-if="approval" class="p-5 space-y-4 border rounded-lg border-border-muted bg-background-surface">
       <div class="grid gap-4 md:grid-cols-3">
         <div v-for="item in details" :key="item.label">
           <p class="text-xs text-text-muted">{{ item.label }}</p>
@@ -23,10 +16,7 @@
       </div>
       <div>
         <p class="mb-2 text-sm font-medium text-text-secondary">Payload</p>
-        <pre
-          class="overflow-auto rounded-md bg-text-primary p-4 text-xs text-text-inverse"
-          >{{ approval.payload }}</pre
-        >
+        <pre class="p-4 overflow-auto text-xs rounded-md bg-text-primary text-text-inverse">{{ approval.payload }}</pre>
       </div>
       <div class="flex justify-end gap-3">
         <span v-if="isOwnRequest" class="text-sm font-medium text-danger-text">等待其他管理員審核</span>
@@ -41,9 +31,9 @@
       <p class="text-sm text-text-secondary">
         確認送出此審核動作？
       </p>
-      <FormField v-if="modal === 'reject'" class="mt-4" label="駁回原因"
-        ><BaseTextarea v-model="remark"
-      /></FormField>
+      <FormField v-if="modal === 'reject'" class="mt-4" label="駁回原因">
+        <BaseTextarea v-model="remark" />
+      </FormField>
     </BaseModal>
   </div>
 </template>
@@ -80,7 +70,7 @@ const modalOpen = computed({
 const modalTitle = computed(
   () =>
     ({ approve: "放行案件", reject: "駁回案件" })[
-      modal.value
+    modal.value
     ] || "確認",
 );
 const isOwnRequest = computed(() => Boolean(approval.value?.requesterId && approval.value.requesterId === auth.userId));

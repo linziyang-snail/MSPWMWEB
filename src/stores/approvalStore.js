@@ -8,6 +8,11 @@ import {
 export const useApprovalStore = defineStore("approvals", {
   state: () => ({ pending: [], history: [], loading: false }),
   actions: {
+    resetState() {
+      this.pending = [];
+      this.history = [];
+      this.loading = false;
+    },
     async fetchPending(params = {}) {
       this.loading = true;
       try {

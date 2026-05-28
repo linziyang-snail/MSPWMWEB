@@ -356,6 +356,7 @@ import {
   unlockUser,
   updateUser,
 } from "@/services/userService";
+import { useAppStore } from "@/stores/appStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUserStore } from "@/stores/userStore";
 import { roleIdMap, roleLabelMap, statusLabelMap } from "@/utils/constants";
@@ -363,6 +364,7 @@ import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
 const auth = useAuthStore();
+const appStore = useAppStore();
 const userStore = useUserStore();
 const selected = ref(null);
 const dialog = ref({
@@ -446,8 +448,9 @@ const filteredRows = computed(() => {
     const pendingUsers = users.value.filter(
       (u) => ["PENDING", "PENDING_APPROVAL", "PENDING_MULTI"].includes(u.status),
     );
-    const pendingCreateRows = getPendingCreateRows(pendingUsers);
-    rows = [...pendingCreateRows, ...pendingUsers];
+    const mergedPendingUsers = mergePendingUsersWithChangeRequests(pendingUsers);
+    const pendingCreateRows = getPendingCreateRows(mergedPendingUsers);
+    rows = [...pendingCreateRows, ...mergedPendingUsers];
     return sortRows(filterRowsByAccountFilters(rows));
   }
   if (routeStatus.value === "REJECTED") {
@@ -857,9 +860,11 @@ function getDisplayUserName(row = {}) {
 async function onDialogConfirm() {
   const action = dialog.value.action;
   try {
-    if (action === "approve" && isChangeRequestRow(selected.value)) {
-      await approveChangeRequest({ id: getChangeRequestId(selected.value) });
-      await reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: true });
+    if (action === "approve") {
+      const changeRequestId = requireChangeRequestId(selected.value);
+      if (!changeRequestId) return;
+      await approveChangeRequest({ id: changeRequestId });
+      await reloadAccountDataAfterReview();
       return;
     }
     if (["delete", "disable"].includes(action) && selected.value?.id) {
@@ -913,10 +918,10 @@ async function onPasswordReset(payload) {
 
 async function onRejectConfirm(reason) {
   try {
-    if (isChangeRequestRow(selected.value)) {
-      await rejectChangeRequest({ id: getChangeRequestId(selected.value), remark: reason });
-      await reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: true });
-    }
+    const changeRequestId = requireChangeRequestId(selected.value);
+    if (!changeRequestId) return;
+    await rejectChangeRequest({ id: changeRequestId, remark: reason });
+    await reloadAccountDataAfterReview();
   } catch (error) {
     console.error(error);
   } finally {
@@ -963,6 +968,21 @@ function getChangeRequestId(item = {}) {
   return item.changeRequestId || item.id;
 }
 
+function requireChangeRequestId(item = {}) {
+  const changeRequestId = item?.changeRequestId;
+  if (Number.isInteger(Number(changeRequestId))) return changeRequestId;
+  const rowId = item?.id;
+  const displayUserId = item?.userId || item?.targetId;
+  if (item?.targetType === "USER" && rowId && String(rowId) !== String(displayUserId || "")) {
+    return rowId;
+  }
+  appStore.showAlert({
+    title: "系統提示",
+    message: "找不到審核單編號，請重新整理後再試",
+  });
+  return null;
+}
+
 function removeAccountChangeRequest(id) {
   accountChangeRows.value = accountChangeRows.value.filter(
     (item) => String(item.id) !== String(id),
@@ -990,6 +1010,20 @@ async function reloadAccountData(options = {}) {
   }
   await Promise.all(tasks);
   await syncAccountRowsFromStore({ usersStatus, requestStatus });
+}
+
+async function reloadAccountDataAfterReview() {
+  userStore.invalidateUsers("PENDING_APPROVAL");
+  userStore.invalidateUsers("ACTIVE");
+  userStore.invalidateUsers("DISABLED");
+  userStore.invalidateAccountChangeRequests("PENDING");
+  userStore.invalidateAccountChangeRequests("REJECTED");
+  await reloadAccountData({
+    forceUsers: routeNeedsUsers.value,
+    forceRequests: true,
+    usersStatus: accountRouteApiStatus.value,
+    requestStatus: accountRouteRequestStatus.value,
+  });
 }
 
 const accountRouteApiStatus = computed(() => {
@@ -1049,6 +1083,33 @@ async function syncAccountRowsFromStore(options = {}) {
   } = options;
   users.value = userStore.getCachedUsers(usersStatus).map(normalizeAccountRowStatus);
   accountChangeRows.value = await normalizeAccountChangeRows(userStore.getCachedChangeRequests(requestStatus));
+}
+
+function mergePendingUsersWithChangeRequests(pendingUsers = []) {
+  const requestMap = createPendingUserChangeRequestMap();
+  return pendingUsers.map((user) => {
+    const request = requestMap.get(String(user.id));
+    if (!request) return user;
+    return {
+      ...user,
+      userId: user.id,
+      targetType: "USER",
+      action: request.action,
+      changeRequestId: request.id,
+      changeRequestAction: request.action,
+      requesterId: request.requesterId || request.createdBy || user.createdBy || "",
+      createdBy: request.requesterId || user.createdBy,
+      createdAt: user.createdAt || request.createdAt,
+    };
+  });
+}
+
+function createPendingUserChangeRequestMap() {
+  return new Map(
+    accountChangeRows.value
+      .filter((request) => request.targetType === "USER" && request.status === "PENDING")
+      .map((request) => [String(request.targetId || request.userId), request]),
+  );
 }
 
 function normalizeAccountRowStatus(row = {}) {

@@ -5,6 +5,10 @@ import {
   logout as logoutApi,
   refreshToken as refreshTokenApi,
 } from "@/services/authService";
+import { invalidateOrganizationsCache } from "@/services/organizationService";
+import { useApprovalStore } from "@/stores/approvalStore";
+import { useOrganizationStore } from "@/stores/organizationStore";
+import { useUserStore } from "@/stores/userStore";
 import { normalizeRoles } from "@/utils/authRoles";
 import {
   clearAuthStorage,
@@ -37,6 +41,13 @@ function createAuthError(response, desc) {
     body: response?.body,
     raw: response,
   };
+}
+
+function resetSessionStores() {
+  useUserStore().resetState();
+  useApprovalStore().resetState();
+  useOrganizationStore().resetState();
+  invalidateOrganizationsCache();
 }
 
 export const useAuthStore = defineStore("auth", {
@@ -93,6 +104,7 @@ export const useAuthStore = defineStore("auth", {
     async login(payload) {
       this.loading = true;
       try {
+        resetSessionStores();
         clearAuthStorage();
         const response = await loginApi(payload);
         if (response?.code && response.code !== "0000") {
@@ -139,6 +151,7 @@ export const useAuthStore = defineStore("auth", {
       return nextToken;
     },
     clearAuth() {
+      resetSessionStores();
       this.accessToken = "";
       this.userId = "";
       this.employeeId = "";

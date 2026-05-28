@@ -66,6 +66,34 @@ export const useUserStore = defineStore("users", {
       ]);
       this.loaded = true;
     },
+    resetState() {
+      this.users = [];
+      this.usersByStatus = {};
+      this.totalElements = 0;
+      this.page = 1;
+      this.size = 20;
+      this.accountChangeRequests = [];
+      this.changeRequestsByStatus = {};
+      this.inFlightByKey = {};
+      this.lastFetchedAtByKey = {};
+      this.loaded = false;
+      this.loadingPromise = null;
+      this.loading = false;
+      this.error = "";
+    },
+    invalidateUsers(status) {
+      if (status) {
+        delete this.usersByStatus[status];
+        delete this.inFlightByKey[buildUsersKey({ page: 1, size: 100, status })];
+        return;
+      }
+      this.usersByStatus = {};
+    },
+    invalidateAccountChangeRequests(status = "PENDING") {
+      delete this.changeRequestsByStatus[status];
+      delete this.inFlightByKey[buildChangeRequestsKey(status)];
+      if (status === "PENDING") this.loaded = false;
+    },
     async fetchUsers(params = {}) {
       const { force = false, ...requestParams } = params || {};
       const status = requestParams.status || "ACTIVE";

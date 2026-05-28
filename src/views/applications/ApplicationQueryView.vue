@@ -97,7 +97,7 @@
         <BaseSearchInput
           v-model="categoryKeyword"
           class="flex-1 min-w-80"
-          placeholder="請輸入科別名稱、科別 ID"
+          placeholder="請輸入科別名稱"
           size="md"
           @submit="applyCategoryFilters"
         />
@@ -173,9 +173,6 @@
             </td>
             <td class="px-4 py-4 text-base font-normal leading-normal text-natural xl:px-5">
               {{ category.categoryName }}
-            </td>
-            <td class="px-4 py-4 text-base font-normal leading-normal text-natural xl:px-5">
-              <BaseBadge :status="category.action" :label="category.actionLabel" />
             </td>
             <td class="px-4 py-4 text-base font-normal leading-normal text-natural xl:px-5">
               {{ category.actorName }}
@@ -488,11 +485,10 @@ const categoryColumns = computed(() => {
     CategoryDeleted: "刪除人",
   };
   return [
-    { key: "date", label: dateLabelMap[route.name] || "建立日期", class: "w-[18%]" },
+    { key: "date", label: dateLabelMap[route.name] || "建立日期", class: "w-[20%]" },
     { key: "categoryName", label: "科別", class: "w-[20%]" },
-    { key: "action", label: "申請類型", class: "w-[18%]" },
-    { key: "actorName", label: actorLabelMap[route.name] || "建立人", class: "w-[18%]" },
-    { key: "status", label: "狀態", class: "w-[18%]" },
+    { key: "actorName", label: actorLabelMap[route.name] || "建立人", class: "w-[20%]" },
+    { key: "status", label: "狀態", class: "w-[20%]" },
   ];
 });
 
@@ -538,7 +534,10 @@ async function refreshCategoryData(options = {}) {
     return;
   }
   if (isRejectedCategoryPage.value) {
-    await refreshCategoryChangeRequests("REJECTED", { force: forceRequests });
+    await Promise.all([
+      refreshCategoryChangeRequests("REJECTED", { force: forceRequests }),
+      refreshOrganizationNameLookup({ force: forceOrganizations }),
+    ]);
     return;
   }
   await refreshOrganizations({
@@ -549,6 +548,14 @@ async function refreshCategoryData(options = {}) {
 
 async function refreshOrganizations(params = {}) {
   organizations.value = normalizeOrganizationRows(await getOrganizations(params));
+}
+
+async function refreshOrganizationNameLookup(options = {}) {
+  const statuses = ["ACTIVE", "PENDING", "DISABLED"];
+  const rows = await Promise.all(
+    statuses.map((status) => getOrganizations({ status, force: Boolean(options.force) })),
+  );
+  organizations.value = rows.flatMap(normalizeOrganizationRows);
 }
 
 async function refreshCategoryChangeRequests(status = "PENDING", options = {}) {
@@ -585,9 +592,7 @@ function toCategoryRow(org = {}) {
     badgeStatus: normalizedStatus,
     orgTypeLabel: orgTypeLabelMap[org.orgType] || orgTypeLabelMap[normalizedOrgType] || org.orgType || "-",
     statusLabel: displayStatus || statusLabelMap[org.status] || statusLabelMap[normalizedStatus] || org.status || "-",
-    action: "",
-    actionLabel: "-",
-    actorName: org.createdBy || org.requesterId || "-",
+    actorName: route.name === "CategoryDeleted" ? "-" : org.createdBy || org.requesterId || "-",
   };
 }
 
@@ -624,14 +629,9 @@ function getPendingCategoryRows() {
 function toPendingCategoryRow(row = {}) {
   const payload = parsePayload(row.payload);
   const after = payload.after || payload.newData || payload.data || payload;
-  const sourceOrg = organizations.value.find((org) => String(org.id) === String(row.targetId));
   const action = String(row.action || payload.action || "").toUpperCase();
-  const orgName = after.orgName ||
-    after.categoryName ||
-    payload.orgName ||
-    payload.categoryName ||
-    sourceOrg?.orgName ||
-    (row.targetId ? `科別 ID：${row.targetId}` : "");
+  const orgName = resolveOrganizationName(row, payload);
+  const sourceOrg = findOrganizationById(row.targetId);
   const orgType = normalizeOrgTypeValue(after.orgType || payload.orgType || sourceOrg?.orgType || "SECTION");
   return {
     ...row,
@@ -642,27 +642,15 @@ function toPendingCategoryRow(row = {}) {
     orgName,
     orgType,
     action,
-    actionLabel: getOrganizationActionLabel(action),
     status: row.status || "PENDING",
     badgeStatus: row.status || "PENDING",
-    statusLabel: statusLabelMap[row.status] || "待審核",
+    statusLabel: getCategoryStatusLabel(row.status) || statusLabelMap[row.status] || "待審核",
     actorName: row.requesterName || row.requesterId || row.createdBy || "-",
     requesterId: row.requesterId || row.createdBy || "",
     createdAt: row.createdAt,
     closedAt: row.closedAt,
     rejectReason: row.remark || row.rejectReason || "-",
   };
-}
-
-function getOrganizationActionLabel(action = "") {
-  return (
-    {
-      CREATE: "新增科別",
-      UPDATE: "修改科別",
-      DELETE: "停用科別",
-      DISABLE: "停用科別",
-    }[String(action).toUpperCase()] || "科別異動"
-  );
 }
 
 function parsePayload(payload) {
@@ -675,6 +663,18 @@ function parsePayload(payload) {
   }
 }
 
+function resolveOrganizationName(row = {}, payload = parsePayload(row.payload)) {
+  const after = payload.after || payload.newData || payload.data || payload;
+  const payloadName = after.orgName || after.categoryName || payload.orgName || payload.categoryName;
+  if (payloadName) return payloadName;
+  return findOrganizationById(row.targetId)?.orgName || "-";
+}
+
+function findOrganizationById(id) {
+  if (id === undefined || id === null || id === "") return null;
+  return organizations.value.find((org) => String(org.id) === String(id)) || null;
+}
+
 function filterCategoryRows(rows) {
   const keyword = committedCategoryFilters.value.keyword.trim().toLowerCase();
   const startTime = getStartOfDayTime(committedCategoryFilters.value.startDate);
@@ -683,7 +683,7 @@ function filterCategoryRows(rows) {
   return rows.filter((row) => {
     const textMatched =
       !keyword ||
-      [row.id, row.categoryName]
+      [row.categoryName]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(keyword));
     if (!textMatched) return false;
@@ -733,7 +733,10 @@ function getCategorySortValue(row, key) {
 }
 
 function formatCategoryDate(row = {}) {
-  const value = row.createdAt || row.closedAt || row.updatedAt;
+  if (route.name === "CategoryDeleted") return "-";
+  const value = route.name === "CategoryRejected"
+    ? row.closedAt || row.createdAt
+    : row.createdAt || row.closedAt || row.updatedAt;
   if (!value) return "-";
   return String(value).slice(0, 10);
 }
@@ -816,6 +819,7 @@ function invalidateCategoryCachesAfterApprove(action = "") {
   const normalizedAction = String(action || "").toUpperCase();
   invalidateOrganizations("PENDING");
   invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
+  invalidateChangeRequests({ targetType: "ORGANIZATION", status: "REJECTED" });
   if (["CREATE", "UPDATE"].includes(normalizedAction)) {
     invalidateOrganizations("ACTIVE");
   }
