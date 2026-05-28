@@ -62,7 +62,7 @@ export const routes = [
         path: "copies/cancelled",
         name: "CopyCancelled",
         component: CopyStatusListView,
-        meta: { title: "已取消文案", status: "CANCELLED", roles: ["USER"] },
+        meta: { title: "已取消文案", status: "CANCELED", roles: ["USER"] },
       },
       {
         path: "copies/submit",

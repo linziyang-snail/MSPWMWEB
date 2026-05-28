@@ -1,90 +1,73 @@
-# API Gaps
+# API Gaps / Diff
+
+## Controller confirmed API
 
 ### Auth
-- `POST /auth/login`：登入
-- `POST /auth/logout`：登出
-- `POST /auth/refresh`：刷新 access token
-- `PUT /auth/me/password`：修改自己的密碼
+- `POST /auth/login`：登入，request `{ userId, password }`，response body 含 `accessToken`。
+- `POST /auth/refresh`：刷新 access token，response body 含 `token`，前端統一寫回 access token key。
+- `POST /auth/logout`：登出。
+- `PUT /auth/me/password`：修改自己的密碼，request `{ id, oldPassword, newPassword }`。
 
 ### User
-- `GET /api/users`：查詢使用者分頁
-- `POST /api/users`：新增使用者申請
-- `GET /api/users/{id}`：查詢單一使用者
-- `PUT /api/users/{id}`：修改使用者申請
-- `DELETE /api/users/{id}`：停用使用者申請
-- `PUT /api/users/{id}/unlock`：解鎖使用者
-- `PUT /api/users/{id}/password`：重設使用者密碼
-
-### Role
-- `GET /api/roles`：查詢角色
+- `GET /api/users?page=&size=&status=`：已支援 `status`，`size` 最大 100。
+- `POST /api/users`：新增使用者申請，`roleIds` required。
+- `GET /api/users/{id}`：查詢單一使用者；前端不額外加死數字驗證。
+- `PUT /api/users/{id}`：修改使用者申請。
+- `DELETE /api/users/{id}`：停用使用者申請。
+- `PUT /api/users/{id}/unlock`：解鎖使用者。
+- `PUT /api/users/{id}/password`：重設使用者密碼。
 
 ### Organization
-- `GET /api/organizations`：查詢可管理組織
-- `POST /api/organizations`：新增組織
-- `PUT /api/organizations/{id}`：修改組織
-- `DELETE /api/organizations/{id}`：停用組織
-- 目前已串接於申請單資訊查詢 / 科別管理；列表 response 的 `orgType` / `status` 可能回中文（例如「科別」「審核中」），request `orgType` 仍送英文 `DEPARTMENT` / `SECTION`。
+- `GET /api/organizations?status=`：已支援 `ACTIVE` / `DISABLED` / `PENDING`。
+- `POST /api/organizations`：新增組織 / 科別，request `orgType` 送英文 enum。
+- `PUT /api/organizations/{id}`：修改組織 / 科別。
+- `DELETE /api/organizations/{id}`：停用組織 / 科別。
+- Response 的 `orgType` / `status` 可能回中文 label，例如 `科別`、`啟用`、`審核中`；request 仍只送英文 enum。
 
-### Approval
-- `GET /api/change-requests`：查詢待審核列表
-- `GET /api/change-requests/history`：查詢審核歷史
-- `PUT /api/change-requests/{id}/approve`：放行
-- `PUT /api/change-requests/{id}/reject`：駁回
-- `PUT /api/change-requests/{id}/cancel`：取消
+### Approval / ChangeRequest
+- `GET /api/change-requests?targetType=&status=`：已支援 `status`。
+- `GET /api/change-requests/history?targetType=&targetId=`：`targetType`、`targetId` 必填，前端空值不送。
+- `GET /api/change-requests/search?targetId=&startDate=&endDate=&page=&size=`：日期以 Controller 為準送 `yyyyMMdd`。
+- `PUT /api/change-requests/{id}/approve`：核准。
+- `PUT /api/change-requests/{id}/reject`：駁回，request `{ remark }`。
+- `PUT /api/change-requests/{id}/cancel`：取消，後端權限主要給 `USER`。
+- `ChangeRequestStatus` 使用 `CANCELED`，不是 `CANCELLED`。
+
+### Role
+- `GET /api/roles`：角色代碼使用 `ADMIN` / `MANAGER` / `USER`，中文只作顯示。
 
 ### Copy
-- `POST /api/copies`：文案送審
+- 目前正式 API 只有 `POST /api/copies`：文案送審。
+- 正式 API 尚未提供 `GET /api/copies`、`GET /api/copies/{number}`、文案修改、停用、取消、核准、駁回 endpoint。
 
-### Deprecated
-- `GET /api/departments/copy-categories/{departmentId}`
-- `POST /api/departments/copy-categories`
-- `PUT /api/departments/copy-categories/{copyCategoryId}`
-- `DELETE /api/departments/copy-categories/{copyCategoryId}`
-- `GET /api/organizations/{orgId}/categories`
-- `PUT /api/organizations/{orgId}/categories`
-- `POST /api/organizations/{orgId}/categories/{categoryId}`
-- `DELETE /api/organizations/{orgId}/categories/{categoryId}`
+### Deprecated APIs still centralized in service
+- CopyCategory：`/api/departments/copy-categories/**`，後端已標示 deprecated。
+- OrganizationCategory：`/api/organizations/{orgId}/categories/**`，後端已標示 deprecated。
+- 若現有 ADMIN 分類設定頁仍需使用，維持集中於 deprecated service，不讓 component 直接 import mock。
 
-## 前端仍缺正式 API
+## Frontend changes made
 
-- `/copies/all` 若需要文案列表，目前 Swagger 未提供 `GET /api/copies`；正式模式不可誤打不存在 API。
-- 文案列表查詢：全部 / 待審核 / 已核准 / 已駁回 / 已取消。
-- 文案詳情查詢。
-- 文案取消送審。
-- 文案核准 / 駁回。現有 Approval API 可能可承接，但仍缺 `targetType` enum 與 payload schema。
-- 文案複製新建是否為前端行為或後端 API。
-- 操作歷程查詢 API。
-- 文案分類 CopyCategory API 仍標示 deprecated；申請單資訊查詢 / 科別管理已改以 Organization API 的 `SECTION` 資料呈現。
-- 帳號異動待審核列表。現有 Approval API 可能可承接，但仍缺 target schema。
-- 首次登入 / 管理員重設密碼後強制改密碼欄位。
-- 密碼到期第 25 天提醒與第 30 天鎖定欄位。
-- 權限選單 / permission 對照 API。
-- refresh token 儲存方式與 401 自動 refresh 流程。
+- `apiRequest` 維持成功 response unwrap pattern：service 透過 `unwrapApiBody` 取得 `{ code, desc, body }` 的 `body`；錯誤保留 `status` / `code` / `desc` / `body` 並顯示後端 `desc`。
+- `userService.getUsers` 支援 `page` / `size` / `status`，並限制 `size <= 100`。
+- `organizationService.getOrganizations` 支援 `status`。
+- `approvalService.getChangeRequests` / `getPendingChangeRequests` 支援 `status`。
+- `approvalService.searchChangeRequests` 已新增 `/api/change-requests/search`，空值不送，日期轉 `yyyyMMdd`。
+- 帳號新增 / 編輯的科別下拉改抓 `GET /api/organizations?status=ACTIVE` 並過濾 SECTION / 科別。
+- 科別管理依 tab 改抓對應 status；待審核 / 已駁回操作使用 change request id。
+- 全域前端 enum 改用 `CANCELED`。
 
-## 暫時 Mock-only Compatibility Service
+## Remaining official API gaps
 
-- `src/services/copyService.js`
-  - `getCompatibleCopies`
-  - `getCompatibleCopyCounts`
-  - `createCompatibleCopy`
-  - `cancelCompatibleCopy`
-  - `approveCompatibleCopy`
-  - `rejectCompatibleCopy`
-- `src/services/categoryCompatibilityService.js`
-  - `GetCompatibleCopyCategories`
-- `src/services/operationHistoryService.js`
-  - `GetOperationHistory`
-- `src/services/userService.js`
-  - `GetAccountChangeRequests`
+- 文案列表 / 詳情 / 取消 / 核准 / 駁回仍缺正式 Copy API；目前只可正式送 `POST /api/copies`。
+- 文案列表仍保留 compatibility service，不會亂打不存在的 Copy endpoint。
+- `change-requests/search` 沒有 `targetType` query；若 UI 需要依 USER / ORGANIZATION / COPY 分類搜尋，需要後端確認或擴充。
+- 操作歷程查詢 API 仍未確認。
+- 401 自動 refresh 流程尚未完整串成 interceptor retry；auth store 已保留 refresh token 寫回 access token 的 action。
 
-這些 function 是為了避免 component 直接 import mock，同時集中標記正式 API 缺口。後端提供正式 endpoint 後，應優先替換這些 compatibility service。
+## Compatibility services kept
 
-## 後端待確認
-
-- 成功 response 是否為 raw DTO / array / page object，或統一包 `{ code, desc, body }`。
-- `ChangeRequest.targetType` enum。
-- User role code / roleName / permission 對照表目前依 SQL 測試資料使用 `ADMIN` / `MANAGER` / `USER`。
-- User status enum：`PENDING`、`PENDING_MULTI`、`ACTIVE`、`DISABLED`、`DELETED`、`REJECTED` 是否為正式值。
-- Copy status enum：`PENDING`、`APPROVED`、`REJECTED`、`CANCELLED` 是否為正式值。
-- 密碼規則：最大長度、大小寫、數字、特殊符號、不可重複舊密碼等。
-- 文案欄位最大長度與 URL 驗證規則。
+- `src/services/copyService.js`：保留文案列表 / 統計 / 取消 / 核准 / 駁回 compatibility function，正式 API 不存在時集中處理缺口。
+- `src/services/categoryCompatibilityService.js`：以 active SECTION organizations 暫代分類來源。
+- `src/services/deprecated/copyCategoryService.js`：集中 deprecated CopyCategory API。
+- `src/services/deprecated/organizationCategoryService.js`：集中 deprecated OrganizationCategory API。
+- `src/services/operationHistoryService.js`：操作歷程正式 API 未確認前保留 compatibility。

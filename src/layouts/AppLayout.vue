@@ -117,8 +117,13 @@ const handlePasswordChanged = () => {
 };
 
 const handleLogout = async () => {
-  await auth.logout();
-  showLogout.value = false;
-  router.push("/login");
+  try {
+    await auth.logout();
+    router.push("/login");
+  } catch (error) {
+    console.error(error);
+  } finally {
+    showLogout.value = false;
+  }
 };
 </script>

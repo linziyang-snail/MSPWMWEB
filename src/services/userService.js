@@ -4,10 +4,10 @@ import apiRequest, { unwrapApiBody } from "./apiRequest";
 import { changeMyPassword as changeMyPasswordApi } from "./authService";
 
 export async function getUsers(params = {}) {
-  const { page = 1, size = 20 } = params || {};
+  const { page = 1, size = 20, status = "ACTIVE" } = params || {};
   return unwrapApiBody(
     await apiRequest.get("/api/users", {
-      params: { page, size: clampUserPageSize(size) },
+      params: pruneEmptyParams({ page, size: clampUserPageSize(size), status }),
     }),
   );
 }
@@ -57,17 +57,17 @@ export async function changeMyPassword(payload) {
   return changeMyPasswordApi(body);
 }
 
-export async function getAccountChangeRequests() {
+export async function getAccountChangeRequests(status = "PENDING") {
   const rows = unwrapApiBody(
     await apiRequest.get("/api/change-requests", {
-      params: { targetType: "USER" },
+      params: pruneEmptyParams({ targetType: "USER", status }),
     }),
   );
   if (!Array.isArray(rows)) return [];
   return rows.filter((item) => {
     const targetType = item?.targetType || "USER";
     const status = item?.status || "PENDING";
-    return targetType === "USER" && status === "PENDING";
+    return targetType === "USER";
   });
 }
 
@@ -135,7 +135,7 @@ export const ChangeMyPassword = (params, newPassword) => {
   return changeMyPassword({ oldPassword: params, newPassword });
 };
 
-export const GetAccountChangeRequests = () => getAccountChangeRequests();
+export const GetAccountChangeRequests = (status) => getAccountChangeRequests(status);
 
 function clampUserPageSize(size) {
   const parsedSize = Number(size);
@@ -160,4 +160,10 @@ function normalizeResetPasswordParams(params, legacyPayload) {
 
 function getStoredUserId() {
   return readAuthStorage()?.userId || "";
+}
+
+function pruneEmptyParams(params = {}) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""),
+  );
 }

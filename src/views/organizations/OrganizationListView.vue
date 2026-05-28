@@ -51,10 +51,8 @@ import {
   disableOrganization,
   getOrganizations,
 } from "@/services/organizationService";
-import { useAppStore } from "@/stores/appStore";
 import { orgTypeLabelMap } from "@/utils/constants";
 
-const appStore = useAppStore();
 const organizations = ref([]);
 const selected = ref(null);
 const disabling = ref(false);
@@ -77,7 +75,7 @@ onMounted(async () => {
 });
 
 async function refreshOrganizations() {
-  organizations.value = await getOrganizations();
+  organizations.value = await getOrganizations({ status: "ACTIVE" });
 }
 
 async function confirmDisable() {
@@ -86,14 +84,10 @@ async function confirmDisable() {
   try {
     await disableOrganization({ id: selected.value.id });
     await refreshOrganizations();
-    appStore.showAlert({
-      title: "系統提示",
-      message: "已送出停用組織申請，等待審核",
-    });
-    selected.value = null;
   } catch (error) {
     console.error(error);
   } finally {
+    selected.value = null;
     disabling.value = false;
   }
 }

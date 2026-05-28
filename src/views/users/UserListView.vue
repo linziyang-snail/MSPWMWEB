@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseButton from "@/components/base/BaseButton.vue";
@@ -101,7 +101,7 @@ const columns = [
   { key: "createdAt", label: "建立時間" },
   { key: "lastLoginAt", label: "最後登入" },
 ];
-const statusOptions = ["ACTIVE", "DISABLED", "LOCKED", "PENDING"].map(
+const statusOptions = ["ACTIVE", "PENDING_APPROVAL", "LOCKED", "DISABLED", "PASSWORD_INVALID"].map(
   (value) => ({ label: statusLabelMap[value] || value, value }),
 );
 const filteredUsers = computed(() =>
@@ -117,9 +117,10 @@ const filteredUsers = computed(() =>
 );
 
 onMounted(async () => {
-  const response = await getUsers({ page: 1, size: 100 });
-  users.value = response?.content ?? (Array.isArray(response) ? response : []);
+  await refreshUsers();
 });
+
+watch(status, refreshUsers);
 
 function confirmAction(row, action) {
   const map = {
@@ -133,6 +134,11 @@ function confirmAction(row, action) {
   };
   const [title, message, danger] = map[action];
   dialog.value = { open: true, title, message, danger };
+}
+
+async function refreshUsers() {
+  const response = await getUsers({ page: 1, size: 100, status: status.value || "ACTIVE" });
+  users.value = response?.content ?? (Array.isArray(response) ? response : []);
 }
 
 function formatRoles(roles = []) {

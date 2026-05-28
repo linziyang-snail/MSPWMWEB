@@ -29,11 +29,11 @@
         >
       </div>
       <div class="flex justify-end gap-3">
-        <BaseButton variant="secondary" @click="modal = 'cancel'"
-          >取消</BaseButton
-        >
-        <BaseButton variant="danger" @click="modal = 'reject'">駁回</BaseButton>
-        <BaseButton @click="modal = 'approve'">放行</BaseButton>
+        <span v-if="isOwnRequest" class="text-sm font-medium text-danger-text">等待其他管理員審核</span>
+        <template v-else>
+          <BaseButton variant="danger" @click="modal = 'reject'">駁回</BaseButton>
+          <BaseButton @click="modal = 'approve'">放行</BaseButton>
+        </template>
       </div>
     </div>
     <EmptyState v-else title="找不到審核案件" />
@@ -61,14 +61,15 @@ import PageTitle from "@/components/common/PageTitle.vue";
 import FormField from "@/components/forms/FormField.vue";
 import {
   approveChangeRequest,
-  cancelChangeRequest,
   getPendingChangeRequests,
   rejectChangeRequest,
 } from "@/services/approvalService";
+import { useAuthStore } from "@/stores/authStore";
 import { ACTION_LABEL_MAP, TARGET_TYPE_LABEL_MAP } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
+const auth = useAuthStore();
 const modal = ref("");
 const remark = ref("");
 const approval = ref(null);
@@ -78,10 +79,11 @@ const modalOpen = computed({
 });
 const modalTitle = computed(
   () =>
-    ({ approve: "放行案件", reject: "駁回案件", cancel: "取消案件" })[
+    ({ approve: "放行案件", reject: "駁回案件" })[
       modal.value
     ] || "確認",
 );
+const isOwnRequest = computed(() => Boolean(approval.value?.requesterId && approval.value.requesterId === auth.userId));
 const details = computed(() => [
   { label: "類型", value: TARGET_TYPE_LABEL_MAP[approval.value?.targetType] },
   { label: "對象 ID", value: approval.value?.targetId },
@@ -94,15 +96,20 @@ const details = computed(() => [
 ]);
 
 onMounted(async () => {
-  const rows = await getPendingChangeRequests({});
+  const rows = await getPendingChangeRequests({ status: "PENDING" });
   approval.value = rows.find((item) => String(item.id) === String(route.params.id)) || null;
 });
 
 async function submitAction() {
   if (!approval.value) return;
-  if (modal.value === "approve") await approveChangeRequest({ id: approval.value.id });
-  if (modal.value === "reject") await rejectChangeRequest({ id: approval.value.id, remark: remark.value });
-  if (modal.value === "cancel") await cancelChangeRequest({ id: approval.value.id });
-  modal.value = "";
+  try {
+    if (isOwnRequest.value) return;
+    if (modal.value === "approve") await approveChangeRequest({ id: approval.value.id });
+    if (modal.value === "reject") await rejectChangeRequest({ id: approval.value.id, remark: remark.value });
+  } catch (error) {
+    console.error(error);
+  } finally {
+    modal.value = "";
+  }
 }
 </script>

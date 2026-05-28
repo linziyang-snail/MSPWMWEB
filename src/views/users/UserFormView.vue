@@ -98,7 +98,7 @@ const message = ref("");
 onMounted(async () => {
   const [roleRows, organizationRows] = await Promise.all([
     getRoles(),
-    getOrganizations(),
+    getOrganizations({ status: "ACTIVE" }),
   ]);
   roles.value = Array.isArray(roleRows) ? roleRows : [];
   organizations.value = Array.isArray(organizationRows) ? organizationRows : [];

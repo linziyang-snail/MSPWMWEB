@@ -383,6 +383,7 @@ const editPermissionOpen = ref(false);
 const users = ref([]);
 const accountChangeRows = ref([]);
 const expandedChangeIds = ref([]);
+const accountHistoryCache = new Map();
 const currentPage = ref(1);
 const sortState = ref({ key: "createdAt", direction: "desc" });
 const accountKeyword = ref("");
@@ -440,25 +441,35 @@ const pendingAccountChangeRows = computed(() =>
 
 onMounted(async () => {
   try {
-    await userStore.ensureLoaded();
-    await syncAccountRowsFromStore();
+    await reloadAccountData();
   } catch (error) {
     console.error(error);
   }
 });
+
+watch(
+  () => route.name,
+  async () => {
+    await reloadAccountData();
+  },
+);
 
 const filteredRows = computed(() => {
   let rows = [];
   if (!routeStatus.value) return users.value;
   if (routeStatus.value === "PENDING") {
     const pendingUsers = users.value.filter(
-      (u) => u.status === "PENDING" || u.status === "PENDING_MULTI",
+      (u) => ["PENDING", "PENDING_APPROVAL", "PENDING_MULTI"].includes(u.status),
     );
     const pendingCreateRows = getPendingCreateRows(pendingUsers);
     rows = [...pendingCreateRows, ...pendingUsers];
     return sortRows(filterRowsByAccountFilters(rows));
   }
-  rows = users.value.filter((u) => u.status === routeStatus.value);
+  if (routeStatus.value === "REJECTED") {
+    return sortRows(filterRowsByAccountFilters(getReviewedAccountRows("REJECTED")));
+  }
+  const targetStatus = routeStatus.value === "DELETED" ? "DISABLED" : routeStatus.value;
+  rows = users.value.filter((u) => u.status === targetStatus);
   rows = filterRowsByAccountFilters(rows);
   return sortRows(rows);
 });
@@ -491,7 +502,7 @@ const pendingCount = computed(
   () =>
     isChangeReviewPage.value
       ? pendingAccountChangeRows.value.length
-      : filteredRows.value.filter((u) => u.status === "PENDING").length,
+      : filteredRows.value.filter((u) => ["PENDING", "PENDING_APPROVAL"].includes(u.status)).length,
 );
 
 const pageTitle = computed(() => route.meta.title || "帳號列表");
@@ -624,16 +635,20 @@ async function normalizeAccountChangeRows(rows = []) {
       after: normalizeAccountInfo(after),
     };
   });
-  return Promise.all(normalizedRows.map(hydrateAccountChangeHistory));
+  return normalizedRows;
 }
 
 async function hydrateAccountChangeHistory(row) {
   if (row.action === "CREATE" || hasMeaningfulAccountInfo(row.before)) return row;
+  const targetType = "USER";
+  const targetId = row.targetId || row.userId;
+  if (!targetId) return row;
+  const cacheKey = `${targetType}:${targetId}`;
   try {
-    const historyRows = await getChangeRequestHistory({
-      targetType: "USER",
-      targetId: row.targetId || row.userId,
-    });
+    const historyRows = accountHistoryCache.has(cacheKey)
+      ? accountHistoryCache.get(cacheKey)
+      : await getChangeRequestHistory({ targetType, targetId });
+    accountHistoryCache.set(cacheKey, historyRows);
     const previousPayload = findPreviousAccountPayload(historyRows, row.id);
     if (!previousPayload) return row;
     return {
@@ -855,73 +870,91 @@ function getDisplayUserName(row = {}) {
 }
 
 async function onDialogConfirm() {
-  if (dialog.value.action === "approve" && isChangeRequestRow(selected.value)) {
-    await approveChangeRequest({ id: getChangeRequestId(selected.value) });
-    await reloadAccountData();
-    showSuccessDialog("審核已核准", `員編：${getDisplayUserId(selected.value)}`, "已核准此筆申請");
-  }
-  if (["delete", "disable"].includes(dialog.value.action) && selected.value?.id) {
-    await disableUser({ id: selected.value.id });
-    await reloadAccountData();
-    showSuccessDialog("停用申請已送出", `員編：${selected.value.id}`, "已送出停用使用者申請，等待其他管理員審核");
-  }
-  if (dialog.value.action === "unlock" && selected.value?.id) {
-    await unlockUser({ id: selected.value.id });
-    await reloadAccountData();
-    showSuccessDialog("帳號已解鎖", `員編：${selected.value.id}`, "已完成帳號解鎖");
-  }
-  if (!["approve", "delete", "disable", "unlock"].includes(dialog.value.action)) {
+  const action = dialog.value.action;
+  try {
+    if (action === "approve" && isChangeRequestRow(selected.value)) {
+      await approveChangeRequest({ id: getChangeRequestId(selected.value) });
+      await reloadAccountData();
+      return;
+    }
+    if (["delete", "disable"].includes(action) && selected.value?.id) {
+      await disableUser({ id: selected.value.id });
+      await reloadAccountData();
+      return;
+    }
+    if (action === "unlock" && selected.value?.id) {
+      await unlockUser({ id: selected.value.id });
+      await reloadAccountData();
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
     dialog.value.open = false;
   }
 }
 
 async function onEditPermission(payload) {
-  await updateUser({
-    id: payload.id,
-    userName: payload.userName,
-    orgId: Number(payload.orgId),
-    roleIds: payload.roles.map((role) => roleIdMap[role]).filter(Boolean),
-  });
-  await reloadAccountData();
-  showSuccessDialog("帳號修改申請已送出", `員編：${payload.id}`, "已送出帳號修改申請，等待其他管理員審核");
-  const isReactivation = payload.originalStatus && payload.originalStatus !== "ACTIVE" && payload.status === "ACTIVE";
-  if (isReactivation) {
-    const updated = users.value.find((user) => user.id === payload.id) || selected.value;
-    window.setTimeout(() => {
-      confirm(updated, "reactivate");
-    }, 0);
+  try {
+    await updateUser({
+      id: payload.id,
+      userName: payload.userName,
+      orgId: Number(payload.orgId),
+      roleIds: payload.roles.map((role) => roleIdMap[role]).filter(Boolean),
+    });
+    await reloadAccountData();
+    const isReactivation = payload.originalStatus && payload.originalStatus !== "ACTIVE" && payload.status === "ACTIVE";
+    if (isReactivation) {
+      const updated = users.value.find((user) => user.id === payload.id) || selected.value;
+      window.setTimeout(() => {
+        confirm(updated, "reactivate");
+      }, 0);
+    }
+  } catch (error) {
+    console.error(error);
   }
 }
 
 async function onPasswordReset(payload) {
-  await resetUserPassword({
-    id: payload.account?.id,
-    newPassword: payload.password,
-  });
-  await reloadAccountData();
-  showSuccessDialog("密碼已重設", `員編：${payload.account?.id}`, "已完成此帳號密碼重設");
+  try {
+    await resetUserPassword({
+      id: payload.account?.id,
+      newPassword: payload.password,
+    });
+    await reloadAccountData();
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function onRejectConfirm(reason) {
-  if (isChangeRequestRow(selected.value)) {
-    await rejectChangeRequest({ id: getChangeRequestId(selected.value), remark: reason });
-    await reloadAccountData();
-    showSuccessDialog("審核已駁回", `員編：${getDisplayUserId(selected.value)}`, "已駁回此筆申請");
+  try {
+    if (isChangeRequestRow(selected.value)) {
+      await rejectChangeRequest({ id: getChangeRequestId(selected.value), remark: reason });
+      await reloadAccountData();
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    rejectDialog.value = { open: false, title: "", subtitle: "" };
   }
-  rejectDialog.value = { open: false, title: "", subtitle: "" };
 }
 
 async function onCreateAccount(payload) {
-  await reloadAccountData();
-  showSuccessDialog("新增使用者申請已送出", `員編：${payload.id}`, "已送出新增使用者申請，等待其他管理員審核");
+  try {
+    await reloadAccountData();
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 function canReviewRequest(request) {
-  return getRequesterId(request) !== auth.userId;
+  const requesterId = getRequesterId(request);
+  return Boolean(requesterId && requesterId !== auth.userId);
 }
 
 function canReviewAccount(account) {
-  return getRequesterId(account) !== auth.userId;
+  const requesterId = getRequesterId(account);
+  return Boolean(requesterId && requesterId !== auth.userId);
 }
 
 function isOwnPendingAccount(account) {
@@ -950,32 +983,68 @@ function removeAccountChangeRequest(id) {
 }
 
 async function reloadAccountData() {
-  await userStore.refreshAll({ size: 100 });
+  await userStore.refreshAll({ size: 100, status: accountRouteApiStatus.value });
+  await userStore.fetchAccountChangeRequests(accountRouteRequestStatus.value);
   await syncAccountRowsFromStore();
 }
 
+const accountRouteApiStatus = computed(() => {
+  if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
+  if (route.name === "AccountPendingReview") return "ACTIVE";
+  if (route.name === "AccountDisabled" || route.name === "AccountDeleted") return "DISABLED";
+  if (route.name === "AccountActive") return "ACTIVE";
+  return "ACTIVE";
+});
+
+const accountRouteRequestStatus = computed(() => {
+  if (route.name === "AccountRejected") return "REJECTED";
+  return "PENDING";
+});
+
+function getReviewedAccountRows(status) {
+  return accountChangeRows.value
+    .filter((row) => row.status === status)
+    .map((row) => ({
+      id: row.userId || row.targetId || row.id,
+      userName: row.userName || row.after?.userName || "-",
+      orgName: row.after?.orgName || row.before?.orgName || "-",
+      roles: extractRolesFromAccountInfo(row.after),
+      roleLabel: row.after?.roleLabel || "-",
+      status: row.status,
+      createdAt: row.closedAt || row.createdAt,
+      rejectReason: row.remark || row.rejectReason || "-",
+      requesterId: row.requesterId,
+    }));
+}
+
 async function syncAccountRowsFromStore() {
-  users.value = userStore.users;
+  users.value = userStore.users.map(normalizeAccountRowStatus);
   accountChangeRows.value = await normalizeAccountChangeRows(userStore.accountChangeRequests);
 }
 
-function showSuccessDialog(title, subtitle, message) {
-  dialog.value = {
-    open: true,
-    action: "",
-    title,
-    subtitle,
-    message,
-    danger: false,
-    success: true,
-    confirmText: "確認",
+function normalizeAccountRowStatus(row = {}) {
+  return {
+    ...row,
+    status: row.status === "PENDING_APPROVAL" ? "PENDING" : row.status,
   };
 }
 
 function toggleOriginal(id) {
-  expandedChangeIds.value = expandedChangeIds.value.includes(id)
-    ? expandedChangeIds.value.filter((item) => item !== id)
-    : [...expandedChangeIds.value, id];
+  if (expandedChangeIds.value.includes(id)) {
+    expandedChangeIds.value = expandedChangeIds.value.filter((item) => item !== id);
+    return;
+  }
+  expandedChangeIds.value = [...expandedChangeIds.value, id];
+  loadOriginalAccountInfo(id);
+}
+
+async function loadOriginalAccountInfo(id) {
+  const row = accountChangeRows.value.find((item) => String(item.id) === String(id));
+  if (!row || row.action === "CREATE" || hasMeaningfulAccountInfo(row.before)) return;
+  const hydratedRow = await hydrateAccountChangeHistory(row);
+  accountChangeRows.value = accountChangeRows.value.map((item) =>
+    String(item.id) === String(id) ? hydratedRow : item,
+  );
 }
 
 function formatMetaDateTime(value) {

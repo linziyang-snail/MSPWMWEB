@@ -1,6 +1,10 @@
 import { defineStore } from "pinia";
 
-import { login as loginApi, logout as logoutApi } from "@/services/authService";
+import {
+  login as loginApi,
+  logout as logoutApi,
+  refreshToken as refreshTokenApi,
+} from "@/services/authService";
 import { normalizeRoles } from "@/utils/authRoles";
 import {
   clearAuthStorage,
@@ -124,6 +128,15 @@ export const useAuthStore = defineStore("auth", {
       } finally {
         this.clearAuth();
       }
+    },
+    async refreshAccessToken() {
+      const response = await refreshTokenApi();
+      const data = normalizeLoginResponse(response);
+      const nextToken = data.accessToken || data.token || "";
+      if (!nextToken) throw createAuthError(response, "刷新 token 回應缺少 token");
+      this.accessToken = nextToken;
+      this.persist();
+      return nextToken;
     },
     clearAuth() {
       this.accessToken = "";

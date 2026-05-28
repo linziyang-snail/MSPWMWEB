@@ -21,7 +21,7 @@ export const useUserStore = defineStore("users", {
     pendingNewCount: (state) => {
       const pendingIds = new Set(
         state.users
-          .filter((user) => user.status === "PENDING")
+          .filter((user) => ["PENDING", "PENDING_APPROVAL"].includes(user.status))
           .map((user) => String(user.id)),
       );
       state.accountChangeRequests.forEach((item) => {
@@ -48,7 +48,7 @@ export const useUserStore = defineStore("users", {
       if (this.loadingPromise) return this.loadingPromise;
       this.loadingPromise = Promise.all([
         this.fetchUsers({ size: 100, ...params }),
-        this.fetchAccountChangeRequests(),
+        this.fetchAccountChangeRequests("PENDING"),
       ]).then(() => {
         this.loaded = true;
       }).finally(() => {
@@ -81,9 +81,9 @@ export const useUserStore = defineStore("users", {
         this.loading = false;
       }
     },
-    async fetchAccountChangeRequests() {
+    async fetchAccountChangeRequests(status = "PENDING") {
       try {
-        this.accountChangeRequests = await getAccountChangeRequests();
+        this.accountChangeRequests = await getAccountChangeRequests(status);
       } catch (error) {
         this.error = "查詢帳號異動失敗";
         console.error(error);

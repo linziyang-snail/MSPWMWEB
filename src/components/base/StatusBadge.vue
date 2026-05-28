@@ -37,7 +37,6 @@ const STATUS_LABELS_DEFAULT = {
   APPROVED: "已核准",
   REJECTED: "已駁回",
   CANCELED: "已取消",
-  CANCELLED: "已取消",
   ACTIVE: "已啟用",
   DISABLED: "已停用",
   DELETED: "已刪除",
@@ -65,7 +64,6 @@ const STATUS_LABELS_COPY = {
   APPROVED: "核准",
   REJECTED: "駁回",
   CANCELED: "取消",
-  CANCELLED: "取消",
 };
 
 const displayLabel = computed(() => {
@@ -83,7 +81,6 @@ const TONE_BY_STATUS = {
   APPROVED: "success",
   REJECTED: "rejected",
   CANCELED: "natural",
-  CANCELLED: "natural",
   ACTIVE: "success",
   DISABLED: "natural",
   DELETED: "natural",

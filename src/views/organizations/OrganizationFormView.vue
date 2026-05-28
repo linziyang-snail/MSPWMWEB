@@ -19,12 +19,6 @@
         />
       </FormField>
     </div>
-    <p
-      v-if="message"
-      class="mt-4 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700"
-    >
-      {{ message }}
-    </p>
     <div class="mt-6 flex justify-end gap-3">
       <RouterLink to="/organizations"
         ><BaseButton variant="secondary">取消</BaseButton></RouterLink
@@ -47,7 +41,7 @@ import {
   getOrganizations,
   updateOrganization,
 } from "@/services/organizationService";
-import { orgTypeLabelMap, orgTypeValueMap } from "@/utils/constants";
+import { normalizeOrgTypeValue, orgTypeLabelMap } from "@/utils/constants";
 import { validateRequired } from "@/utils/validators";
 
 const props = defineProps({
@@ -61,7 +55,6 @@ const form = reactive({
 });
 const errors = reactive({});
 const loading = ref(false);
-const message = ref("");
 const typeOptions = [
   { label: orgTypeLabelMap.DEPARTMENT, value: "DEPARTMENT" },
   { label: orgTypeLabelMap.SECTION, value: "SECTION" },
@@ -69,12 +62,12 @@ const typeOptions = [
 
 onMounted(async () => {
   if (props.mode !== "edit" || !props.orgId) return;
-  const organizations = await getOrganizations();
+  const organizations = await getOrganizations({ status: "ACTIVE" });
   const source = organizations.find(
     (item) => String(item.id) === String(props.orgId),
   );
   form.orgName = source?.orgName || "";
-  form.orgType = orgTypeValueMap[source?.orgType] || source?.orgType || "";
+  form.orgType = normalizeOrgTypeValue(source?.orgType);
 });
 
 async function submit() {
@@ -87,16 +80,12 @@ async function submit() {
     if (props.mode === "create") {
       await createOrganization({
         orgName: form.orgName,
-        orgType: orgTypeValueMap[form.orgType] || form.orgType,
+        orgType: normalizeOrgTypeValue(form.orgType),
       });
     } else {
       await updateOrganization({ id: props.orgId, orgName: form.orgName });
     }
-    message.value =
-      props.mode === "create"
-        ? "已送出新增組織申請，等待審核。"
-        : "已送出組織修改申請，等待審核。";
-    setTimeout(() => router.push("/organizations"), 700);
+    router.push("/organizations");
   } finally {
     loading.value = false;
   }

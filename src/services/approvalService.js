@@ -1,12 +1,46 @@
 import apiRequest, { unwrapApiBody } from "./apiRequest";
 
+export async function getChangeRequests(params = {}) {
+  const { targetType, status = "PENDING" } = params || {};
+  return unwrapApiBody(
+    await apiRequest.get("/api/change-requests", {
+      params: pruneEmptyParams({ targetType, status }),
+    }),
+  );
+}
+
 export async function getPendingChangeRequests(params = {}) {
-  return unwrapApiBody(await apiRequest.get("/api/change-requests", { params }));
+  return getChangeRequests({ ...params, status: params?.status || "PENDING" });
 }
 
 export async function getChangeRequestHistory(params = {}) {
+  const { targetType, targetId } = params || {};
+  if (!hasRequiredHistoryParams(targetType, targetId)) return [];
   return unwrapApiBody(
-    await apiRequest.get("/api/change-requests/history", { params }),
+    await apiRequest.get("/api/change-requests/history", {
+      params: { targetType, targetId },
+    }),
+  );
+}
+
+export async function searchChangeRequests(params = {}) {
+  const {
+    targetId,
+    startDate,
+    endDate,
+    page = 1,
+    size = 20,
+  } = params || {};
+  return unwrapApiBody(
+    await apiRequest.get("/api/change-requests/search", {
+      params: pruneEmptyParams({
+        targetId,
+        startDate: toYyyyMmDd(startDate),
+        endDate: toYyyyMmDd(endDate),
+        page,
+        size: clampPageSize(size),
+      }),
+    }),
   );
 }
 
@@ -34,6 +68,8 @@ export async function cancelChangeRequest(params) {
 export const GetPendingChangeRequests = (targetType) =>
   getPendingChangeRequests({ targetType });
 
+export const GetChangeRequests = (params) => getChangeRequests(params);
+
 /**
  * 查詢特定對象的審核歷史
  * @param {string} targetType - 審核目標類型
@@ -42,6 +78,8 @@ export const GetPendingChangeRequests = (targetType) =>
  */
 export const GetChangeRequestHistory = (targetType, targetId) =>
   getChangeRequestHistory({ targetType, targetId });
+
+export const SearchChangeRequests = (params) => searchChangeRequests(params);
 
 /**
  * 放行審核申請
@@ -74,4 +112,30 @@ function normalizeIdParams(params) {
 function normalizeRejectParams(params, legacyPayload) {
   if (legacyPayload) return { id: params, ...legacyPayload };
   return params || {};
+}
+
+function hasRequiredHistoryParams(targetType, targetId) {
+  return Boolean(String(targetType || "").trim() && String(targetId || "").trim());
+}
+
+function clampPageSize(size) {
+  const parsedSize = Number(size);
+  if (!Number.isFinite(parsedSize) || parsedSize <= 0) return 20;
+  return Math.min(Math.trunc(parsedSize), 100);
+}
+
+function pruneEmptyParams(params = {}) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""),
+  );
+}
+
+function toYyyyMmDd(value) {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const date = String(value.getDate()).padStart(2, "0");
+    return `${value.getFullYear()}${month}${date}`;
+  }
+  return String(value).replaceAll("/", "").replaceAll("-", "").slice(0, 8);
 }

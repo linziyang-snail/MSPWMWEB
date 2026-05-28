@@ -32,19 +32,21 @@
           >
           <button
             class="text-success-text"
+            :disabled="isOwnRequest(row)"
+            :class="{ 'opacity-50': isOwnRequest(row) }"
             @click="openConfirm(row, 'approve')"
           >
             放行
           </button>
-          <button class="text-danger-text" @click="openConfirm(row, 'reject')">
+          <button
+            class="text-danger-text"
+            :disabled="isOwnRequest(row)"
+            :class="{ 'opacity-50': isOwnRequest(row) }"
+            @click="openConfirm(row, 'reject')"
+          >
             駁回
           </button>
-          <button
-            class="text-text-secondary"
-            @click="openConfirm(row, 'cancel')"
-          >
-            取消
-          </button>
+          <span v-if="isOwnRequest(row)" class="text-text-secondary">等待其他管理員審核</span>
         </div>
       </template>
     </BaseTable>
@@ -74,14 +76,15 @@ import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
 import {
   approveChangeRequest,
-  cancelChangeRequest,
   getPendingChangeRequests,
   rejectChangeRequest,
 } from "@/services/approvalService";
+import { useAuthStore } from "@/stores/authStore";
 import { ACTION_LABEL_MAP, TARGET_TYPE_LABEL_MAP } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const targetType = ref("");
+const auth = useAuthStore();
 const remark = ref("");
 const approvals = ref([]);
 const targetMap = TARGET_TYPE_LABEL_MAP;
@@ -108,14 +111,14 @@ const filteredApprovals = computed(() =>
 );
 
 onMounted(async () => {
-  approvals.value = await getPendingChangeRequests({});
+  approvals.value = await getPendingChangeRequests({ status: "PENDING" });
 });
 
 function openConfirm(row, type) {
+  if (isOwnRequest(row)) return;
   const map = {
     approve: ["放行案件", `確認放行案件 #${row.id}？`],
     reject: ["駁回案件", `請確認是否駁回案件 #${row.id}。`],
-    cancel: ["取消案件", `確認取消案件 #${row.id}？`],
   };
   confirm.value = {
     open: true,
@@ -129,11 +132,19 @@ function openConfirm(row, type) {
 async function submitConfirm() {
   const { row, type } = confirm.value;
   if (!row) return;
-  if (type === "approve") await approveChangeRequest({ id: row.id });
-  if (type === "reject") await rejectChangeRequest({ id: row.id, remark: remark.value });
-  if (type === "cancel") await cancelChangeRequest({ id: row.id });
-  approvals.value = approvals.value.filter((item) => item.id !== row.id);
-  confirm.value = { open: false };
-  remark.value = "";
+  try {
+    if (type === "approve") await approveChangeRequest({ id: row.id });
+    if (type === "reject") await rejectChangeRequest({ id: row.id, remark: remark.value });
+    approvals.value = approvals.value.filter((item) => item.id !== row.id);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    confirm.value = { open: false };
+    remark.value = "";
+  }
+}
+
+function isOwnRequest(row = {}) {
+  return Boolean(row.requesterId && row.requesterId === auth.userId);
 }
 </script>

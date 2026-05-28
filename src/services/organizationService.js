@@ -1,9 +1,14 @@
-import { orgTypeValueMap } from "@/utils/constants";
+import { normalizeOrgTypeValue } from "@/utils/constants";
 
 import apiRequest, { unwrapApiBody } from "./apiRequest";
 
-export async function getOrganizations() {
-  return unwrapApiBody(await apiRequest.get("/api/organizations"));
+export async function getOrganizations(params = {}) {
+  const { status } = params || {};
+  return unwrapApiBody(
+    await apiRequest.get("/api/organizations", {
+      params: pruneEmptyParams({ status }),
+    }),
+  );
 }
 
 export async function createOrganization(payload) {
@@ -30,7 +35,7 @@ export async function disableOrganization(params) {
  * 查詢可管理的組織列表
  * @returns {Promise} - 組織列表
  */
-export const GetOrganizations = () => getOrganizations();
+export const GetOrganizations = (params) => getOrganizations(params);
 
 /**
  * 新增組織
@@ -65,6 +70,8 @@ function normalizeOrganizationUpdateParams(params, legacyPayload) {
   return params || {};
 }
 
-function normalizeOrgTypeValue(orgType) {
-  return orgTypeValueMap[orgType] || orgType;
+function pruneEmptyParams(params = {}) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""),
+  );
 }

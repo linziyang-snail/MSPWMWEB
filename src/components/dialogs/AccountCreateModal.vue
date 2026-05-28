@@ -88,7 +88,11 @@ import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import { getOrganizations } from "@/services/organizationService";
 import { createUser } from "@/services/userService";
-import { roleIdMap, roleLabelMap } from "@/utils/constants";
+import {
+  isActiveSectionOrganization,
+  roleIdMap,
+  roleLabelMap,
+} from "@/utils/constants";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -115,14 +119,7 @@ const submitting = ref(false);
 
 const departmentOptions = computed(() => {
   const organizationRows = Array.isArray(organizations.value) ? organizations.value : [];
-  const activeOrganizations = organizationRows.filter(
-    (org) => !org.status || ["ACTIVE", "啟用", "PENDING", "審核中"].includes(org.status),
-  );
-  const sections = activeOrganizations.filter((org) =>
-    ["SECTION", "科別"].includes(org.orgType),
-  );
-  const source = sections.length ? sections : activeOrganizations;
-  return source.map((org) => ({
+  return organizationRows.filter(isActiveSectionOrganization).map((org) => ({
     label: org.orgName,
     value: org.id,
   }));
@@ -188,6 +185,8 @@ async function submit() {
       roleLabel: roleLabelMap[form.role],
     });
     close();
+  } catch (error) {
+    console.error(error);
   } finally {
     submitting.value = false;
   }
@@ -199,7 +198,7 @@ function close() {
 
 async function fetchOrganizations() {
   try {
-    organizations.value = normalizeOrganizationRows(await getOrganizations());
+    organizations.value = normalizeOrganizationRows(await getOrganizations({ status: "ACTIVE" }));
     if (!form.orgId) form.orgId = departmentOptions.value[0]?.value || "";
   } catch (error) {
     console.error(error);

@@ -105,7 +105,7 @@ const getCounts = (rows) =>
       if (row.status === "PENDING") acc.pending += 1;
       if (row.status === "APPROVED") acc.approved += 1;
       if (row.status === "REJECTED") acc.rejected += 1;
-      if (row.status === "CANCELLED") acc.cancelled += 1;
+      if (row.status === "CANCELED") acc.cancelled += 1;
       return acc;
     },
     {

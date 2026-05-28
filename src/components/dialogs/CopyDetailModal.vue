@@ -105,7 +105,7 @@
             </template>
           </PersonRow>
 
-          <PersonRow v-if="copy.status === 'CANCELLED'" tone="natural" label="取消人" :name="copy.cancelledBy"
+          <PersonRow v-if="copy.status === 'CANCELED'" tone="natural" label="取消人" :name="copy.cancelledBy"
             :time="copy.cancelledAt">
             <template #avatar>
               <CancelIcon />

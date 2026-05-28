@@ -85,7 +85,7 @@
               <span>|</span>
               <span>駁回時間：{{ formatMetaDateTime(copy.rejectedAt) }}</span>
             </template>
-            <template v-else-if="copy.status === 'CANCELLED'">
+            <template v-else-if="copy.status === 'CANCELED'">
               <span>建立者：{{ copy.createdBy }}</span>
               <span>|</span>
               <span>建立時間：{{ formatMetaDateTime(copy.createdAt) }}</span>
@@ -152,7 +152,7 @@ const props = defineProps({
 defineEmits(["view-copy", "cancel-submission", "copy-create", "approve-copy", "reject-copy"]);
 
 const canCopy = computed(() =>
-  !reviewerMode.value && ["REJECTED", "CANCELLED", "APPROVED"].includes(props.copy.status),
+  !reviewerMode.value && ["REJECTED", "CANCELED", "APPROVED"].includes(props.copy.status),
 );
 const hasAction = computed(
   () => (!reviewerMode.value && props.copy.status === "PENDING") || canCopy.value,

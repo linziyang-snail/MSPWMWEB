@@ -101,7 +101,7 @@ const filtered = computed(() => {
     ? copyStore.byStatus(routeStatus.value)
     : copyStore.byStatus(null);
   const roleScopedList = isReviewer.value
-    ? list.filter((copy) => copy.status !== "CANCELLED")
+    ? list.filter((copy) => copy.status !== "CANCELED")
     : list;
   const kw = keyword.value.trim().toLowerCase();
   if (!kw) return roleScopedList;
@@ -149,23 +149,38 @@ const onReject = (copy) => {
     target: copy,
   };
 };
-const confirmCancel = () => {
-  if (cancelDialog.value.target) {
-    copyStore.cancelSubmission(cancelDialog.value.target.id);
+const confirmCancel = async () => {
+  try {
+    if (cancelDialog.value.target) {
+      await copyStore.cancelSubmission(cancelDialog.value.target.id);
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    cancelDialog.value = { open: false, target: null };
   }
-  cancelDialog.value = { open: false, target: null };
 };
-const confirmApprove = () => {
-  if (approveDialog.value.target) {
-    copyStore.approveSubmission(approveDialog.value.target.id);
+const confirmApprove = async () => {
+  try {
+    if (approveDialog.value.target) {
+      await copyStore.approveSubmission(approveDialog.value.target.id);
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    approveDialog.value = { open: false, target: null };
   }
-  approveDialog.value = { open: false, target: null };
 };
-const confirmReject = (reason) => {
-  if (rejectDialog.value.target) {
-    copyStore.rejectSubmission(rejectDialog.value.target.id, reason);
+const confirmReject = async (reason) => {
+  try {
+    if (rejectDialog.value.target) {
+      await copyStore.rejectSubmission(rejectDialog.value.target.id, reason);
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    rejectDialog.value = { open: false, target: null };
   }
-  rejectDialog.value = { open: false, target: null };
 };
 const onSubmitted = () => {
   /* mock 送出後資料已進 store，這裡僅關閉 modal */

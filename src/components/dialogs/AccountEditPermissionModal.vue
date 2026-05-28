@@ -60,7 +60,7 @@ import BaseInput from "@/components/base/BaseInput.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import { getOrganizations } from "@/services/organizationService";
-import { roleLabelMap } from "@/utils/constants";
+import { isActiveSectionOrganization, roleLabelMap } from "@/utils/constants";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -97,12 +97,9 @@ const organizations = ref([]);
 
 const departmentOptions = computed(() => {
   const rows = Array.isArray(organizations.value) ? organizations.value : [];
-  const activeRows = rows.filter(
-    (org) => !org.status || ["ACTIVE", "啟用", "PENDING", "審核中"].includes(org.status),
-  );
-  const sections = activeRows.filter((org) => ["SECTION", "科別"].includes(org.orgType));
-  const source = sections.length ? sections : activeRows;
-  return source.map((org) => ({ label: org.orgName, value: org.id }));
+  return rows
+    .filter(isActiveSectionOrganization)
+    .map((org) => ({ label: org.orgName, value: org.id }));
 });
 
 const selectedOrganization = computed(() =>
@@ -148,7 +145,7 @@ function submit() {
 
 async function fetchOrganizations() {
   try {
-    organizations.value = normalizeOrganizationRows(await getOrganizations());
+    organizations.value = normalizeOrganizationRows(await getOrganizations({ status: "ACTIVE" }));
     if (!form.orgId) {
       form.orgId = props.account?.orgId != null
         ? Number(props.account.orgId)

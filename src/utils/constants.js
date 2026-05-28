@@ -30,6 +30,19 @@ export const orgTypeValueMap = {
   科別: "SECTION",
 };
 
+export const organizationStatusValueMap = {
+  ACTIVE: "ACTIVE",
+  啟用: "ACTIVE",
+  DISABLED: "DISABLED",
+  INACTIVE: "DISABLED",
+  停用: "DISABLED",
+  PENDING: "PENDING",
+  PENDING_APPROVAL: "PENDING",
+  審核中: "PENDING",
+  REJECTED: "REJECTED",
+  已駁回: "REJECTED",
+};
+
 export const statusLabelMap = {
   ACTIVE: "啟用",
   INACTIVE: "停用",
@@ -42,7 +55,6 @@ export const statusLabelMap = {
   APPROVED: "已放行",
   REJECTED: "已駁回",
   CANCELED: "已取消",
-  CANCELLED: "已取消",
   啟用: "啟用",
   停用: "停用",
   審核中: "審核中",
@@ -53,7 +65,6 @@ export const requestStatusLabelMap = {
   APPROVED: "已放行",
   REJECTED: "已駁回",
   CANCELED: "已取消",
-  CANCELLED: "已取消",
 };
 
 export const requestActionLabelMap = {
@@ -91,7 +102,6 @@ export const copyStatusLabelMap = {
   REJECTED: "已駁回",
   CANCELED: "已取消",
   DISABLED: "已停用",
-  CANCELLED: "已取消",
 };
 
 export const CLICK_ACTION_OPTIONS = [
@@ -109,3 +119,53 @@ export const EXPIRATION_TYPE_OPTIONS = [
 export const STATUS_LABEL_MAP = statusLabelMap;
 export const ACTION_LABEL_MAP = requestActionLabelMap;
 export const TARGET_TYPE_LABEL_MAP = targetTypeLabelMap;
+
+export function normalizeOrgTypeValue(orgType) {
+  const key = String(orgType || "").trim();
+  return orgTypeValueMap[key] || key;
+}
+
+export function normalizeOrganizationStatusValue(status) {
+  const key = String(status || "").trim();
+  return organizationStatusValueMap[key] || key;
+}
+
+export function isSectionOrganization(org = {}) {
+  return normalizeOrgTypeValue(org.orgType) === "SECTION";
+}
+
+export const isSection = isSectionOrganization;
+
+export function isDepartmentOrganization(org = {}) {
+  return normalizeOrgTypeValue(org.orgType) === "DEPARTMENT";
+}
+
+export const isDepartment = isDepartmentOrganization;
+
+export function isActiveOrganization(org = {}) {
+  return normalizeOrganizationStatusValue(org.status) === "ACTIVE";
+}
+
+export function isActiveStatus(status) {
+  return normalizeOrganizationStatusValue(status) === "ACTIVE";
+}
+
+export function isPendingOrganization(org = {}) {
+  return normalizeOrganizationStatusValue(org.status) === "PENDING";
+}
+
+export function isPendingStatus(status) {
+  return normalizeOrganizationStatusValue(status) === "PENDING";
+}
+
+export function isDisabledOrganization(org = {}) {
+  return normalizeOrganizationStatusValue(org.status) === "DISABLED";
+}
+
+export function isDisabledStatus(status) {
+  return normalizeOrganizationStatusValue(status) === "DISABLED";
+}
+
+export function isActiveSectionOrganization(org = {}) {
+  return isSectionOrganization(org) && isActiveOrganization(org);
+}
