@@ -195,11 +195,6 @@
               <p v-if="routeStatus === 'DELETED'" class="text-base font-normal leading-normal text-center text-natural">
                 -
               </p>
-              <button v-else-if="routeStatus === 'REJECTED'"
-                class="block mx-auto text-base font-bold leading-normal transition text-danger-text hover:text-danger"
-                type="button" @click="openRejectReason(row)">
-                {{ row.rejectReason || "權限選擇錯誤" }}
-              </button>
               <div v-else-if="isActivePage" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
                 <button
                   class="grid transition rounded size-8 place-items-center text-natural hover:bg-background-hover hover:text-primary"
@@ -234,6 +229,9 @@
                 <span v-else-if="row.status === 'PENDING_MULTI'"
                   class="inline-flex min-h-10 items-center whitespace-nowrap rounded-lg border border-danger-text bg-danger-bg px-3 text-sm font-bold leading-normal text-danger-text">
                   等待其他管理員審核
+                </span>
+                <span v-else-if="row.status === 'PENDING'" class="text-base font-normal leading-normal text-center text-natural">
+                  -
                 </span>
                 <BaseButton v-if="row.status === 'LOCKED'" variant="text" size="sm" @click="confirm(row, 'unlock')">
                   解鎖
@@ -356,7 +354,6 @@ import {
   unlockUser,
   updateUser,
 } from "@/services/userService";
-import { useAppStore } from "@/stores/appStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUserStore } from "@/stores/userStore";
 import { roleIdMap, roleLabelMap, statusLabelMap } from "@/utils/constants";
@@ -364,7 +361,6 @@ import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
 const auth = useAuthStore();
-const appStore = useAppStore();
 const userStore = useUserStore();
 const selected = ref(null);
 const dialog = ref({
@@ -420,7 +416,6 @@ const columns = [
 const tableColumns = computed(() => {
   const dateLabelMap = {
     DISABLED: "停用日期",
-    REJECTED: "駁回日期",
     DELETED: "刪除日期",
   };
   return columns.map((column) =>
@@ -429,7 +424,7 @@ const tableColumns = computed(() => {
       : column,
   );
 });
-const trailingColumnLabel = computed(() => (routeStatus.value === "REJECTED" ? "駁回原因" : "操作"));
+const trailingColumnLabel = computed(() => "操作");
 
 const routeStatus = computed(() => route.meta.status || "");
 
@@ -452,9 +447,6 @@ const filteredRows = computed(() => {
     const pendingCreateRows = getPendingCreateRows(mergedPendingUsers);
     rows = [...pendingCreateRows, ...mergedPendingUsers];
     return sortRows(filterRowsByAccountFilters(rows));
-  }
-  if (routeStatus.value === "REJECTED") {
-    return sortRows(filterRowsByAccountFilters(getReviewedAccountRows("REJECTED")));
   }
   const targetStatus = routeStatus.value === "DELETED" ? "DISABLED" : routeStatus.value;
   rows = users.value.filter((u) => u.status === targetStatus);
@@ -596,6 +588,7 @@ async function normalizeAccountChangeRows(rows = []) {
     if (row.before || row.after || row.userId || row.userName) {
       return {
         ...row,
+        changeRequestId: row.changeRequestId ?? row.id,
         action: String(row.action || "UPDATE").toUpperCase(),
         requesterId: getRequesterId(row),
         targetType: row.targetType || "USER",
@@ -611,6 +604,7 @@ async function normalizeAccountChangeRows(rows = []) {
 
     return {
       ...row,
+      changeRequestId: row.id,
       userId,
       userName,
       action,
@@ -772,14 +766,6 @@ async function openEditPermission(row) {
   }
 }
 
-function openRejectReason(row) {
-  rejectDialog.value = {
-    open: true,
-    title: "駁回原因",
-    subtitle: `員編：${row.id}`,
-  };
-}
-
 function confirm(row, action) {
   selected.value = row;
   if (["approve", "reject"].includes(action) && !canReviewAccount(row)) return;
@@ -861,7 +847,7 @@ async function onDialogConfirm() {
   const action = dialog.value.action;
   try {
     if (action === "approve") {
-      const changeRequestId = requireChangeRequestId(selected.value);
+      const changeRequestId = getChangeRequestId(selected.value);
       if (!changeRequestId) return;
       await approveChangeRequest({ id: changeRequestId });
       await reloadAccountDataAfterReview();
@@ -918,7 +904,7 @@ async function onPasswordReset(payload) {
 
 async function onRejectConfirm(reason) {
   try {
-    const changeRequestId = requireChangeRequestId(selected.value);
+    const changeRequestId = getChangeRequestId(selected.value);
     if (!changeRequestId) return;
     await rejectChangeRequest({ id: changeRequestId, remark: reason });
     await reloadAccountDataAfterReview();
@@ -949,6 +935,9 @@ function canReviewRequest(request) {
 
 function canReviewAccount(account) {
   const requesterId = getRequesterId(account);
+  if (account?.status === "PENDING") {
+    return Boolean(account.reviewable && requesterId && requesterId !== auth.userId);
+  }
   return Boolean(requesterId && requesterId !== auth.userId);
 }
 
@@ -965,22 +954,7 @@ function isChangeRequestRow(item = {}) {
 }
 
 function getChangeRequestId(item = {}) {
-  return item.changeRequestId || item.id;
-}
-
-function requireChangeRequestId(item = {}) {
-  const changeRequestId = item?.changeRequestId;
-  if (Number.isInteger(Number(changeRequestId))) return changeRequestId;
-  const rowId = item?.id;
-  const displayUserId = item?.userId || item?.targetId;
-  if (item?.targetType === "USER" && rowId && String(rowId) !== String(displayUserId || "")) {
-    return rowId;
-  }
-  appStore.showAlert({
-    title: "系統提示",
-    message: "找不到審核單編號，請重新整理後再試",
-  });
-  return null;
+  return item?.changeRequestId ?? null;
 }
 
 function removeAccountChangeRequest(id) {
@@ -1017,7 +991,6 @@ async function reloadAccountDataAfterReview() {
   userStore.invalidateUsers("ACTIVE");
   userStore.invalidateUsers("DISABLED");
   userStore.invalidateAccountChangeRequests("PENDING");
-  userStore.invalidateAccountChangeRequests("REJECTED");
   await reloadAccountData({
     forceUsers: routeNeedsUsers.value,
     forceRequests: true,
@@ -1036,16 +1009,15 @@ const accountRouteApiStatus = computed(() => {
 });
 
 const accountRouteRequestStatus = computed(() => {
-  if (route.name === "AccountRejected") return "REJECTED";
   return "PENDING";
 });
 
 const routeNeedsUsers = computed(() =>
-  !["AccountPendingReview", "AccountRejected"].includes(route.name),
+  route.name !== "AccountPendingReview",
 );
 
 const routeNeedsChangeRequests = computed(() =>
-  ["AccountPendingChanges", "AccountPendingReview", "AccountRejected"].includes(route.name),
+  ["AccountPendingChanges", "AccountPendingReview"].includes(route.name),
 );
 
 watch(
@@ -1060,22 +1032,6 @@ watch(
   { immediate: true },
 );
 
-function getReviewedAccountRows(status) {
-  return accountChangeRows.value
-    .filter((row) => row.status === status)
-    .map((row) => ({
-      id: row.userId || row.targetId || row.id,
-      userName: row.userName || row.after?.userName || "-",
-      orgName: row.after?.orgName || row.before?.orgName || "-",
-      roles: extractRolesFromAccountInfo(row.after),
-      roleLabel: row.after?.roleLabel || "-",
-      status: row.status,
-      createdAt: row.closedAt || row.createdAt,
-      rejectReason: row.remark || row.rejectReason || "-",
-      requesterId: row.requesterId,
-    }));
-}
-
 async function syncAccountRowsFromStore(options = {}) {
   const {
     usersStatus = accountRouteApiStatus.value,
@@ -1089,17 +1045,30 @@ function mergePendingUsersWithChangeRequests(pendingUsers = []) {
   const requestMap = createPendingUserChangeRequestMap();
   return pendingUsers.map((user) => {
     const request = requestMap.get(String(user.id));
-    if (!request) return user;
+    if (!request) {
+      return {
+        ...user,
+        userId: user.id,
+        targetType: "USER",
+        changeRequestId: null,
+        changeRequestTargetId: null,
+        changeRequestAction: null,
+        requesterId: user.createdBy || "",
+        reviewable: false,
+      };
+    }
     return {
       ...user,
       userId: user.id,
       targetType: "USER",
       action: request.action,
       changeRequestId: request.id,
+      changeRequestTargetId: request.targetId,
       changeRequestAction: request.action,
       requesterId: request.requesterId || request.createdBy || user.createdBy || "",
       createdBy: request.requesterId || user.createdBy,
       createdAt: user.createdAt || request.createdAt,
+      reviewable: Boolean(request.id),
     };
   });
 }

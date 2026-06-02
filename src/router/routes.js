@@ -97,8 +97,7 @@ export const routes = [
       {
         path: "accounts/rejected",
         name: "AccountRejected",
-        component: AccountStatusListView,
-        meta: { title: "已駁回帳號", status: "REJECTED", roles: ["ADMIN"] },
+        redirect: "/accounts/active",
       },
       {
         path: "accounts/deleted",
