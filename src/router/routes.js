@@ -92,7 +92,7 @@ export const routes = [
         path: "accounts/disabled",
         name: "AccountDisabled",
         component: AccountStatusListView,
-        meta: { title: "已停用帳號", status: "DISABLED", roles: ["ADMIN"] },
+        meta: { title: "已停用帳號", status: "LOCKED", roles: ["ADMIN"] },
       },
       {
         path: "accounts/rejected",

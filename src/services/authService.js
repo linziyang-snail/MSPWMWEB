@@ -5,7 +5,7 @@ export async function login(payload) {
   return apiRequest.post(
     "/auth/login",
     { userId, password },
-    { skipAuth: true },
+    { skipAuth: true, skipGlobalErrorCodes: ["1007", "1008"] },
   );
 }
 

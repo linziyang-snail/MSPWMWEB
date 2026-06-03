@@ -12,6 +12,29 @@ export async function getUsers(params = {}) {
   );
 }
 
+export async function searchUsersByKeyword(params = {}) {
+  const {
+    page = 1,
+    size = 20,
+    status = "ACTIVE",
+    keyword = "",
+  } = params || {};
+  const normalizedKeyword = String(keyword).trim();
+  if (!normalizedKeyword) {
+    throw new Error("keyword is required");
+  }
+  return unwrapApiBody(
+    await apiRequest.get("/api/users/keyword", {
+      params: pruneEmptyParams({
+        page,
+        size: clampUserPageSize(size),
+        status,
+        keyword: normalizedKeyword,
+      }),
+    }),
+  );
+}
+
 export async function getUserById(params) {
   const { id } = normalizeIdParams(params);
   return unwrapApiBody(await apiRequest.get(`/api/users/${id}`));
@@ -71,6 +94,17 @@ export async function getAccountChangeRequests(status = "PENDING") {
   });
 }
 
+export async function exportUsers() {
+  const response = await apiRequest.get("/api/users/export", {
+    responseType: "blob",
+    headers: {
+      Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    },
+  });
+  const filename = getDownloadFilename(response?.headers?.["content-disposition"]);
+  downloadBlob(response.data, filename);
+}
+
 /**
  * 查詢所有使用者（分頁）
  * @param {number} page - 頁碼，預設 1
@@ -78,6 +112,10 @@ export async function getAccountChangeRequests(status = "PENDING") {
  * @returns {Promise} - 使用者分頁列表
  */
 export const GetUsers = (page = 1, size = 20) => getUsers({ page, size });
+
+export const SearchUsersByKeyword = (params) => searchUsersByKeyword(params);
+
+export const ExportUsers = () => exportUsers();
 
 /**
  * 查詢單一使用者
@@ -160,6 +198,35 @@ function normalizeResetPasswordParams(params, legacyPayload) {
 
 function getStoredUserId() {
   return readAuthStorage()?.userId || "";
+}
+
+function getDownloadFilename(contentDisposition = "") {
+  const disposition = String(contentDisposition || "");
+  const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1]);
+    } catch {
+      return encodedMatch[1];
+    }
+  }
+  const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+  if (filenameMatch?.[1] && !filenameMatch[1].startsWith("=?")) {
+    return filenameMatch[1];
+  }
+  return "使用者列表.xlsx";
+}
+
+function downloadBlob(blob, filename) {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename || "使用者列表.xlsx";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 function pruneEmptyParams(params = {}) {

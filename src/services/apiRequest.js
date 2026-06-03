@@ -38,6 +38,7 @@ apiRequest.interceptors.request.use(
 apiRequest.interceptors.response.use(
   (response) => {
     settleRequest();
+    if (response.config?.responseType === "blob") return response;
     const apiError = normalizeBusinessError(response);
     if (apiError) {
       handleApiError(apiError, response.config);
@@ -88,7 +89,10 @@ function handleApiError(apiError, config = {}) {
     redirectToLogin();
   }
 
-  if (!config?.skipGlobalErrorHandler) {
+  const skippedCodes = Array.isArray(config?.skipGlobalErrorCodes)
+    ? config.skipGlobalErrorCodes.map((code) => String(code))
+    : [];
+  if (!config?.skipGlobalErrorHandler && !skippedCodes.includes(String(apiError.code))) {
     useAppStore().showAlert({
       title: apiError.code || "系統提示",
       message: resolveApiErrorMessage(apiError),

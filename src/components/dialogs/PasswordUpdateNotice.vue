@@ -49,6 +49,7 @@ defineProps({
 const emit = defineEmits(["update:modelValue", "confirm"]);
 
 function close() {
+  emit("confirm");
   emit("update:modelValue", false);
 }
 

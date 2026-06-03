@@ -1,16 +1,8 @@
 <template>
-  <BaseModal
-    :model-value="modelValue"
-    title="編輯人員權限"
-    :subtitle="subtitle"
-    size="sm"
-    panel-class="shadow-popup"
-    header-class="h-24 border-b border-white bg-background-page px-6 py-6"
-    body-class="px-6 py-5"
-    footer-class="h-20 gap-6 border-t-0 bg-background-page px-6 py-6"
-    icon-container-class="bg-copy-table-border"
-    @update:model-value="$emit('update:modelValue', $event)"
-  >
+  <BaseModal :model-value="modelValue" title="編輯人員權限" :subtitle="subtitle" size="sm" panel-class="shadow-popup"
+    header-class="h-24 px-6 py-6 border-b border-white bg-background-page" body-class="px-6 py-5"
+    footer-class="h-20 gap-6 px-6 py-6 border-t-0 bg-background-page" icon-container-class="bg-copy-table-border"
+    @update:model-value="$emit('update:modelValue', $event)">
     <template #icon>
       <UserCogIcon class="size-6 text-primary" />
     </template>
@@ -18,30 +10,37 @@
     <form class="space-y-6" @submit.prevent="submit">
       <div class="grid grid-cols-2 gap-6">
         <div>
-          <label class="mb-2 block text-sm font-bold leading-normal text-natural">員編(唯讀)</label>
+          <label class="block mb-2 text-sm font-bold leading-normal text-natural">員編</label>
           <BaseInput :model-value="form.id" readonly input-class="!bg-background-surface !text-text-grey" />
         </div>
         <div>
-          <label class="mb-2 block text-sm font-bold leading-normal text-natural">科別</label>
+          <label class="block mb-2 text-sm font-bold leading-normal text-natural">科別</label>
           <BaseSelect v-model="form.orgId" :options="departmentOptions" />
         </div>
       </div>
 
       <div>
-        <label class="mb-2 block text-sm font-bold leading-normal text-natural">人員姓名</label>
+        <label class="block mb-2 text-sm font-bold leading-normal text-natural">人員姓名</label>
         <BaseInput v-model="form.userName" />
       </div>
 
       <div class="grid grid-cols-2 gap-6">
         <div>
-          <label class="mb-2 block text-sm font-bold leading-normal text-natural">權限等級</label>
+          <label class="block mb-2 text-sm font-bold leading-normal text-natural">權限等級</label>
           <BaseSelect v-model="form.role" :options="roleOptions" />
         </div>
         <div>
-          <label class="mb-2 block text-sm font-bold leading-normal text-natural">帳號狀態</label>
-          <BaseSelect v-model="form.status" :options="statusOptions" />
+          <label class="block mb-2 text-sm font-bold leading-normal text-natural">帳號狀態</label>
+          <div
+            class="flex h-10 items-center rounded-lg border border-border bg-background-surface px-3 text-base font-normal leading-normal text-text-grey"
+          >
+            啟用
+          </div>
         </div>
       </div>
+      <p v-if="formError" class="text-sm font-medium leading-normal text-danger-text">
+        {{ formError }}
+      </p>
     </form>
 
     <template #footer>
@@ -74,10 +73,6 @@ const roleOptions = [
   { label: "覆核主管", value: "MANAGER" },
   { label: "超級管理員", value: "ADMIN" },
 ];
-const statusOptions = [
-  { label: "啟用", value: "ACTIVE" },
-  { label: "停用", value: "DISABLED" },
-];
 const roleValueMap = {
   經辦: "USER",
   經辦人員: "USER",
@@ -91,9 +86,9 @@ const form = reactive({
   orgId: "",
   userName: "",
   role: "USER",
-  status: "ACTIVE",
 });
 const organizations = ref([]);
+const formError = ref("");
 
 const departmentOptions = computed(() => {
   const rows = Array.isArray(organizations.value) ? organizations.value : [];
@@ -108,7 +103,7 @@ const selectedOrganization = computed(() =>
   ),
 );
 
-const subtitle = computed(() => `員編：${props.account?.id || "1193285"}`);
+const subtitle = computed(() => `員編：${props.account?.id || ""}`);
 
 watch(
   () => props.modelValue,
@@ -120,36 +115,68 @@ watch(
 );
 
 function syncForm() {
+  formError.value = "";
   Object.assign(form, {
-    id: props.account?.id || "1193285",
+    id: props.account?.id || "",
     orgId: props.account?.orgId != null ? Number(props.account.orgId) : "",
-    userName: props.account?.userName || "王吳王",
+    userName: props.account?.userName || "",
     role: roleValueMap[props.account?.roleLabel] || props.account?.roles?.[0] || "USER",
-    status: props.account?.status || "ACTIVE",
   });
 }
 
 function submit() {
+  formError.value = "";
+  if (!form.orgId) {
+    formError.value = "原科別已不存在，請重新選擇科別";
+    return;
+  }
+  if (!hasProfileChanges()) {
+    formError.value = "資料未異動";
+    return;
+  }
   emit("submitted", {
     id: form.id,
     userName: form.userName,
     orgId: Number(form.orgId),
     orgName: selectedOrganization.value?.orgName || props.account?.orgName || "",
-    status: form.status,
-    originalStatus: props.account?.status || "",
     roles: [form.role],
     roleLabel: roleLabelMap[form.role],
   });
   close();
 }
 
+function hasProfileChanges() {
+  const originalOrgId = props.account?.orgId;
+  const orgChanged = hasOriginalOrgId()
+    ? Number(originalOrgId) !== Number(form.orgId)
+    : normalizeText(props.account?.orgName) !== normalizeText(selectedOrganization.value?.orgName || props.account?.orgName);
+  return (
+    normalizeText(props.account?.userName) !== normalizeText(form.userName) ||
+    orgChanged ||
+    getOriginalRole() !== form.role
+  );
+}
+
+function hasOriginalOrgId() {
+  return props.account?.orgId != null && props.account?.orgId !== "";
+}
+
+function getOriginalRole() {
+  return roleValueMap[props.account?.roleLabel] || props.account?.roles?.[0] || "USER";
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
 async function fetchOrganizations() {
   try {
     organizations.value = normalizeOrganizationRows(await getOrganizations({ status: "ACTIVE" }));
     if (!form.orgId) {
-      form.orgId = props.account?.orgId != null
-        ? Number(props.account.orgId)
-        : departmentOptions.value[0]?.value || "";
+      const originalOrganization = departmentOptions.value.find(
+        (option) => normalizeText(option.label) === normalizeText(props.account?.orgName),
+      );
+      form.orgId = originalOrganization?.value || "";
     }
   } catch (error) {
     console.error(error);

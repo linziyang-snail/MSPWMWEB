@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- 頁面標題摘要區 -->
-    <section v-if="!isActivePage"
+    <section
       class="flex items-center justify-between gap-4 px-6 py-6 border-t min-h-32 rounded-2xl border-border-muted bg-background-surface">
       <div class="items-center gap-4">
         <div class="flex">
@@ -30,11 +30,6 @@
     <section v-if="isChangeReviewPage" class="space-y-6">
       <div class="flex justify-end gap-4 px-4 py-4 border-b min-h-header border-border-muted bg-background-page/50">
         <button
-          class="inline-flex h-10 w-40 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
-          type="button">
-          <FileIcon /> 匯出（CSV）
-        </button>
-        <button
           class="inline-flex h-10 w-32 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
           type="button" @click="createDialogOpen = true">
           <UserPlusIcon /> 新增人員
@@ -48,6 +43,7 @@
             員編：{{ request.userId }} - {{ request.userName }}
           </h2>
           <button
+            v-if="canViewOriginal(request)"
             class="inline-flex items-center gap-2 text-base font-bold leading-normal text-primary hover:text-primary-hover"
             type="button" @click="toggleOriginal(request.id)">
             <EyeIcon />
@@ -55,7 +51,7 @@
           </button>
         </header>
 
-        <div v-if="expandedChangeIds.includes(request.id)" class="pb-6 mt-6 space-y-4 border-b border-border">
+        <div v-if="canViewOriginal(request) && expandedChangeIds.includes(request.id)" class="pb-6 mt-6 space-y-4 border-b border-border">
           <div
             class="px-4 py-3 text-sm font-medium border rounded-lg border-warning-border bg-warning-bg text-warning-text">
             <span class="mr-2">ⓘ</span>修改前的原始資料
@@ -115,7 +111,7 @@
     </section>
 
     <!-- 帳號搜尋列 -->
-    <section v-if="showAccountFilters"
+    <section v-if="canShowKeywordSearch"
       class="px-4 py-4 border rounded-2xl border-border bg-background-surface shadow-control">
       <div class="flex items-center gap-6 max-xl:flex-wrap">
         <BaseSearchInput v-model="accountKeyword" class="flex-1 min-w-80" placeholder="請輸入員編、人員姓名" size="md"
@@ -142,9 +138,10 @@
     <div v-if="!isChangeReviewPage" class="overflow-hidden border rounded-xl border-border bg-background-surface">
       <div class="flex justify-end gap-4 px-4 py-4 border-b min-h-header border-border-muted bg-background-page/50">
         <button
+          v-if="canShowExportExcel"
           class="inline-flex h-10 w-40 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
-          type="button">
-          <FileIcon /> 匯出（CSV）
+          type="button" @click="handleExportUsers">
+          <FileIcon /> 匯出 Excel
         </button>
         <button
           class="inline-flex h-10 w-32 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
@@ -178,7 +175,7 @@
             <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">{{ row.userName }}</td>
             <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">{{ row.orgName }}</td>
             <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">
-              {{ row.roleLabel || row.roles.join(", ") }}
+              {{ formatAccountRoles(row) }}
             </td>
             <td class="px-4 py-4 xl:px-5">
               <span v-if="isOwnPendingAccount(row) || row.status === 'PENDING_MULTI'"
@@ -189,13 +186,13 @@
                 class="inline-flex h-8 items-center whitespace-nowrap rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium leading-normal text-danger-text">
                 待審核
               </span>
-              <StatusBadge v-else :status="row.status" />
+              <StatusBadge v-else :status="row.status" :label="getAccountBadgeLabel(row.status)" />
             </td>
             <td class="px-3 py-4 xl:px-5">
               <p v-if="routeStatus === 'DELETED'" class="text-base font-normal leading-normal text-center text-natural">
                 -
               </p>
-              <div v-else-if="isActivePage" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
+              <div v-else-if="['ACTIVE', 'LOCKED'].includes(row.status)" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
                 <button
                   class="grid transition rounded size-8 place-items-center text-natural hover:bg-background-hover hover:text-primary"
                   type="button" aria-label="重設密碼" @click="openPasswordReset(row)">
@@ -231,11 +228,8 @@
                   等待其他管理員審核
                 </span>
                 <span v-else-if="row.status === 'PENDING'" class="text-base font-normal leading-normal text-center text-natural">
-                  -
+                  {{ missingReviewText(row) }}
                 </span>
-                <BaseButton v-if="row.status === 'LOCKED'" variant="text" size="sm" @click="confirm(row, 'unlock')">
-                  解鎖
-                </BaseButton>
                 <BaseButton v-if="row.status === 'ACTIVE'" variant="text" size="sm" @click="confirm(row, 'disable')">
                   停用
                 </BaseButton>
@@ -286,11 +280,9 @@
         <span class="font-bold text-text-secondary">科別</span>
         <span class="text-text-primary">{{ selected.orgName }}</span>
         <span class="font-bold text-text-secondary">角色</span>
-        <span class="text-text-primary">{{
-          selected.roleLabel || selected.roles.join(", ")
-        }}</span>
+        <span class="text-text-primary">{{ formatAccountRoles(selected) }}</span>
         <span class="font-bold text-text-secondary">狀態</span>
-        <StatusBadge :status="selected.status" />
+        <StatusBadge :status="selected.status" :label="getAccountBadgeLabel(selected.status)" />
         <span class="font-bold text-text-secondary">最後登入</span>
         <span class="text-text-primary">{{
           selected.lastLoginAt ? formatDateTime(selected.lastLoginAt) : "-"
@@ -349,9 +341,10 @@ import {
 } from "@/services/approvalService";
 import {
   disableUser,
+  exportUsers,
   getUserById,
   resetUserPassword,
-  unlockUser,
+  searchUsersByKeyword,
   updateUser,
 } from "@/services/userService";
 import { useAuthStore } from "@/stores/authStore";
@@ -362,6 +355,7 @@ import { formatDateTime } from "@/utils/formatDate";
 const route = useRoute();
 const auth = useAuthStore();
 const userStore = useUserStore();
+const currentUserId = computed(() => auth.userId || "");
 const selected = ref(null);
 const dialog = ref({
   open: false,
@@ -415,7 +409,7 @@ const columns = [
 ];
 const tableColumns = computed(() => {
   const dateLabelMap = {
-    DISABLED: "停用日期",
+    LOCKED: "停用日期",
     DELETED: "刪除日期",
   };
   return columns.map((column) =>
@@ -429,9 +423,14 @@ const trailingColumnLabel = computed(() => "操作");
 const routeStatus = computed(() => route.meta.status || "");
 
 const isPendingPage = computed(() => routeStatus.value === "PENDING");
+const isPendingAccountPage = computed(() => route.name === "AccountPendingChanges");
 const isChangeReviewPage = computed(() => route.name === "AccountPendingReview");
 const isActivePage = computed(() => routeStatus.value === "ACTIVE");
-const showAccountFilters = computed(() => !isChangeReviewPage.value);
+const canShowKeywordSearch = computed(() => route.name === "AccountActive");
+const canShowExportExcel = computed(() => route.name === "AccountActive");
+const isServerKeywordSearchActive = computed(() =>
+  Boolean(canShowKeywordSearch.value && committedActiveFilters.value.keyword.trim()),
+);
 const pendingAccountChangeRows = computed(() =>
   accountChangeRows.value.filter((row) => row.action !== "CREATE"),
 );
@@ -455,7 +454,9 @@ const filteredRows = computed(() => {
 });
 
 function filterRowsByAccountFilters(rows) {
-  const keyword = committedActiveFilters.value.keyword.trim().toLowerCase();
+  const keyword = isServerKeywordSearchActive.value
+    ? ""
+    : committedActiveFilters.value.keyword.trim().toLowerCase();
   const startTime = getStartOfDayTime(committedActiveFilters.value.startDate);
   const endTime = getEndOfDayTime(committedActiveFilters.value.endDate);
   const hasDateFilter = startTime !== null || endTime !== null;
@@ -523,16 +524,17 @@ function getEndOfDayTime(value) {
   return getDateTime(`${normalizedDate}T23:59:59.999`);
 }
 
-function applyActiveFilters() {
+async function applyActiveFilters() {
   currentPage.value = 1;
   committedActiveFilters.value = {
     keyword: accountKeyword.value,
     startDate: activeStartDate.value,
     endDate: activeEndDate.value,
   };
+  await reloadAccountData({ forceUsers: true });
 }
 
-function resetActiveFilters() {
+async function resetActiveFilters() {
   currentPage.value = 1;
   accountKeyword.value = "";
   activeStartDate.value = "";
@@ -542,6 +544,7 @@ function resetActiveFilters() {
     startDate: "",
     endDate: "",
   };
+  await reloadAccountData({ forceUsers: true });
 }
 
 function toggleSort(key) {
@@ -558,23 +561,15 @@ function sortRows(rows) {
 }
 
 function getSortValue(row, key) {
-  if (key === "roles") return row.roleLabel || row.roles?.join(", ") || "";
+  if (key === "roles") return formatAccountRoles(row);
   if (key === "createdAt") return row.createdAt || "";
   if (key === "status") return getStatusSortLabel(row.status);
   return row[key] ?? "";
 }
 
 function getStatusSortLabel(status) {
-  return (
-    {
-      ACTIVE: "已啟用",
-      DISABLED: "停用",
-      DELETED: "已刪除",
-      REJECTED: "已駁回",
-      PENDING: "待審核",
-      PENDING_MULTI: "等待其他管理員審核",
-    }[status] || status || ""
-  );
+  const normalizedStatus = String(status || "").toUpperCase();
+  return getAccountStatusLabel(normalizedStatus);
 }
 
 function compareSortValue(a, b) {
@@ -592,6 +587,8 @@ async function normalizeAccountChangeRows(rows = []) {
         action: String(row.action || "UPDATE").toUpperCase(),
         requesterId: getRequesterId(row),
         targetType: row.targetType || "USER",
+        before: normalizeAccountInfo(row.before || {}, row.status),
+        after: normalizeAccountInfo(row.after || row, row.status),
       };
     }
 
@@ -613,8 +610,8 @@ async function normalizeAccountChangeRows(rows = []) {
       createdBy: row.requesterId,
       requesterId: row.requesterId,
       createdByName: row.requesterName || row.requesterId || "-",
-      before: normalizeAccountInfo(before),
-      after: normalizeAccountInfo(after),
+      before: normalizeAccountInfo(before, row.status),
+      after: normalizeAccountInfo(after, row.status),
     };
   });
   return normalizedRows;
@@ -635,7 +632,7 @@ async function hydrateAccountChangeHistory(row) {
     if (!previousPayload) return row;
     return {
       ...row,
-      before: normalizeAccountInfo(previousPayload),
+      before: normalizeAccountInfo(previousPayload, previousPayload.reviewStatus),
     };
   } catch (error) {
     console.error(error);
@@ -723,21 +720,65 @@ function getChangeRequestTitle(action = "") {
 
 function normalizeAccountInfo(data = {}) {
   const roleValue = data.roles?.[0] || data.role || data.roleName;
+  const accountStatus = data.userStatus || data.accountStatus || data.status;
   return {
     roles: Array.isArray(data.roles) ? data.roles : roleValue ? [roleValue] : [],
     orgName: data.orgName || data.organizationName || data.orgId || "-",
-    roleLabel: data.roleLabel || roleLabelMap[roleValue] || formatRoleIds(data.roleIds),
-    statusLabel: data.statusLabel || statusLabelMap[data.status] || data.status || "-",
+    roleLabel: data.roleLabel
+      ? normalizeAccountRoleLabel(data.roleLabel)
+      : getAccountRoleLabel(roleValue) || formatRoleIds(data.roleIds),
+    statusLabel: data.statusLabel || getAccountStatusLabel(accountStatus),
   };
+}
+
+function getAccountStatusLabel(status) {
+  const normalizedStatus = String(status || "").toUpperCase();
+  return (
+    {
+      ACTIVE: "啟用",
+      PENDING_APPROVAL: "待審核",
+      LOCKED: "停用",
+      DISABLED: "刪除",
+      PASSWORD_INVALID: "密碼失效",
+    }[normalizedStatus] || statusLabelMap[normalizedStatus] || status || "-"
+  );
+}
+
+function getAccountBadgeLabel(status) {
+  return getAccountStatusLabel(status);
 }
 
 function formatRoleIds(roleIds = []) {
   if (!Array.isArray(roleIds) || !roleIds.length) return "-";
   return roleIds
     .map((id) => Object.entries(roleIdMap).find(([, roleId]) => roleId === Number(id))?.[0])
-    .map((role) => roleLabelMap[role] || role)
+    .map((role) => getAccountRoleLabel(role))
     .filter(Boolean)
     .join(", ") || "-";
+}
+
+function formatAccountRoles(account = {}) {
+  if (Array.isArray(account.roles) && account.roles.length) {
+    return account.roles.map((role) => getAccountRoleLabel(role)).filter(Boolean).join(", ");
+  }
+  if (account.roleLabel) return normalizeAccountRoleLabel(account.roleLabel);
+  return "-";
+}
+
+function getAccountRoleLabel(role) {
+  const normalizedRole = String(role || "").toUpperCase();
+  return (
+    {
+      USER: "經辦",
+      MANAGER: "覆核主管",
+      ADMIN: "超級管理員",
+    }[normalizedRole] || roleLabelMap[normalizedRole] || role || ""
+  );
+}
+
+function normalizeAccountRoleLabel(label) {
+  if (label === "經辦人員") return "經辦";
+  return label || "-";
 }
 
 function openDetail(row) {
@@ -768,24 +809,25 @@ async function openEditPermission(row) {
 
 function confirm(row, action) {
   selected.value = row;
-  if (["approve", "reject"].includes(action) && !canReviewAccount(row)) return;
+  const isReviewAction = ["approve", "reject"].includes(action);
+  const canReview = isChangeReviewPage.value
+    ? canReviewRequest(row)
+    : canReviewAccount(row);
+  if (isReviewAction && !canReview) return;
   const targetLabel = getReviewTargetLabel(row);
   if (action === "reject") {
+    const isDeleteReview = getNormalizedAction(row) === "DELETE";
+    const displayName = getDisplayUserName(row);
     rejectDialog.value = {
       open: true,
       title: `駁回${targetLabel}`,
-      subtitle: `員編：${getDisplayUserId(row)}`,
+      subtitle: isDeleteReview
+        ? `確定要駁回帳號刪除「${displayName}」嗎？`
+        : `員編：${getDisplayUserId(row)}`,
     };
     return;
   }
   const configs = {
-    unlock: {
-      title: "解鎖帳號",
-      message: `確認解鎖 ${row.userName}？`,
-      danger: false,
-      success: false,
-      confirmText: "確認解鎖",
-    },
     reset: {
       title: "重設密碼",
       message: `確認重設 ${row.userName} 的密碼？`,
@@ -830,9 +872,14 @@ function confirm(row, action) {
 }
 
 function getReviewTargetLabel(row) {
+  if (getNormalizedAction(row) === "DELETE") return "帳號刪除";
   if (row?.action === "CREATE") return "新帳號";
   if (isChangeRequestRow(row) || isChangeReviewPage.value) return "帳號異動";
   return "新帳號";
+}
+
+function getNormalizedAction(row = {}) {
+  return String(row.action || row.changeRequestAction || "").toUpperCase();
 }
 
 function getDisplayUserId(row = {}) {
@@ -858,10 +905,6 @@ async function onDialogConfirm() {
       await reloadAccountData({ forceUsers: true, forceRequests: true });
       return;
     }
-    if (action === "unlock" && selected.value?.id) {
-      await unlockUser({ id: selected.value.id });
-      await reloadAccountData({ forceUsers: true, forceRequests: false });
-    }
   } catch (error) {
     console.error(error);
   } finally {
@@ -878,13 +921,6 @@ async function onEditPermission(payload) {
       roleIds: payload.roles.map((role) => roleIdMap[role]).filter(Boolean),
     });
     await reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: true });
-    const isReactivation = payload.originalStatus && payload.originalStatus !== "ACTIVE" && payload.status === "ACTIVE";
-    if (isReactivation) {
-      const updated = users.value.find((user) => user.id === payload.id) || selected.value;
-      window.setTimeout(() => {
-        confirm(updated, "reactivate");
-      }, 0);
-    }
   } catch (error) {
     console.error(error);
   }
@@ -896,6 +932,8 @@ async function onPasswordReset(payload) {
       id: payload.account?.id,
       newPassword: payload.password,
     });
+    userStore.invalidateUsers("ACTIVE");
+    userStore.invalidateUsers("LOCKED");
     await reloadAccountData({ forceUsers: true, forceRequests: false });
   } catch (error) {
     console.error(error);
@@ -928,21 +966,58 @@ async function onCreateAccount(payload) {
   }
 }
 
+async function handleExportUsers() {
+  try {
+    await exportUsers();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 function canReviewRequest(request) {
   const requesterId = getRequesterId(request);
-  return Boolean(requesterId && requesterId !== auth.userId);
+  const changeRequestId = getChangeRequestId(request);
+  return Boolean(
+    changeRequestId &&
+    requesterId &&
+    currentUserId.value &&
+    String(requesterId) !== String(currentUserId.value),
+  );
 }
 
 function canReviewAccount(account) {
   const requesterId = getRequesterId(account);
   if (account?.status === "PENDING") {
-    return Boolean(account.reviewable && requesterId && requesterId !== auth.userId);
+    return Boolean(
+      account.reviewable &&
+      requesterId &&
+      currentUserId.value &&
+      String(requesterId) !== String(currentUserId.value),
+    );
   }
-  return Boolean(requesterId && requesterId !== auth.userId);
+  return Boolean(
+    requesterId &&
+    currentUserId.value &&
+    String(requesterId) !== String(currentUserId.value),
+  );
+}
+
+function canViewOriginal(request = {}) {
+  return getNormalizedAction(request) === "UPDATE";
 }
 
 function isOwnPendingAccount(account) {
-  return account?.status === "PENDING" && getRequesterId(account) === auth.userId;
+  return (
+    account?.status === "PENDING" &&
+    getChangeRequestId(account) &&
+    currentUserId.value &&
+    String(getRequesterId(account)) === String(currentUserId.value)
+  );
+}
+
+function missingReviewText(row = {}) {
+  if (row.status === "PENDING" && !getChangeRequestId(row)) return "查無待審新增單，無法審核";
+  return "-";
 }
 
 function getRequesterId(item = {}) {
@@ -974,16 +1049,31 @@ async function reloadAccountData(options = {}) {
     requestStatus = accountRouteRequestStatus.value,
   } = options;
   const tasks = [];
+  let userRowsOverride = null;
   if (routeNeedsUsers.value) {
-    tasks.push(userStore.fetchUsers({ page: 1, size: 100, status: usersStatus, force: forceUsers }));
+    if (shouldSearchUsersByKeyword()) {
+      tasks.push(
+        searchUsersByKeyword({
+          page: 1,
+          size: 20,
+          status: usersStatus,
+          keyword: committedActiveFilters.value.keyword,
+        }).then((response) => {
+          userRowsOverride = response?.content || [];
+          return response;
+        }),
+      );
+    } else {
+      tasks.push(userStore.fetchUsers({ page: 1, size: 100, status: usersStatus, force: forceUsers }));
+    }
   }
   if (routeNeedsChangeRequests.value) {
     tasks.push(userStore.fetchAccountChangeRequests(requestStatus, { force: forceRequests }));
   } else {
-    tasks.push(userStore.fetchAccountChangeRequests("PENDING", { force: false }));
+    tasks.push(userStore.fetchAccountChangeRequests("PENDING", { force: forceRequests }));
   }
   await Promise.all(tasks);
-  await syncAccountRowsFromStore({ usersStatus, requestStatus });
+  await syncAccountRowsFromStore({ usersStatus, requestStatus, userRowsOverride });
 }
 
 async function reloadAccountDataAfterReview() {
@@ -1001,8 +1091,8 @@ async function reloadAccountDataAfterReview() {
 
 const accountRouteApiStatus = computed(() => {
   if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
-  if (route.name === "AccountDisabled" || route.name === "AccountDeleted") return "DISABLED";
-  if (route.name === "AccountLocked") return "LOCKED";
+  if (route.name === "AccountDisabled" || route.name === "AccountLocked") return "LOCKED";
+  if (route.name === "AccountDeleted") return "DISABLED";
   if (route.name === "AccountPasswordInvalid") return "PASSWORD_INVALID";
   if (route.name === "AccountActive") return "ACTIVE";
   return "ACTIVE";
@@ -1036,9 +1126,17 @@ async function syncAccountRowsFromStore(options = {}) {
   const {
     usersStatus = accountRouteApiStatus.value,
     requestStatus = accountRouteRequestStatus.value,
+    userRowsOverride = null,
   } = options;
-  users.value = userStore.getCachedUsers(usersStatus).map(normalizeAccountRowStatus);
+  const sourceUsers = Array.isArray(userRowsOverride)
+    ? userRowsOverride
+    : userStore.getCachedUsers(usersStatus);
+  users.value = sourceUsers.map(normalizeAccountRowStatus);
   accountChangeRows.value = await normalizeAccountChangeRows(userStore.getCachedChangeRequests(requestStatus));
+}
+
+function shouldSearchUsersByKeyword() {
+  return Boolean(canShowKeywordSearch.value && committedActiveFilters.value.keyword.trim());
 }
 
 function mergePendingUsersWithChangeRequests(pendingUsers = []) {
@@ -1077,6 +1175,7 @@ function createPendingUserChangeRequestMap() {
   return new Map(
     accountChangeRows.value
       .filter((request) => request.targetType === "USER" && request.status === "PENDING")
+      .filter((request) => String(request.action || "").toUpperCase() === "CREATE")
       .map((request) => [String(request.targetId || request.userId), request]),
   );
 }
@@ -1099,7 +1198,7 @@ function toggleOriginal(id) {
 
 async function loadOriginalAccountInfo(id) {
   const row = accountChangeRows.value.find((item) => String(item.id) === String(id));
-  if (!row || row.action === "CREATE" || hasMeaningfulAccountInfo(row.before)) return;
+  if (!row || !canViewOriginal(row) || hasMeaningfulAccountInfo(row.before)) return;
   const hydratedRow = await hydrateAccountChangeHistory(row);
   accountChangeRows.value = accountChangeRows.value.map((item) =>
     String(item.id) === String(id) ? hydratedRow : item,
@@ -1175,14 +1274,11 @@ const AccountInfoTable = (props, context = {}) => {
               h(
                 "td",
                 { class: "px-4 py-2.5 align-top font-bold leading-5 text-text-heading" },
-                label === "帳號狀態"
+                label.includes("狀態")
                   ? h(
                     "span",
                     {
-                      class:
-                        value === "刪除"
-                          ? "inline-flex rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium text-danger-text"
-                          : "inline-flex rounded-3xl bg-success-bg px-3 py-0.5 text-sm font-medium text-success-text",
+                      class: getInfoStatusClass(value),
                     },
                     value,
                   )
@@ -1196,6 +1292,16 @@ const AccountInfoTable = (props, context = {}) => {
   );
 };
 AccountInfoTable.props = ["item", "data", "connected"];
+
+function getInfoStatusClass(value) {
+  if (["停用", "刪除", "已駁回", "密碼失效"].includes(value)) {
+    return "inline-flex rounded-3xl bg-danger-bg px-3 py-0.5 text-sm font-medium text-danger-text";
+  }
+  if (["待審核"].includes(value)) {
+    return "inline-flex rounded-3xl bg-warning-bg px-3 py-0.5 text-sm font-medium text-warning-text";
+  }
+  return "inline-flex rounded-3xl bg-success-bg px-3 py-0.5 text-sm font-medium text-success-text";
+}
 
 const SortIcon = () => h("img", { src: sortIcon, alt: "", "aria-hidden": "true", class: "h-4 w-2.5 shrink-0" });
 SortIcon.props = ["active", "direction"];
