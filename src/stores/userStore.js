@@ -5,6 +5,9 @@ import {
   getUsers,
 } from "@/services/userService";
 
+const USER_PENDING_CREATE_QUERY = { status: "PENDING", action: ["CREATE"] };
+const USER_PENDING_CHANGES_QUERY = { status: "PENDING", action: ["UPDATE", "DELETE"] };
+
 export const useUserStore = defineStore("users", {
   state: () => ({
     users: [],
@@ -14,6 +17,7 @@ export const useUserStore = defineStore("users", {
     size: 20,
     accountChangeRequests: [],
     changeRequestsByStatus: {},
+    changeRequestTotalsByStatus: {},
     inFlightByKey: {},
     lastFetchedAtByKey: {},
     loaded: false,
@@ -22,39 +26,25 @@ export const useUserStore = defineStore("users", {
     error: "",
   }),
   getters: {
-    pendingNewCount: (state) => {
-      const pendingIds = new Set(
-        (state.usersByStatus.PENDING_APPROVAL || state.users)
-          .filter((user) => ["PENDING", "PENDING_APPROVAL"].includes(user.status))
-          .map((user) => String(user.id)),
-      );
-      getPendingChangeRequestsFromState(state).forEach((item) => {
-        const targetType = item?.targetType || "USER";
-        const status = item?.status || "PENDING";
-        const action = String(item?.action || "").toUpperCase();
-        if (targetType === "USER" && status === "PENDING" && action === "CREATE") {
-          pendingIds.add(String(item.targetId || item.userId || item.id));
-        }
-      });
-      return pendingIds.size;
-    },
+    pendingNewCount: (state) =>
+      getChangeRequestTotalFromState(state, USER_PENDING_CREATE_QUERY),
     pendingChangeCount: (state) =>
-      getPendingChangeRequestsFromState(state).filter((item) => {
-        const targetType = item?.targetType || "USER";
-        const status = item?.status || "PENDING";
-        const action = String(item?.action || "").toUpperCase();
-        return targetType === "USER" && status === "PENDING" && action !== "CREATE";
-      }).length,
+      getChangeRequestTotalFromState(state, USER_PENDING_CHANGES_QUERY),
   },
   actions: {
     async ensureLoaded(params = {}) {
       if (this.loaded) return;
       if (this.loadingPromise) return this.loadingPromise;
-      this.loadingPromise = this.fetchAccountChangeRequests("PENDING", params).then(() => {
-        this.loaded = true;
-      }).finally(() => {
-        this.loadingPromise = null;
-      });
+      this.loadingPromise = Promise.all([
+        this.fetchAccountChangeRequests(USER_PENDING_CREATE_QUERY, params),
+        this.fetchAccountChangeRequests(USER_PENDING_CHANGES_QUERY, params),
+      ])
+        .then(() => {
+          this.loaded = true;
+        })
+        .finally(() => {
+          this.loadingPromise = null;
+        });
       return this.loadingPromise;
     },
     async refreshAll(params = {}) {
@@ -62,7 +52,8 @@ export const useUserStore = defineStore("users", {
       this.loadingPromise = null;
       await Promise.all([
         this.fetchUsers({ size: 100, ...params, force: true }),
-        this.fetchAccountChangeRequests("PENDING", { force: true }),
+        this.fetchAccountChangeRequests(USER_PENDING_CREATE_QUERY, { force: true }),
+        this.fetchAccountChangeRequests(USER_PENDING_CHANGES_QUERY, { force: true }),
       ]);
       this.loaded = true;
     },
@@ -74,6 +65,7 @@ export const useUserStore = defineStore("users", {
       this.size = 20;
       this.accountChangeRequests = [];
       this.changeRequestsByStatus = {};
+      this.changeRequestTotalsByStatus = {};
       this.inFlightByKey = {};
       this.lastFetchedAtByKey = {};
       this.loaded = false;
@@ -101,6 +93,7 @@ export const useUserStore = defineStore("users", {
     invalidateAccountChangeRequests(params = "PENDING") {
       const key = buildChangeRequestsKey(params);
       delete this.changeRequestsByStatus[key];
+      delete this.changeRequestTotalsByStatus[key];
       delete this.inFlightByKey[key];
       if (getChangeRequestStatus(params) === "PENDING") this.loaded = false;
     },
@@ -164,6 +157,10 @@ export const useUserStore = defineStore("users", {
         const rows = await getAccountChangeRequests(params);
         this.accountChangeRequests = rows;
         this.changeRequestsByStatus = { ...this.changeRequestsByStatus, [key]: rows };
+        this.changeRequestTotalsByStatus = {
+          ...this.changeRequestTotalsByStatus,
+          [key]: getRowsTotalElements(rows),
+        };
         this.lastFetchedAtByKey = { ...this.lastFetchedAtByKey, [key]: Date.now() };
         return rows;
       })();
@@ -250,9 +247,15 @@ function normalizeKeyPart(value) {
   return value ? String(value) : "";
 }
 
-function getPendingChangeRequestsFromState(state) {
-  const cachedRows = Object.entries(state.changeRequestsByStatus || {})
-    .filter(([key]) => key.startsWith("changeRequests:USER:PENDING"))
-    .flatMap(([, rows]) => rows || []);
-  return cachedRows.length ? cachedRows : state.accountChangeRequests;
+function getChangeRequestTotalFromState(state, params) {
+  const key = buildChangeRequestsKey(params);
+  const cachedTotal = state.changeRequestTotalsByStatus?.[key];
+  if (Number.isFinite(Number(cachedTotal))) return Number(cachedTotal);
+  return (state.changeRequestsByStatus?.[key] || []).length;
+}
+
+function getRowsTotalElements(rows = []) {
+  const totalElements = rows?.totalElements;
+  if (Number.isFinite(Number(totalElements))) return Number(totalElements);
+  return Array.isArray(rows) ? rows.length : 0;
 }

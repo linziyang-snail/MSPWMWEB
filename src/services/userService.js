@@ -124,11 +124,15 @@ export async function getAccountChangeRequests(params = "PENDING") {
   );
   const rows = Array.isArray(page) ? page : page?.content || [];
   if (!Array.isArray(rows)) return [];
-  return rows.filter((item) => {
+  const userRows = rows.filter((item) => {
     const targetType = item?.targetType || "USER";
-    const status = item?.status || "PENDING";
     return targetType === "USER";
   });
+  Object.defineProperty(userRows, "totalElements", {
+    value: Number(page?.totalElements ?? userRows.length),
+    enumerable: false,
+  });
+  return userRows;
 }
 
 function normalizeArrayParam(value) {

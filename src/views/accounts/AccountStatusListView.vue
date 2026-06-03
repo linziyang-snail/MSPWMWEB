@@ -939,7 +939,7 @@ async function onDialogConfirm() {
       const changeRequestId = getChangeRequestId(selected.value);
       if (!changeRequestId) return;
       await approveChangeRequest({ id: changeRequestId });
-      await reloadAccountDataAfterReview();
+      await reloadAccountDataAfterReview("approve", selected.value);
       return;
     }
     if (["delete", "disable"].includes(action) && selected.value?.id) {
@@ -988,7 +988,7 @@ async function onRejectConfirm(reason) {
     const changeRequestId = getChangeRequestId(selected.value);
     if (!changeRequestId) return;
     await rejectChangeRequest({ id: changeRequestId, remark: reason });
-    await reloadAccountDataAfterReview();
+    await reloadAccountDataAfterReview("reject", selected.value);
   } catch (error) {
     console.error(error);
   } finally {
@@ -1120,15 +1120,26 @@ async function reloadAccountData(options = {}) {
   await syncAccountRowsFromStore({ usersStatus, requestQuery, userRowsOverride });
 }
 
-async function reloadAccountDataAfterReview() {
-  userStore.invalidateUsers("PENDING_APPROVAL");
-  userStore.invalidateUsers("ACTIVE");
-  userStore.invalidateUsers("PASSWORD_INVALID");
-  userStore.invalidateUsers("LOCKED");
-  userStore.invalidateUsers("DISABLED");
-  userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["CREATE"] });
-  userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["UPDATE", "DELETE"] });
-  userStore.invalidateAccountChangeRequests({ status: "APPROVED", action: ["DELETE"] });
+async function reloadAccountDataAfterReview(reviewResult = "approve", reviewedRow = selected.value) {
+  const action = getNormalizedAction(reviewedRow);
+  const isApproved = reviewResult === "approve";
+  if (action === "CREATE") {
+    userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["CREATE"] });
+    userStore.invalidateUsers("PENDING_APPROVAL");
+    userStore.invalidateUsers("ACTIVE");
+    userStore.invalidateUsers("PASSWORD_INVALID");
+  } else {
+    userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["UPDATE", "DELETE"] });
+    if (isApproved) {
+      userStore.invalidateUsers("ACTIVE");
+      userStore.invalidateUsers("PASSWORD_INVALID");
+      userStore.invalidateUsers("LOCKED");
+      if (action === "DELETE") {
+        userStore.invalidateUsers("DISABLED");
+        userStore.invalidateAccountChangeRequests({ status: "APPROVED", action: ["DELETE"] });
+      }
+    }
+  }
   await reloadAccountData({
     forceUsers: routeNeedsUsers.value,
     forceRequests: true,

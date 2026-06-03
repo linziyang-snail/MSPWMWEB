@@ -103,6 +103,10 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
 - 已啟用帳號包含 `ACTIVE` / `PASSWORD_INVALID`；`PASSWORD_INVALID` 顯示為「需改密碼」，不歸入待審核 / 停用 / 刪除。
 - 待審核新帳號使用 `targetType=USER&status=PENDING&action=CREATE`。
 - 待審核帳號異動使用 `targetType=USER&status=PENDING&action=UPDATE&action=DELETE`，不可混入 `CREATE`。
+- Sidebar / tab badge 必須分別使用精準 USER pending cache：
+  - `USER_PENDING_CREATE`：`targetType=USER&status=PENDING&action=CREATE`
+  - `USER_PENDING_CHANGES`：`targetType=USER&status=PENDING&action=UPDATE&action=DELETE`
+  - `USER_PENDING_ALL`：`targetType=USER&status=PENDING` 只可用於總待審核數；不可作為「待審核帳號異動」badge 或列表來源。
 - 已停用帳號使用 `GET /api/users?status=LOCKED`，`LOCKED` 不屬於審核單。
 - 已刪除帳號使用 `targetType=USER&status=APPROVED&action=DELETE` 顯示刪除流程資訊。
 - 待審核科別使用 `targetType=ORGANIZATION&status=PENDING`，不以 `organizations?status=PENDING` 作為主要資料來源。
