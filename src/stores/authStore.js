@@ -114,6 +114,13 @@ export const useAuthStore = defineStore("auth", {
         if (!data.accessToken) {
           throw createAuthError(response, "登入成功回應缺少 accessToken");
         }
+        if (data.notifyPwdChangeFlag === true) {
+          throw createAuthError({
+            ...response,
+            code: "1007",
+            body: data,
+          }, "密碼過期，請更新密碼");
+        }
         const responseRoles = normalizeRoles(
           Array.isArray(data.roles) ? data.roles : data.user?.roles,
         );

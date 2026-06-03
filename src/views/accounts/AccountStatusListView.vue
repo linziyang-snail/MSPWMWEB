@@ -693,6 +693,7 @@ function getPendingCreateRows(existingRows = []) {
       targetType: row.targetType,
       action: row.action,
       changeRequestId: row.id,
+      reviewable: Boolean(row.id),
     }));
 }
 
