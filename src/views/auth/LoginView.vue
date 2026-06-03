@@ -276,6 +276,7 @@ const handleChangePassword = async () => {
       title: "系統提示",
       message: "密碼已更新，請使用新密碼重新登入。",
       confirmText: "確認",
+      variant: "info",
     });
   } catch {
     message.value = "";

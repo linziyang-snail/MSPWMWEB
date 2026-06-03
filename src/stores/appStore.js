@@ -8,6 +8,7 @@ export const useAppStore = defineStore("app", {
       title: "錯誤",
       message: "",
       confirmText: "我知道了",
+      variant: "error",
     },
   }),
   actions: {
@@ -20,6 +21,7 @@ export const useAppStore = defineStore("app", {
         title: payload.title || "錯誤",
         message: payload.message || payload.content || "系統錯誤",
         confirmText: payload.confirmText || "我知道了",
+        variant: payload.variant || payload.type || "error",
       };
     },
     hideAlert() {

@@ -5,11 +5,11 @@
     size="sm"
     body-class="px-6 pt-4 pb-2"
     footer-class="px-6 py-4"
-    icon-container-class="bg-danger-bg"
+    :icon-container-class="iconContainerClass"
     overlay-class="z-[1000]"
   >
     <template #icon>
-      <AlertIcon class="size-6 text-danger-text" />
+      <AlertIcon :class="iconClass" />
     </template>
 
     <p class="text-sm leading-6 text-text-secondary">
@@ -27,6 +27,7 @@
 <script setup>
 import { computed, h } from "vue";
 
+import alertCircleIcon from "@/assets/alertcircle.svg";
 import alertIcon from "@/assets/icon-x-circle.svg";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
@@ -41,6 +42,15 @@ const open = computed({
   },
 });
 
+const isInfoAlert = computed(() => ["info", "success", "notice"].includes(appStore.alertState.variant));
+const iconContainerClass = computed(() => isInfoAlert.value ? "bg-copy-table-border" : "bg-danger-bg");
+const iconClass = computed(() => isInfoAlert.value ? "size-6 text-primary" : "size-6 text-danger-text");
+
 const AlertIcon = (_props = {}, context = {}) =>
-  h("img", { ...(context?.attrs || {}), src: alertIcon, alt: "", "aria-hidden": "true" });
+  h("img", {
+    ...(context?.attrs || {}),
+    src: isInfoAlert.value ? alertCircleIcon : alertIcon,
+    alt: "",
+    "aria-hidden": "true",
+  });
 </script>
