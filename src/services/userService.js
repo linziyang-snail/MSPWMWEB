@@ -81,11 +81,12 @@ export async function changeMyPassword(payload) {
 }
 
 export async function getAccountChangeRequests(status = "PENDING") {
-  const rows = unwrapApiBody(
+  const page = unwrapApiBody(
     await apiRequest.get("/api/change-requests", {
-      params: pruneEmptyParams({ targetType: "USER", status }),
+      params: pruneEmptyParams({ targetType: "USER", status: [status], page: 1, size: 100 }),
     }),
   );
+  const rows = Array.isArray(page) ? page : page?.content || [];
   if (!Array.isArray(rows)) return [];
   return rows.filter((item) => {
     const targetType = item?.targetType || "USER";

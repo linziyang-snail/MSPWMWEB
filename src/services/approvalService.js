@@ -2,20 +2,48 @@ import apiRequest, { unwrapApiBody } from "./apiRequest";
 
 const changeRequestsCache = {};
 const changeRequestsInFlight = {};
+const CHANGE_REQUEST_TARGET_TYPES = ["USER", "COPY", "ORGANIZATION"];
+const CHANGE_REQUEST_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELED"];
 
 export async function getChangeRequests(params = {}) {
-  const { targetType, status = "PENDING", force = false } = params || {};
-  const cacheKey = buildChangeRequestsKey({ targetType, status });
+  const {
+    id,
+    targetId,
+    targetType,
+    action,
+    status,
+    start,
+    end,
+    page = 1,
+    size = 100,
+    force = false,
+  } = params || {};
+  if (!targetType) throw new Error("targetType is required");
+  const normalizedStatus = normalizeArrayParam(status);
+  if (!normalizedStatus.length) throw new Error("status is required");
+  const query = pruneEmptyParams({
+    id,
+    targetId,
+    targetType,
+    action: normalizeArrayParam(action),
+    status: normalizedStatus,
+    start: toIsoDate(start),
+    end: toIsoDate(end),
+    page,
+    size: clampPageSize(size),
+  });
+  const cacheKey = buildChangeRequestsKey(query);
   if (changeRequestsCache[cacheKey] && !force) return changeRequestsCache[cacheKey];
   if (changeRequestsInFlight[cacheKey] && !force) return changeRequestsInFlight[cacheKey];
 
   changeRequestsInFlight[cacheKey] = apiRequest.get("/api/change-requests", {
-      params: pruneEmptyParams({ targetType, status }),
+      params: query,
     })
     .then(unwrapApiBody)
-    .then((rows) => {
-      changeRequestsCache[cacheKey] = rows;
-      return rows;
+    .then(normalizeChangeRequestPage)
+    .then((pageData) => {
+      changeRequestsCache[cacheKey] = pageData;
+      return pageData;
     })
     .finally(() => {
       delete changeRequestsInFlight[cacheKey];
@@ -24,38 +52,65 @@ export async function getChangeRequests(params = {}) {
 }
 
 export async function getPendingChangeRequests(params = {}) {
-  return getChangeRequests({ ...params, status: params?.status || "PENDING" });
+  return getChangeRequestList({ ...params, status: params?.status || "PENDING" });
 }
 
 export async function getChangeRequestHistory(params = {}) {
   const { targetType, targetId } = params || {};
   if (!hasRequiredHistoryParams(targetType, targetId)) return [];
-  return unwrapApiBody(
-    await apiRequest.get("/api/change-requests/history", {
-      params: { targetType, targetId },
-    }),
-  );
+  return getChangeRequestList({
+    ...params,
+    targetType,
+    targetId,
+    status: CHANGE_REQUEST_STATUSES,
+    page: params.page || 1,
+    size: params.size || 100,
+  });
 }
 
 export async function searchChangeRequests(params = {}) {
   const {
+    id,
+    targetType,
     targetId,
+    action,
+    status = CHANGE_REQUEST_STATUSES,
+    start,
+    end,
     startDate,
     endDate,
     page = 1,
     size = 20,
   } = params || {};
-  return unwrapApiBody(
-    await apiRequest.get("/api/change-requests/search", {
-      params: pruneEmptyParams({
-        targetId,
-        startDate: toYyyyMmDd(startDate),
-        endDate: toYyyyMmDd(endDate),
-        page,
-        size: clampPageSize(size),
-      }),
-    }),
-  );
+  if (targetType) {
+    return getChangeRequests({
+      id,
+      targetType,
+      targetId,
+      action,
+      status,
+      start: start || startDate,
+      end: end || endDate,
+      page,
+      size,
+    });
+  }
+  const content = await getChangeRequestList({
+    id,
+    targetId,
+    action,
+    status,
+    start: start || startDate,
+    end: end || endDate,
+    page,
+    size,
+  });
+  return {
+    content,
+    totalElements: content.length,
+    page,
+    size: clampPageSize(size),
+  };
 }
 
 export async function approveChangeRequest(params) {
@@ -75,13 +130,6 @@ export async function cancelChangeRequest(params) {
 }
 
 export function invalidateChangeRequests(params = {}) {
-  const { targetType, status } = params || {};
-  if (targetType || status) {
-    const cacheKey = buildChangeRequestsKey({ targetType, status: status || "PENDING" });
-    delete changeRequestsCache[cacheKey];
-    delete changeRequestsInFlight[cacheKey];
-    return;
-  }
   Object.keys(changeRequestsCache).forEach((key) => delete changeRequestsCache[key]);
   Object.keys(changeRequestsInFlight).forEach((key) => delete changeRequestsInFlight[key]);
 }
@@ -150,22 +198,82 @@ function clampPageSize(size) {
   return Math.min(Math.trunc(parsedSize), 100);
 }
 
+async function getChangeRequestList(params = {}) {
+  const targetTypes = params.targetType ? [params.targetType] : CHANGE_REQUEST_TARGET_TYPES;
+  const pages = await Promise.all(
+    targetTypes.map((targetType) =>
+      getChangeRequests({
+        ...params,
+        targetType,
+        status: params.status || "PENDING",
+        page: params.page || 1,
+        size: params.size || 100,
+      }),
+    ),
+  );
+  return pages
+    .flatMap((pageData) => pageData.content || [])
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+}
+
+function normalizeChangeRequestPage(body) {
+  if (Array.isArray(body)) {
+    return {
+      content: body,
+      totalElements: body.length,
+      page: 1,
+      size: body.length,
+    };
+  }
+  const content = Array.isArray(body?.content) ? body.content : [];
+  return {
+    ...body,
+    content,
+    totalElements: body?.totalElements ?? content.length,
+    page: body?.page ?? 1,
+    size: body?.size ?? content.length,
+  };
+}
+
+function normalizeArrayParam(value) {
+  if (Array.isArray(value)) return value.filter((item) => item !== undefined && item !== null && item !== "");
+  if (value === undefined || value === null || value === "") return [];
+  return [value];
+}
+
 function pruneEmptyParams(params = {}) {
   return Object.fromEntries(
-    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""),
+    Object.entries(params).filter(([, value]) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return value !== undefined && value !== null && value !== "";
+    }),
   );
 }
 
-function toYyyyMmDd(value) {
+function toIsoDate(value) {
   if (!value) return "";
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     const month = String(value.getMonth() + 1).padStart(2, "0");
     const date = String(value.getDate()).padStart(2, "0");
-    return `${value.getFullYear()}${month}${date}`;
+    return `${value.getFullYear()}-${month}-${date}`;
   }
-  return String(value).replaceAll("/", "").replaceAll("-", "").slice(0, 8);
+  const normalized = String(value).replaceAll("/", "-");
+  if (/^\d{8}$/.test(normalized)) {
+    return `${normalized.slice(0, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 8)}`;
+  }
+  return normalized.slice(0, 10);
 }
 
 function buildChangeRequestsKey(params = {}) {
-  return `changeRequests:${params.targetType || "ALL"}:${params.status || "PENDING"}`;
+  return JSON.stringify({
+    id: params.id || "",
+    targetId: params.targetId || "",
+    targetType: params.targetType || "",
+    action: normalizeArrayParam(params.action).join(","),
+    status: normalizeArrayParam(params.status).join(","),
+    start: params.start || "",
+    end: params.end || "",
+    page: params.page || 1,
+    size: params.size || 100,
+  });
 }

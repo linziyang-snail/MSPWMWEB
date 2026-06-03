@@ -14,6 +14,9 @@ const apiRequest = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  paramsSerializer: {
+    serialize: serializeParams,
+  },
 });
 
 apiRequest.interceptors.request.use(
@@ -114,4 +117,19 @@ export function unwrapApiBody(response) {
     return response.body;
   }
   return response;
+}
+
+function serializeParams(params = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    if (Array.isArray(value)) {
+      value
+        .filter((item) => item !== undefined && item !== null && item !== "")
+        .forEach((item) => searchParams.append(key, item));
+      return;
+    }
+    searchParams.append(key, value);
+  });
+  return searchParams.toString();
 }

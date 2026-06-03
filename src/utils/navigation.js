@@ -31,7 +31,7 @@ export const sidebarSections = [
     ],
   },
   {
-    label: "申請單資訊查詢",
+    label: "科別管理",
     to: "/categories/all",
     icon: "application",
     match: ["/applications", "/categories"],
@@ -64,7 +64,7 @@ export const breadcrumbMap = {
   AccountActive: ["推播人員管理", "已啟用帳號"],
   AccountDisabled: ["推播人員管理", "已停用帳號"],
   AccountDeleted: ["推播人員管理", "已刪除帳號"],
-  ApplicationQuery: ["申請單資訊查詢"],
+  ApplicationQuery: ["科別管理"],
   CategoryAll: ["科別管理", "全部科別"],
   CategoryPending: ["科別管理", "待審核科別"],
   CategoryRejected: ["科別管理", "已駁回科別"],

@@ -89,51 +89,11 @@
       <EmptyState v-if="!categoryRows.length" class="py-12" />
     </section>
 
-    <section
-      v-if="isTableCategoryPage"
-      class="px-4 py-4 border rounded-2xl border-border bg-background-surface shadow-control"
-    >
-      <div class="flex items-center gap-6 max-xl:flex-wrap">
-        <BaseSearchInput
-          v-model="categoryKeyword"
-          class="flex-1 min-w-80"
-          placeholder="請輸入科別名稱"
-          size="md"
-          @submit="applyCategoryFilters"
-        />
-        <div class="flex items-center gap-4">
-          <BaseDateInput v-model="categoryStartDate" class="w-36" placeholder="年/月/日" :max="categoryEndDate" />
-          <span class="text-base font-normal text-text-placeholder">~</span>
-          <BaseDateInput v-model="categoryEndDate" class="w-36" placeholder="年/月/日" :min="categoryStartDate" />
-        </div>
-        <button
-          class="inline-flex items-center justify-center h-10 py-2 text-sm font-medium leading-normal transition rounded-lg min-w-20 bg-primary px-7 text-text-inverse shadow-control hover:bg-primary-hover"
-          type="button"
-          @click="applyCategoryFilters"
-        >
-          查詢
-        </button>
-        <button
-          class="inline-flex items-center justify-center h-10 px-4 py-2 text-base font-medium leading-normal transition border rounded-lg min-w-16 border-border-strong bg-background-surface text-natural hover:bg-background-hover"
-          type="button"
-          @click="resetCategoryFilters"
-        >
-          清除
-        </button>
-      </div>
-    </section>
-
     <div
       v-if="isTableCategoryPage"
       class="overflow-x-auto overflow-y-hidden border rounded-xl border-border bg-background-surface"
     >
       <div class="flex min-w-modal-xl justify-end gap-4 px-4 py-4 border-b min-h-header border-border-muted bg-background-page/50">
-        <button
-          class="inline-flex h-10 w-40 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
-          type="button"
-        >
-          <FileIcon /> 匯出（CSV）
-        </button>
         <button
           class="inline-flex h-10 w-32 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-base font-medium leading-normal text-text-inverse transition hover:bg-primary-hover"
           type="button"
@@ -271,7 +231,7 @@
   </div>
 
   <div v-else>
-    <PageTitle title="申請單資訊查詢" eyebrow="申請單資訊查詢" />
+    <PageTitle title="科別管理" eyebrow="科別管理" />
     <SearchFilterBar class="mb-5">
       <FormField class="min-w-filter-md" label="申請單編號">
         <BaseInput v-model="filters.id" placeholder="請輸入申請單編號" />
@@ -324,18 +284,14 @@ import { useRoute } from "vue-router";
 
 import addIcon from "@/assets/add.svg";
 import buildingIcon from "@/assets/building2.svg";
-import editIcon from "@/assets/edit.svg";
-import fileIcon from "@/assets/icon-file.svg";
 import checkCircleBlueIcon from "@/assets/icon-check-circle-blue.svg";
 import sortIcon from "@/assets/icon-sort.svg";
 import trashIcon from "@/assets/icon-trash.svg";
 import xCircleBlackIcon from "@/assets/icon-x-circle-black.svg";
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseButton from "@/components/base/BaseButton.vue";
-import BaseDateInput from "@/components/base/BaseDateInput.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BasePagination from "@/components/base/BasePagination.vue";
-import BaseSearchInput from "@/components/base/BaseSearchInput.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import CategoryCreateModal from "@/components/dialogs/CategoryCreateModal.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
@@ -383,10 +339,6 @@ const reviewingCategory = ref(false);
 const approvals = ref([]);
 const organizations = ref([]);
 const categoryChangeRequests = ref([]);
-const categoryKeyword = ref("");
-const categoryStartDate = ref("");
-const categoryEndDate = ref("");
-const committedCategoryFilters = ref({ keyword: "", startDate: "", endDate: "" });
 const categorySortState = ref({ key: "date", direction: "desc" });
 
 onMounted(async () => {
@@ -394,18 +346,6 @@ onMounted(async () => {
     if (isCategoryPage.value) await refreshCategoryData();
   } catch (error) {
     console.error(error);
-  }
-});
-
-watch(categoryStartDate, (startDate) => {
-  if (startDate && categoryEndDate.value && normalizeDate(categoryEndDate.value) < normalizeDate(startDate)) {
-    categoryEndDate.value = startDate;
-  }
-});
-
-watch(categoryEndDate, (endDate) => {
-  if (endDate && categoryStartDate.value && normalizeDate(categoryStartDate.value) > normalizeDate(endDate)) {
-    categoryStartDate.value = endDate;
   }
 });
 
@@ -461,9 +401,7 @@ const categoryRows = computed(() => {
     .filter((item) => !status || normalizeStatus(item.status) === status);
 });
 
-const displayedCategoryRows = computed(() =>
-  sortCategoryRows(filterCategoryRows(categoryRows.value)),
-);
+const displayedCategoryRows = computed(() => sortCategoryRows(categoryRows.value));
 
 const isActiveCategoryPage = computed(() => route.name === "CategoryAll");
 const isPendingCategoryPage = computed(() => route.name === "CategoryPending");
@@ -611,6 +549,24 @@ function getCategoryStatusLabel(status) {
   );
 }
 
+function getPendingCategoryActionLabel(action = "") {
+  const normalizedAction = String(action || "").toUpperCase();
+  if (normalizedAction === "DELETE") return "待刪除";
+  if (["CREATE", "UPDATE"].includes(normalizedAction)) return "待新增";
+  return "待審核";
+}
+
+function getRejectedCategoryActionLabel(action = "") {
+  const normalizedAction = String(action || "").toUpperCase();
+  return (
+    {
+      CREATE: "已駁回新增",
+      UPDATE: "已駁回異動",
+      DELETE: "已駁回刪除",
+    }[normalizedAction] || "已駁回"
+  );
+}
+
 function getOrganizationCategoryRows() {
   return organizations.value
     .filter((item) => isSectionOrg(item))
@@ -633,6 +589,10 @@ function toPendingCategoryRow(row = {}) {
   const orgName = resolveOrganizationName(row, payload);
   const sourceOrg = findOrganizationById(row.targetId);
   const orgType = normalizeOrgTypeValue(after.orgType || payload.orgType || sourceOrg?.orgType || "SECTION");
+  const reviewStatus = String(row.status || "PENDING").toUpperCase();
+  const actionStatusLabel = reviewStatus === "REJECTED"
+    ? getRejectedCategoryActionLabel(action)
+    : getPendingCategoryActionLabel(action);
   return {
     ...row,
     rowKey: `request-${row.id}`,
@@ -642,9 +602,9 @@ function toPendingCategoryRow(row = {}) {
     orgName,
     orgType,
     action,
-    status: row.status || "PENDING",
-    badgeStatus: row.status || "PENDING",
-    statusLabel: getCategoryStatusLabel(row.status) || statusLabelMap[row.status] || "待審核",
+    status: reviewStatus,
+    badgeStatus: reviewStatus,
+    statusLabel: actionStatusLabel,
     actorName: row.requesterName || row.requesterId || row.createdBy || "-",
     requesterId: row.requesterId || row.createdBy || "",
     createdAt: row.createdAt,
@@ -673,40 +633,6 @@ function resolveOrganizationName(row = {}, payload = parsePayload(row.payload)) 
 function findOrganizationById(id) {
   if (id === undefined || id === null || id === "") return null;
   return organizations.value.find((org) => String(org.id) === String(id)) || null;
-}
-
-function filterCategoryRows(rows) {
-  const keyword = committedCategoryFilters.value.keyword.trim().toLowerCase();
-  const startTime = getStartOfDayTime(committedCategoryFilters.value.startDate);
-  const endTime = getEndOfDayTime(committedCategoryFilters.value.endDate);
-  const hasDateFilter = startTime !== null || endTime !== null;
-  return rows.filter((row) => {
-    const textMatched =
-      !keyword ||
-      [row.categoryName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(keyword));
-    if (!textMatched) return false;
-    if (!hasDateFilter) return true;
-    const rowTime = getDateTime(row.createdAt || row.closedAt || row.updatedAt);
-    if (rowTime === null) return true;
-    return (startTime === null || rowTime >= startTime) && (endTime === null || rowTime <= endTime);
-  });
-}
-
-function applyCategoryFilters() {
-  committedCategoryFilters.value = {
-    keyword: categoryKeyword.value,
-    startDate: categoryStartDate.value,
-    endDate: categoryEndDate.value,
-  };
-}
-
-function resetCategoryFilters() {
-  categoryKeyword.value = "";
-  categoryStartDate.value = "";
-  categoryEndDate.value = "";
-  committedCategoryFilters.value = { keyword: "", startDate: "", endDate: "" };
 }
 
 function toggleCategorySort(key) {
@@ -741,35 +667,16 @@ function formatCategoryDate(row = {}) {
   return String(value).slice(0, 10);
 }
 
-function getDateTime(value) {
-  if (!value) return null;
-  const time = new Date(String(value)).getTime();
-  return Number.isNaN(time) ? null : time;
-}
-
-function normalizeDate(value) {
-  if (!value || value === "-") return "";
-  return String(value).replaceAll("/", "-").slice(0, 10);
-}
-
-function getStartOfDayTime(value) {
-  const normalizedDate = normalizeDate(value);
-  if (!normalizedDate) return null;
-  return getDateTime(`${normalizedDate}T00:00:00`);
-}
-
-function getEndOfDayTime(value) {
-  const normalizedDate = normalizeDate(value);
-  if (!normalizedDate) return null;
-  return getDateTime(`${normalizedDate}T23:59:59.999`);
-}
-
 function isOwnPendingCategory(category = {}) {
-  return isPendingCategoryPage.value && category.requesterId && category.requesterId === auth.userId;
+  return isPendingCategoryPage.value && category.requesterId && String(category.requesterId) === String(auth.userId);
 }
 
 function canReviewCategory(category = {}) {
-  return Boolean(category.changeRequestId && category.requesterId && category.requesterId !== auth.userId);
+  return Boolean(
+    category.changeRequestId &&
+    category.requesterId &&
+    String(category.requesterId) !== String(auth.userId),
+  );
 }
 
 function confirmApproveCategory(category) {
@@ -890,8 +797,6 @@ const noop = async () => {
 const PlusIcon = () => h("img", { src: addIcon, alt: "", "aria-hidden": "true", class: "size-4 brightness-0 invert" });
 
 const TrashIcon = () => h("img", { src: trashIcon, alt: "", "aria-hidden": "true", class: "size-4" });
-const EditIcon = () => h("img", { src: editIcon, alt: "", "aria-hidden": "true", class: "size-4" });
-const FileIcon = () => h("img", { src: fileIcon, alt: "", "aria-hidden": "true", class: "size-6 shrink-0" });
 const CheckIcon = () => h("img", { src: checkCircleBlueIcon, alt: "", "aria-hidden": "true", class: "size-6 brightness-0 invert" });
 const XIcon = () => h("img", { src: xCircleBlackIcon, alt: "", "aria-hidden": "true", class: "size-6 shrink-0" });
 const SortIcon = () => h("img", { src: sortIcon, alt: "", "aria-hidden": "true", class: "h-4 w-2.5 shrink-0" });

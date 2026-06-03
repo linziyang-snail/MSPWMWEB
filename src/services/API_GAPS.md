@@ -25,9 +25,12 @@
 - Response 的 `orgType` / `status` 可能回中文 label，例如 `科別`、`啟用`、`審核中`；request 仍只送英文 enum。
 
 ### Approval / ChangeRequest
-- `GET /api/change-requests?targetType=&status=`：已支援 `status`。
-- `GET /api/change-requests/history?targetType=&targetId=`：`targetType`、`targetId` 必填，前端空值不送。
-- `GET /api/change-requests/search?targetId=&startDate=&endDate=&page=&size=`：日期以 Controller 為準送 `yyyyMMdd`。
+- `GET /api/change-requests`：新版多重查詢，使用 `ChangeRequestQuery`。
+  - query：`id`、`targetId`、`targetType`（必填）、`action[]`、`status[]`（必填）、`start`、`end`、`page`、`size`。
+  - `status` / `action` 以 repeated query key 送出，例如 `status=PENDING&status=REJECTED`，不使用 `status[]=PENDING`。
+  - `start` / `end` 依 Swagger 使用 `yyyy-MM-dd`。
+  - response body 已改為 `PageChangeRequestDto`，列表資料在 `body.content`。
+  - 舊 `/api/change-requests/history` 與 `/api/change-requests/search` 已不存在；前端相容 wrapper 皆改呼叫新版 `/api/change-requests`。
 - `PUT /api/change-requests/{id}/approve`：核准。
 - `PUT /api/change-requests/{id}/reject`：駁回，request `{ remark }`。
 - `PUT /api/change-requests/{id}/cancel`：取消，後端權限主要給 `USER`。
@@ -50,8 +53,8 @@
 - `apiRequest` 維持成功 response unwrap pattern：service 透過 `unwrapApiBody` 取得 `{ code, desc, body }` 的 `body`；錯誤保留 `status` / `code` / `desc` / `body` 並顯示後端 `desc`。
 - `userService.getUsers` 支援 `page` / `size` / `status`，並限制 `size <= 100`。
 - `organizationService.getOrganizations` 支援 `status`。
-- `approvalService.getChangeRequests` / `getPendingChangeRequests` 支援 `status`。
-- `approvalService.searchChangeRequests` 已新增 `/api/change-requests/search`，空值不送，日期轉 `yyyyMMdd`。
+- `approvalService.getChangeRequests` 改為新版核心查詢，回傳 page object；`getPendingChangeRequests` / `getChangeRequestHistory` / `searchChangeRequests` 保留相容函式名，但不再呼叫舊 URL。
+- `apiRequest` 新增 array repeated query serializer，供 Approval 的 `status[]` / `action[]` 查詢使用。
 - 帳號新增 / 編輯的科別下拉改抓 `GET /api/organizations?status=ACTIVE` 並過濾 SECTION / 科別。
 - 科別管理依 tab 改抓對應 status；待審核 / 已駁回操作使用 change request id。
 - 全域前端 enum 改用 `CANCELED`。
@@ -60,7 +63,6 @@
 
 - 文案列表 / 詳情 / 取消 / 核准 / 駁回仍缺正式 Copy API；目前只可正式送 `POST /api/copies`。
 - 文案列表仍保留 compatibility service，不會亂打不存在的 Copy endpoint。
-- `change-requests/search` 沒有 `targetType` query；若 UI 需要依 USER / ORGANIZATION / COPY 分類搜尋，需要後端確認或擴充。
 - 操作歷程查詢 API 仍未確認。
 - 401 自動 refresh 流程尚未完整串成 interceptor retry；auth store 已保留 refresh token 寫回 access token 的 action。
 
