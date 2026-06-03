@@ -1,30 +1,51 @@
 <template>
   <div>
-    <PageTitle title="查看操作記錄" eyebrow="操作記錄" />
+    <PageTitle title="操作歷程查詢記錄" eyebrow="操作記錄" />
     <SearchFilterBar class="mb-5">
       <FormField class="min-w-filter-lg" label="關鍵字">
-        <BaseInput v-model="keyword" placeholder="請輸入帳號、姓名或描述" />
+        <BaseInput v-model="filters.keyword" placeholder="請輸入操作者或異動對象" />
       </FormField>
-      <FormField class="min-w-filter-sm" label="模組">
-        <BaseSelect
-          v-model="module"
-          :options="moduleOptions"
-          placeholder="全部模組"
-        />
+      <FormField class="min-w-filter-sm" label="類型">
+        <BaseSelect v-model="filters.targetType" :options="targetTypeOptions" placeholder="全部類型" />
+      </FormField>
+      <FormField class="min-w-filter-sm" label="動作">
+        <BaseSelect v-model="filters.action" :options="actionOptions" placeholder="全部動作" />
+      </FormField>
+      <FormField class="min-w-filter-sm" label="狀態">
+        <BaseSelect v-model="filters.status" :options="statusOptions" placeholder="全部狀態" />
+      </FormField>
+      <FormField class="min-w-filter-sm" label="起日">
+        <BaseDateInput v-model="filters.startDate" placeholder="年/月/日" :max="filters.endDate" />
+      </FormField>
+      <FormField class="min-w-filter-sm" label="迄日">
+        <BaseDateInput v-model="filters.endDate" placeholder="年/月/日" :min="filters.startDate" />
       </FormField>
       <div class="flex gap-2">
-        <BaseButton @click="noop">查詢</BaseButton>
+        <BaseButton @click="loadOperationLogs">查詢</BaseButton>
         <BaseButton variant="secondary" @click="reset">重設</BaseButton>
       </div>
     </SearchFilterBar>
 
-    <BaseTable :columns="columns" :rows="rows">
-      <template #cell-action="{ row }">{{
-        ACTION_LABEL_MAP[row.action] || row.action
-      }}</template>
-      <template #cell-createdAt="{ row }">{{
-        formatDateTime(row.createdAt)
-      }}</template>
+    <BaseTable :columns="columns" :rows="rows" row-key="rowKey">
+      <template #cell-displayDate="{ row }">
+        {{ formatDateTime(row.displayDate) }}
+      </template>
+      <template #cell-targetDisplay="{ row }">
+        <span class="block truncate" :title="row.targetDisplay">
+          {{ row.targetDisplay }}
+        </span>
+      </template>
+      <template #cell-action="{ row }">
+        <BaseBadge :status="row.action" :label="row.actionLabel" />
+      </template>
+      <template #cell-status="{ row }">
+        <BaseBadge :status="row.status" :label="row.statusLabel" />
+      </template>
+      <template #cell-remark="{ row }">
+        <span class="block truncate" :title="row.remark">
+          {{ row.remark || "-" }}
+        </span>
+      </template>
       <template #empty><EmptyState v-if="rows.length === 0" /></template>
     </BaseTable>
     <BasePagination :page="1" :total="rows.length" :size="20" />
@@ -32,9 +53,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseButton from "@/components/base/BaseButton.vue";
+import BaseDateInput from "@/components/base/BaseDateInput.vue";
 import BaseInput from "@/components/base/BaseInput.vue";
 import BasePagination from "@/components/base/BasePagination.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
@@ -44,51 +67,110 @@ import SearchFilterBar from "@/components/common/SearchFilterBar.vue";
 import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
 import { GetOperationHistory } from "@/services/operationHistoryService";
-import { ACTION_LABEL_MAP } from "@/utils/constants";
+import {
+  getChangeRequestActionLabel,
+  getChangeRequestStatusLabel,
+  getChangeRequestTargetTypeLabel,
+} from "@/utils/changeRequestUtils";
 import { formatDateTime } from "@/utils/formatDate";
 
-const keyword = ref("");
-const module = ref("");
 const operationLogs = ref([]);
+const filters = reactive({
+  keyword: "",
+  targetType: "",
+  action: "",
+  status: "",
+  startDate: "",
+  endDate: "",
+});
+
 const columns = [
-  { key: "userId", label: "帳號" },
-  { key: "userName", label: "姓名" },
-  { key: "module", label: "模組" },
+  { key: "displayDate", label: "日期" },
+  { key: "operator", label: "操作者" },
+  { key: "targetTypeLabel", label: "類型" },
+  { key: "targetDisplay", label: "被異動帳號 / 科別" },
   { key: "action", label: "動作" },
-  { key: "description", label: "操作內容" },
-  { key: "ip", label: "IP" },
-  { key: "createdAt", label: "操作時間" },
+  { key: "changedFieldsLabel", label: "異動欄位" },
+  { key: "status", label: "審核狀態" },
+  { key: "reviewer", label: "審核人" },
+  { key: "remark", label: "備註 / 駁回原因" },
 ];
-const moduleOptions = ["AUTH", "COPY", "ACCOUNT"].map((value) => ({
-  label: value,
+
+const targetTypeOptions = ["USER", "ORGANIZATION"].map((value) => ({
   value,
+  label: getChangeRequestTargetTypeLabel(value),
+}));
+const actionOptions = ["CREATE", "UPDATE", "DELETE"].map((value) => ({
+  value,
+  label: getChangeRequestActionLabel(value),
+}));
+const statusOptions = ["PENDING", "APPROVED", "REJECTED", "CANCELED"].map((value) => ({
+  value,
+  label: getChangeRequestStatusLabel(value),
 }));
 
-onMounted(async () => {
+const rows = computed(() =>
+  operationLogs.value
+    .map((row) => ({ ...row, rowKey: `${row.targetType}-${row.id}` }))
+    .filter((row) => {
+      const keyword = filters.keyword.trim().toLowerCase();
+      const matchKeyword =
+        !keyword ||
+        [row.operator, row.targetDisplay]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(keyword));
+      const matchTargetType = !filters.targetType || row.targetType === filters.targetType;
+      const matchAction = !filters.action || row.action === filters.action;
+      const matchStatus = !filters.status || row.status === filters.status;
+      return matchKeyword && matchTargetType && matchAction && matchStatus;
+    }),
+);
+
+onMounted(loadOperationLogs);
+
+watch(
+  () => filters.startDate,
+  (startDate) => {
+    if (startDate && filters.endDate && normalizeDate(filters.endDate) < normalizeDate(startDate)) {
+      filters.endDate = startDate;
+    }
+  },
+);
+
+watch(
+  () => filters.endDate,
+  (endDate) => {
+    if (endDate && filters.startDate && normalizeDate(filters.startDate) > normalizeDate(endDate)) {
+      filters.startDate = endDate;
+    }
+  },
+);
+
+async function loadOperationLogs() {
   try {
-    const response = await GetOperationHistory();
-    operationLogs.value = response.list ?? [];
+    const response = await GetOperationHistory({
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      force: true,
+    });
+    operationLogs.value = response?.list ?? [];
   } catch (error) {
     console.error(error);
   }
-});
+}
 
-const rows = computed(() =>
-  operationLogs.value.filter((item) => {
-    const matchKeyword =
-      !keyword.value ||
-      `${item.userId}${item.userName}${item.description}`
-        .toLowerCase()
-        .includes(keyword.value.toLowerCase());
-    const matchModule = !module.value || item.module === module.value;
-    return matchKeyword && matchModule;
-  }),
-);
+function reset() {
+  filters.keyword = "";
+  filters.targetType = "";
+  filters.action = "";
+  filters.status = "";
+  filters.startDate = "";
+  filters.endDate = "";
+  loadOperationLogs();
+}
 
-const reset = () => {
-  keyword.value = "";
-  module.value = "";
-};
-
-const noop = () => {};
+function normalizeDate(value) {
+  if (!value) return "";
+  return String(value).replaceAll("/", "-").slice(0, 10);
+}
 </script>

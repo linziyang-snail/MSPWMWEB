@@ -5,7 +5,7 @@
       @change-password="showChangePassword = true"
       @close="sidebarOpen = false"
       @logout="showLogout = true"
-      @operation-logs="showOperationLogs = true"
+      @operation-logs="openOperationLogs"
     />
     <div class="min-h-screen transition-[padding] lg:pl-sidebar">
       <Header
@@ -29,7 +29,6 @@
       confirm-text="確認登出"
       @confirm="handleLogout"
     />
-    <OperationHistoryDialog v-model="showOperationLogs" />
     <PasswordUpdateNotice
       v-model="showPasswordNotice"
       :message="passwordNoticeMessage"
@@ -63,7 +62,6 @@ import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
-import OperationHistoryDialog from "@/components/dialogs/OperationHistoryDialog.vue";
 import PasswordChangeModal from "@/components/dialogs/PasswordChangeModal.vue";
 import PasswordUpdateNotice from "@/components/dialogs/PasswordUpdateNotice.vue";
 import Header from "@/components/layout/Header.vue";
@@ -73,7 +71,6 @@ import { useAuthStore } from "@/stores/authStore";
 
 const sidebarOpen = ref(false);
 const showLogout = ref(false);
-const showOperationLogs = ref(false);
 const showChangePassword = ref(false);
 const showPasswordNotice = ref(false);
 const passwordNoticeDismissed = ref(false);
@@ -115,6 +112,10 @@ const handlePasswordChanged = () => {
   auth.markPasswordChanged();
   passwordNoticeDismissed.value = false;
   showPasswordNotice.value = false;
+};
+
+const openOperationLogs = () => {
+  router.push("/operation-logs");
 };
 
 const handleLogout = async () => {

@@ -63,7 +63,7 @@
 
 - 文案列表 / 詳情 / 取消 / 核准 / 駁回仍缺正式 Copy API；目前只可正式送 `POST /api/copies`。
 - 文案列表仍保留 compatibility service，不會亂打不存在的 Copy endpoint。
-- 操作歷程查詢 API 仍未確認。
+- 操作歷程查詢第一版以 `GET /api/change-requests` 聚合 USER / ORGANIZATION，分別查詢後於前端 merge / sort。
 - 401 自動 refresh 流程尚未完整串成 interceptor retry；auth store 已保留 refresh token 寫回 access token 的 action。
 
 ## ADMIN Smoke Test - 2026-06-03
@@ -106,6 +106,9 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
 - 待審核科別使用 `targetType=ORGANIZATION&status=PENDING`，不以 `organizations?status=PENDING` 作為主要資料來源。
 - 已駁回科別使用 `targetType=ORGANIZATION&status=REJECTED`，不可使用 `organizations?status=DISABLED`。
 - 已刪除科別使用 `organizations?status=DISABLED`，並合併 `targetType=ORGANIZATION&status=APPROVED&action=DELETE` 補刪除申請人、審核人、刪除日期。
+- 操作歷程查詢使用兩支 change request 查詢：
+  - `targetType=USER&status=PENDING&status=APPROVED&status=REJECTED&status=CANCELED&action=CREATE&action=UPDATE&action=DELETE&page=1&size=100`
+  - `targetType=ORGANIZATION&status=PENDING&status=APPROVED&status=REJECTED&status=CANCELED&action=CREATE&action=UPDATE&action=DELETE&page=1&size=100`
 
 ## Compatibility services kept
 
@@ -113,4 +116,4 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
 - `src/services/categoryCompatibilityService.js`：以 active SECTION organizations 暫代分類來源。
 - `src/services/deprecated/copyCategoryService.js`：集中 deprecated CopyCategory API。
 - `src/services/deprecated/organizationCategoryService.js`：集中 deprecated OrganizationCategory API。
-- `src/services/operationHistoryService.js`：操作歷程正式 API 未確認前保留 compatibility。
+- `src/services/operationHistoryService.js`：操作歷程第一版使用 change requests 聚合 USER / ORGANIZATION。
