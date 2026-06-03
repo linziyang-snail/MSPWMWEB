@@ -173,6 +173,9 @@
               <button v-else-if="isRejectedCategoryPage" class="block mx-auto text-base font-bold leading-normal transition text-danger-text hover:text-danger" type="button">
                 {{ category.rejectReason || "-" }}
               </button>
+              <p v-else-if="route.name === 'CategoryDeleted'" class="text-base font-normal leading-normal text-center text-natural">
+                {{ category.reviewerName || "-" }}
+              </p>
               <p v-else class="text-base font-normal leading-normal text-center text-natural">
                 -
               </p>
@@ -303,6 +306,7 @@ import FormField from "@/components/forms/FormField.vue";
 import BaseTable from "@/components/tables/BaseTable.vue";
 import {
   approveChangeRequest,
+  getChangeRequests,
   getPendingChangeRequests,
   invalidateChangeRequests,
   rejectChangeRequest,
@@ -339,6 +343,7 @@ const reviewingCategory = ref(false);
 const approvals = ref([]);
 const organizations = ref([]);
 const categoryChangeRequests = ref([]);
+const approvedDeleteCategoryRequests = ref([]);
 const categorySortState = ref({ key: "date", direction: "desc" });
 
 onMounted(async () => {
@@ -357,6 +362,7 @@ watch(
 );
 
 const onCategoryCreated = async () => {
+  invalidateOrganizations("ACTIVE");
   invalidateOrganizations("PENDING");
   invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
   if (isPendingCategoryPage.value) {
@@ -378,7 +384,7 @@ const categoryStatusByRoute = {
 };
 
 const categoryTitleByRoute = {
-  CategoryAll: "已核准科別",
+  CategoryAll: "全部科別",
   CategoryPending: "待審核科別",
   CategoryRejected: "已駁回科別",
   CategoryDeleted: "已刪除科別",
@@ -408,7 +414,11 @@ const isPendingCategoryPage = computed(() => route.name === "CategoryPending");
 const isRejectedCategoryPage = computed(() => route.name === "CategoryRejected");
 const isTableCategoryPage = computed(() => isCategoryPage.value && !isActiveCategoryPage.value);
 const categoryTrailingColumnLabel = computed(() =>
-  isRejectedCategoryPage.value ? "駁回原因" : "操作",
+  isRejectedCategoryPage.value
+    ? "駁回原因"
+    : route.name === "CategoryDeleted"
+      ? "刪除審核人"
+      : "操作",
 );
 
 const categoryColumns = computed(() => {
@@ -420,7 +430,7 @@ const categoryColumns = computed(() => {
   const actorLabelMap = {
     CategoryPending: "建立人",
     CategoryRejected: "駁回人",
-    CategoryDeleted: "刪除人",
+    CategoryDeleted: "刪除申請人",
   };
   return [
     { key: "date", label: dateLabelMap[route.name] || "建立日期", class: "w-[20%]" },
@@ -450,9 +460,10 @@ const confirmDeleteCategory = async () => {
   deletingCategory.value = true;
   try {
     await disableOrganization({ id: selectedCategory.value.id });
+    invalidateOrganizations("ACTIVE");
     invalidateOrganizations("PENDING");
     invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
-    await refreshCategoryData({ forceOrganizations: true });
+    await refreshCategoryData({ forceOrganizations: true, forceRequests: true });
   } catch (error) {
     console.error(error);
   } finally {
@@ -465,16 +476,19 @@ const confirmDeleteCategory = async () => {
 async function refreshCategoryData(options = {}) {
   const { forceOrganizations = false, forceRequests = false } = options;
   if (isPendingCategoryPage.value) {
-    await Promise.all([
-      refreshOrganizations({ status: "PENDING", force: forceOrganizations }),
-      refreshCategoryChangeRequests("PENDING", { force: forceRequests }),
-    ]);
+    organizations.value = [];
+    await refreshCategoryChangeRequests("PENDING", { force: forceRequests });
     return;
   }
   if (isRejectedCategoryPage.value) {
+    organizations.value = [];
+    await refreshCategoryChangeRequests("REJECTED", { force: forceRequests });
+    return;
+  }
+  if (route.name === "CategoryDeleted") {
     await Promise.all([
-      refreshCategoryChangeRequests("REJECTED", { force: forceRequests }),
-      refreshOrganizationNameLookup({ force: forceOrganizations }),
+      refreshOrganizations({ status: "DISABLED", force: forceOrganizations }),
+      refreshApprovedDeleteCategoryRequests({ force: forceRequests }),
     ]);
     return;
   }
@@ -488,20 +502,24 @@ async function refreshOrganizations(params = {}) {
   organizations.value = normalizeOrganizationRows(await getOrganizations(params));
 }
 
-async function refreshOrganizationNameLookup(options = {}) {
-  const statuses = ["ACTIVE", "PENDING", "DISABLED"];
-  const rows = await Promise.all(
-    statuses.map((status) => getOrganizations({ status, force: Boolean(options.force) })),
-  );
-  organizations.value = rows.flatMap(normalizeOrganizationRows);
-}
-
 async function refreshCategoryChangeRequests(status = "PENDING", options = {}) {
   categoryChangeRequests.value = await getPendingChangeRequests({
     targetType: "ORGANIZATION",
     status,
     force: Boolean(options.force),
   }) ?? [];
+}
+
+async function refreshApprovedDeleteCategoryRequests(options = {}) {
+  const response = await getChangeRequests({
+    targetType: "ORGANIZATION",
+    status: ["APPROVED"],
+    action: ["DELETE"],
+    page: 1,
+    size: 100,
+    force: Boolean(options.force),
+  });
+  approvedDeleteCategoryRequests.value = response?.content ?? (Array.isArray(response) ? response : []);
 }
 
 function normalizeOrganizationRows(response) {
@@ -519,6 +537,9 @@ function isSectionOrg(org = {}) {
 function toCategoryRow(org = {}) {
   const normalizedOrgType = normalizeOrgTypeValue(org.orgType);
   const normalizedStatus = normalizeOrganizationStatusValue(org.status);
+  const approvedDeleteRequest = route.name === "CategoryDeleted"
+    ? findApprovedDeleteRequestByTargetId(org.id)
+    : null;
   const displayStatus = getCategoryStatusLabel(normalizedStatus);
   return {
     ...org,
@@ -530,7 +551,16 @@ function toCategoryRow(org = {}) {
     badgeStatus: normalizedStatus,
     orgTypeLabel: orgTypeLabelMap[org.orgType] || orgTypeLabelMap[normalizedOrgType] || org.orgType || "-",
     statusLabel: displayStatus || statusLabelMap[org.status] || statusLabelMap[normalizedStatus] || org.status || "-",
-    actorName: route.name === "CategoryDeleted" ? "-" : org.createdBy || org.requesterId || "-",
+    actorName: route.name === "CategoryDeleted"
+      ? approvedDeleteRequest?.requesterId || "-"
+      : org.createdBy || org.requesterId || "-",
+    reviewerName: route.name === "CategoryDeleted" ? approvedDeleteRequest?.reviewerId || "-" : "",
+    createdAt: route.name === "CategoryDeleted"
+      ? approvedDeleteRequest?.createdAt || org.createdAt
+      : org.createdAt,
+    closedAt: route.name === "CategoryDeleted"
+      ? approvedDeleteRequest?.closedAt || org.closedAt
+      : org.closedAt,
   };
 }
 
@@ -551,19 +581,23 @@ function getCategoryStatusLabel(status) {
 
 function getPendingCategoryActionLabel(action = "") {
   const normalizedAction = String(action || "").toUpperCase();
-  if (normalizedAction === "DELETE") return "待刪除";
-  if (["CREATE", "UPDATE"].includes(normalizedAction)) return "待新增";
-  return "待審核";
+  return (
+    {
+      CREATE: "待新增",
+      UPDATE: "待修改",
+      DELETE: "待刪除",
+    }[normalizedAction] || "待審核"
+  );
 }
 
 function getRejectedCategoryActionLabel(action = "") {
   const normalizedAction = String(action || "").toUpperCase();
   return (
     {
-      CREATE: "已駁回新增",
-      UPDATE: "已駁回異動",
-      DELETE: "已駁回刪除",
-    }[normalizedAction] || "已駁回"
+      CREATE: "駁回新增",
+      UPDATE: "駁回修改",
+      DELETE: "駁回刪除",
+    }[normalizedAction] || "駁回"
   );
 }
 
@@ -574,21 +608,22 @@ function getOrganizationCategoryRows() {
 }
 
 function getPendingCategoryRows() {
-  const requestRows = categoryChangeRequests.value
-    .filter((item) => item.targetType === "ORGANIZATION")
-    .map(toPendingCategoryRow)
-    .filter((item) => isSectionOrg(item) || item.orgType === "SECTION");
-  if (requestRows.length) return requestRows;
-  return getOrganizationCategoryRows().filter((item) => item.status === "PENDING");
+  if (isPendingCategoryPage.value || isRejectedCategoryPage.value) {
+    return categoryChangeRequests.value
+      .filter(isOrganizationChangeRequest)
+      .map(toPendingCategoryRow)
+      .filter((item) => isSectionOrg(item) || item.orgType === "SECTION");
+  }
+  return [];
 }
 
-function toPendingCategoryRow(row = {}) {
-  const payload = parsePayload(row.payload);
+function toPendingCategoryRow(row = {}, sourceOrg = null) {
+  const payload = safeParsePayload(row.payload);
   const after = payload.after || payload.newData || payload.data || payload;
   const action = String(row.action || payload.action || "").toUpperCase();
-  const orgName = resolveOrganizationName(row, payload);
-  const sourceOrg = findOrganizationById(row.targetId);
-  const orgType = normalizeOrgTypeValue(after.orgType || payload.orgType || sourceOrg?.orgType || "SECTION");
+  const orgName = resolveOrganizationName(row, payload, sourceOrg);
+  const matchedOrg = sourceOrg || findOrganizationById(row.targetId);
+  const orgType = normalizeOrgTypeValue(after.orgType || payload.orgType || matchedOrg?.orgType || "SECTION");
   const reviewStatus = String(row.status || "PENDING").toUpperCase();
   const actionStatusLabel = reviewStatus === "REJECTED"
     ? getRejectedCategoryActionLabel(action)
@@ -596,7 +631,7 @@ function toPendingCategoryRow(row = {}) {
   return {
     ...row,
     rowKey: `request-${row.id}`,
-    id: row.targetId || row.id,
+    id: row.targetId || matchedOrg?.id || row.id,
     changeRequestId: row.id,
     categoryName: orgName,
     orgName,
@@ -613,7 +648,7 @@ function toPendingCategoryRow(row = {}) {
   };
 }
 
-function parsePayload(payload) {
+function safeParsePayload(payload) {
   if (!payload) return {};
   if (typeof payload === "object") return payload;
   try {
@@ -623,16 +658,31 @@ function parsePayload(payload) {
   }
 }
 
-function resolveOrganizationName(row = {}, payload = parsePayload(row.payload)) {
+function resolveOrganizationName(row = {}, payload = safeParsePayload(row.payload), sourceOrg = null) {
   const after = payload.after || payload.newData || payload.data || payload;
   const payloadName = after.orgName || after.categoryName || payload.orgName || payload.categoryName;
   if (payloadName) return payloadName;
-  return findOrganizationById(row.targetId)?.orgName || "-";
+  const targetId = row.targetId || sourceOrg?.id;
+  return sourceOrg?.orgName || findOrganizationById(targetId)?.orgName || (targetId ? `科別 ID：${targetId}` : "-");
 }
 
 function findOrganizationById(id) {
   if (id === undefined || id === null || id === "") return null;
   return organizations.value.find((org) => String(org.id) === String(id)) || null;
+}
+
+function findApprovedDeleteRequestByTargetId(id) {
+  if (id === undefined || id === null || id === "") return null;
+  return approvedDeleteCategoryRequests.value.find((request) =>
+    isOrganizationChangeRequest(request) &&
+    String(request.status || "").toUpperCase() === "APPROVED" &&
+    String(request.action || "").toUpperCase() === "DELETE" &&
+    String(request.targetId) === String(id),
+  ) || null;
+}
+
+function isOrganizationChangeRequest(item = {}) {
+  return String(item.targetType || "").toUpperCase() === "ORGANIZATION";
 }
 
 function toggleCategorySort(key) {
@@ -659,7 +709,6 @@ function getCategorySortValue(row, key) {
 }
 
 function formatCategoryDate(row = {}) {
-  if (route.name === "CategoryDeleted") return "-";
   const value = route.name === "CategoryRejected"
     ? row.closedAt || row.createdAt
     : row.createdAt || row.closedAt || row.updatedAt;
@@ -725,8 +774,11 @@ async function rejectSelectedCategory(reason) {
 function invalidateCategoryCachesAfterApprove(action = "") {
   const normalizedAction = String(action || "").toUpperCase();
   invalidateOrganizations("PENDING");
+  invalidateOrganizations("ACTIVE");
+  invalidateOrganizations("DISABLED");
   invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
   invalidateChangeRequests({ targetType: "ORGANIZATION", status: "REJECTED" });
+  invalidateChangeRequests({ targetType: "ORGANIZATION", status: "APPROVED" });
   if (["CREATE", "UPDATE"].includes(normalizedAction)) {
     invalidateOrganizations("ACTIVE");
   }
@@ -742,8 +794,11 @@ function invalidateCategoryCachesAfterApprove(action = "") {
 
 function invalidateCategoryCachesAfterReject() {
   invalidateOrganizations("PENDING");
+  invalidateOrganizations("ACTIVE");
+  invalidateOrganizations("DISABLED");
   invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
   invalidateChangeRequests({ targetType: "ORGANIZATION", status: "REJECTED" });
+  invalidateChangeRequests({ targetType: "ORGANIZATION", status: "APPROVED" });
 }
 
 const columns = [

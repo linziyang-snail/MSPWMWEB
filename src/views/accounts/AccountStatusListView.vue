@@ -160,6 +160,9 @@
                 <SortIcon :active="sortState.key === col.key" :direction="sortState.direction" />
               </button>
             </th>
+            <th v-if="routeStatus === 'DELETED'" class="w-[12%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
+              刪除申請人
+            </th>
             <th class="w-[22%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
               {{ trailingColumnLabel }}
             </th>
@@ -188,9 +191,12 @@
               </span>
               <StatusBadge v-else :status="row.status" :label="getAccountBadgeLabel(row.status)" />
             </td>
+            <td v-if="routeStatus === 'DELETED'" class="px-4 py-4 text-base font-normal leading-normal text-center wrap-break-word text-natural xl:px-5">
+              {{ row.requesterId || "-" }}
+            </td>
             <td class="px-3 py-4 xl:px-5">
               <p v-if="routeStatus === 'DELETED'" class="text-base font-normal leading-normal text-center text-natural">
-                -
+                {{ row.reviewerId || "-" }}
               </p>
               <div v-else-if="['ACTIVE', 'LOCKED'].includes(row.status)" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
                 <button
@@ -241,7 +247,7 @@
             </td>
           </tr>
           <tr v-if="!filteredRows.length">
-            <td :colspan="tableColumns.length + 1" class="py-16 text-center">
+            <td :colspan="tableColumns.length + (routeStatus === 'DELETED' ? 2 : 1)" class="py-16 text-center">
               <EmptyState />
             </td>
           </tr>
@@ -418,7 +424,9 @@ const tableColumns = computed(() => {
       : column,
   );
 });
-const trailingColumnLabel = computed(() => "操作");
+const trailingColumnLabel = computed(() =>
+  routeStatus.value === "DELETED" ? "刪除審核人" : "操作",
+);
 
 const routeStatus = computed(() => route.meta.status || "");
 
@@ -439,12 +447,11 @@ const filteredRows = computed(() => {
   let rows = [];
   if (!routeStatus.value) return users.value;
   if (routeStatus.value === "PENDING") {
-    const pendingUsers = users.value.filter(
-      (u) => ["PENDING", "PENDING_APPROVAL", "PENDING_MULTI"].includes(u.status),
-    );
-    const mergedPendingUsers = mergePendingUsersWithChangeRequests(pendingUsers);
-    const pendingCreateRows = getPendingCreateRows(mergedPendingUsers);
-    rows = [...pendingCreateRows, ...mergedPendingUsers];
+    rows = getPendingCreateRows();
+    return sortRows(filterRowsByAccountFilters(rows));
+  }
+  if (routeStatus.value === "DELETED") {
+    rows = getApprovedDeleteRows();
     return sortRows(filterRowsByAccountFilters(rows));
   }
   const targetStatus = routeStatus.value === "DELETED" ? "DISABLED" : routeStatus.value;
@@ -586,6 +593,9 @@ async function normalizeAccountChangeRows(rows = []) {
         changeRequestId: row.changeRequestId ?? row.id,
         action: String(row.action || "UPDATE").toUpperCase(),
         requesterId: getRequesterId(row),
+        reviewerId: row.reviewerId || "",
+        closedAt: row.closedAt,
+        targetId: row.targetId,
         targetType: row.targetType || "USER",
         before: normalizeAccountInfo(row.before || {}, row.status),
         after: normalizeAccountInfo(row.after || row, row.status),
@@ -604,12 +614,15 @@ async function normalizeAccountChangeRows(rows = []) {
       changeRequestId: row.id,
       userId,
       userName,
+      targetId: row.targetId,
       action,
       type: normalizeChangeType(action),
       title: getChangeRequestTitle(action),
       createdBy: row.requesterId,
       requesterId: row.requesterId,
+      reviewerId: row.reviewerId,
       createdByName: row.requesterName || row.requesterId || "-",
+      closedAt: row.closedAt,
       before: normalizeAccountInfo(before, row.status),
       after: normalizeAccountInfo(after, row.status),
     };
@@ -675,6 +688,28 @@ function getPendingCreateRows(existingRows = []) {
       createdBy: row.requesterId,
       requesterId: row.requesterId,
       createdAt: row.createdAt,
+      roles: extractRolesFromAccountInfo(row.after),
+      roleLabel: row.after?.roleLabel,
+      targetType: row.targetType,
+      action: row.action,
+      changeRequestId: row.id,
+    }));
+}
+
+function getApprovedDeleteRows() {
+  return accountChangeRows.value
+    .filter((row) => row.action === "DELETE")
+    .map((row) => ({
+      id: row.userId || row.targetId || row.id,
+      userId: row.userId || row.targetId || row.id,
+      userName: row.userName,
+      orgName: row.after?.orgName || row.before?.orgName || "-",
+      status: "DISABLED",
+      createdAt: row.closedAt || row.createdAt,
+      requestedAt: row.createdAt,
+      closedAt: row.closedAt,
+      requesterId: row.requesterId || row.createdBy || "",
+      reviewerId: row.reviewerId || "",
       roles: extractRolesFromAccountInfo(row.after),
       roleLabel: row.after?.roleLabel,
       targetType: row.targetType,
@@ -959,7 +994,7 @@ async function onCreateAccount(payload) {
       forceUsers: true,
       forceRequests: true,
       usersStatus: "PENDING_APPROVAL",
-      requestStatus: "PENDING",
+      requestQuery: { status: "PENDING", action: ["CREATE"] },
     });
   } catch (error) {
     console.error(error);
@@ -1016,7 +1051,6 @@ function isOwnPendingAccount(account) {
 }
 
 function missingReviewText(row = {}) {
-  if (row.status === "PENDING" && !getChangeRequestId(row)) return "查無待審新增單，無法審核";
   return "-";
 }
 
@@ -1046,7 +1080,7 @@ async function reloadAccountData(options = {}) {
     forceUsers = false,
     forceRequests = false,
     usersStatus = accountRouteApiStatus.value,
-    requestStatus = accountRouteRequestStatus.value,
+    requestQuery = accountRouteRequestQuery.value,
   } = options;
   const tasks = [];
   let userRowsOverride = null;
@@ -1068,24 +1102,25 @@ async function reloadAccountData(options = {}) {
     }
   }
   if (routeNeedsChangeRequests.value) {
-    tasks.push(userStore.fetchAccountChangeRequests(requestStatus, { force: forceRequests }));
-  } else {
-    tasks.push(userStore.fetchAccountChangeRequests("PENDING", { force: forceRequests }));
+    tasks.push(userStore.fetchAccountChangeRequests(requestQuery, { force: forceRequests }));
   }
   await Promise.all(tasks);
-  await syncAccountRowsFromStore({ usersStatus, requestStatus, userRowsOverride });
+  await syncAccountRowsFromStore({ usersStatus, requestQuery, userRowsOverride });
 }
 
 async function reloadAccountDataAfterReview() {
   userStore.invalidateUsers("PENDING_APPROVAL");
   userStore.invalidateUsers("ACTIVE");
+  userStore.invalidateUsers("LOCKED");
   userStore.invalidateUsers("DISABLED");
-  userStore.invalidateAccountChangeRequests("PENDING");
+  userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["CREATE"] });
+  userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["UPDATE", "DELETE"] });
+  userStore.invalidateAccountChangeRequests({ status: "APPROVED", action: ["DELETE"] });
   await reloadAccountData({
     forceUsers: routeNeedsUsers.value,
     forceRequests: true,
     usersStatus: accountRouteApiStatus.value,
-    requestStatus: accountRouteRequestStatus.value,
+    requestQuery: accountRouteRequestQuery.value,
   });
 }
 
@@ -1098,16 +1133,25 @@ const accountRouteApiStatus = computed(() => {
   return "ACTIVE";
 });
 
-const accountRouteRequestStatus = computed(() => {
-  return "PENDING";
+const accountRouteRequestQuery = computed(() => {
+  if (route.name === "AccountPendingChanges") {
+    return { status: "PENDING", action: ["CREATE"] };
+  }
+  if (route.name === "AccountPendingReview") {
+    return { status: "PENDING", action: ["UPDATE", "DELETE"] };
+  }
+  if (route.name === "AccountDeleted") {
+    return { status: "APPROVED", action: ["DELETE"] };
+  }
+  return { status: "PENDING" };
 });
 
 const routeNeedsUsers = computed(() =>
-  route.name !== "AccountPendingReview",
+  !["AccountPendingChanges", "AccountPendingReview", "AccountDeleted"].includes(route.name),
 );
 
 const routeNeedsChangeRequests = computed(() =>
-  ["AccountPendingChanges", "AccountPendingReview"].includes(route.name),
+  ["AccountPendingChanges", "AccountPendingReview", "AccountDeleted"].includes(route.name),
 );
 
 watch(
@@ -1125,14 +1169,16 @@ watch(
 async function syncAccountRowsFromStore(options = {}) {
   const {
     usersStatus = accountRouteApiStatus.value,
-    requestStatus = accountRouteRequestStatus.value,
+    requestQuery = accountRouteRequestQuery.value,
     userRowsOverride = null,
   } = options;
   const sourceUsers = Array.isArray(userRowsOverride)
     ? userRowsOverride
-    : userStore.getCachedUsers(usersStatus);
+    : routeNeedsUsers.value
+      ? userStore.getCachedUsers(usersStatus)
+      : [];
   users.value = sourceUsers.map(normalizeAccountRowStatus);
-  accountChangeRows.value = await normalizeAccountChangeRows(userStore.getCachedChangeRequests(requestStatus));
+  accountChangeRows.value = await normalizeAccountChangeRows(userStore.getCachedChangeRequests(requestQuery));
 }
 
 function shouldSearchUsersByKeyword() {

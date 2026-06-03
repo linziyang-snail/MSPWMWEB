@@ -28,7 +28,7 @@ export const useUserStore = defineStore("users", {
           .filter((user) => ["PENDING", "PENDING_APPROVAL"].includes(user.status))
           .map((user) => String(user.id)),
       );
-      (state.changeRequestsByStatus.PENDING || state.accountChangeRequests).forEach((item) => {
+      getPendingChangeRequestsFromState(state).forEach((item) => {
         const targetType = item?.targetType || "USER";
         const status = item?.status || "PENDING";
         const action = String(item?.action || "").toUpperCase();
@@ -39,7 +39,7 @@ export const useUserStore = defineStore("users", {
       return pendingIds.size;
     },
     pendingChangeCount: (state) =>
-      (state.changeRequestsByStatus.PENDING || state.accountChangeRequests).filter((item) => {
+      getPendingChangeRequestsFromState(state).filter((item) => {
         const targetType = item?.targetType || "USER";
         const status = item?.status || "PENDING";
         const action = String(item?.action || "").toUpperCase();
@@ -89,10 +89,11 @@ export const useUserStore = defineStore("users", {
       }
       this.usersByStatus = {};
     },
-    invalidateAccountChangeRequests(status = "PENDING") {
-      delete this.changeRequestsByStatus[status];
-      delete this.inFlightByKey[buildChangeRequestsKey(status)];
-      if (status === "PENDING") this.loaded = false;
+    invalidateAccountChangeRequests(params = "PENDING") {
+      const key = buildChangeRequestsKey(params);
+      delete this.changeRequestsByStatus[key];
+      delete this.inFlightByKey[key];
+      if (getChangeRequestStatus(params) === "PENDING") this.loaded = false;
     },
     async fetchUsers(params = {}) {
       const { force = false, ...requestParams } = params || {};
@@ -132,18 +133,18 @@ export const useUserStore = defineStore("users", {
         this.loading = false;
       }
     },
-    async fetchAccountChangeRequests(status = "PENDING", options = {}) {
+    async fetchAccountChangeRequests(params = "PENDING", options = {}) {
       const { force = false } = options || {};
-      const key = buildChangeRequestsKey(status);
-      if (!force && this.changeRequestsByStatus[status]) {
-        this.accountChangeRequests = this.changeRequestsByStatus[status];
+      const key = buildChangeRequestsKey(params);
+      if (!force && this.changeRequestsByStatus[key]) {
+        this.accountChangeRequests = this.changeRequestsByStatus[key];
         return this.accountChangeRequests;
       }
       if (this.inFlightByKey[key]) return this.inFlightByKey[key];
       this.inFlightByKey[key] = (async () => {
-        const rows = await getAccountChangeRequests(status);
+        const rows = await getAccountChangeRequests(params);
         this.accountChangeRequests = rows;
-        this.changeRequestsByStatus = { ...this.changeRequestsByStatus, [status]: rows };
+        this.changeRequestsByStatus = { ...this.changeRequestsByStatus, [key]: rows };
         this.lastFetchedAtByKey = { ...this.lastFetchedAtByKey, [key]: Date.now() };
         return rows;
       })();
@@ -160,8 +161,8 @@ export const useUserStore = defineStore("users", {
     getCachedUsers(status = "ACTIVE") {
       return this.usersByStatus[status] || [];
     },
-    getCachedChangeRequests(status = "PENDING") {
-      return this.changeRequestsByStatus[status] || [];
+    getCachedChangeRequests(params = "PENDING") {
+      return this.changeRequestsByStatus[buildChangeRequestsKey(params)] || [];
     },
     createPageFromCachedUsers(status, params = {}) {
       const rows = this.usersByStatus[status] || [];
@@ -184,6 +185,28 @@ function buildUsersKey(params = {}) {
   return `users:${new URLSearchParams(normalizedParams).toString()}`;
 }
 
-function buildChangeRequestsKey(status = "PENDING") {
-  return `changeRequests:USER:${status || "PENDING"}`;
+function buildChangeRequestsKey(params = "PENDING") {
+  const query = typeof params === "string" ? { status: params } : params || {};
+  const normalized = {
+    status: normalizeKeyPart(query.status || "PENDING"),
+    action: normalizeKeyPart(query.action),
+  };
+  return `changeRequests:USER:${normalized.status}:${normalized.action || "ALL"}`;
+}
+
+function getChangeRequestStatus(params = "PENDING") {
+  if (typeof params === "string") return params || "PENDING";
+  return normalizeKeyPart(params?.status || "PENDING");
+}
+
+function normalizeKeyPart(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item)).sort().join(",");
+  return value ? String(value) : "";
+}
+
+function getPendingChangeRequestsFromState(state) {
+  const cachedRows = Object.entries(state.changeRequestsByStatus || {})
+    .filter(([key]) => key.startsWith("changeRequests:USER:PENDING"))
+    .flatMap(([, rows]) => rows || []);
+  return cachedRows.length ? cachedRows : state.accountChangeRequests;
 }

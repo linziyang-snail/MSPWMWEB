@@ -80,10 +80,25 @@ export async function changeMyPassword(payload) {
   return changeMyPasswordApi(body);
 }
 
-export async function getAccountChangeRequests(status = "PENDING") {
+export async function getAccountChangeRequests(params = "PENDING") {
+  const query = typeof params === "string"
+    ? { status: params }
+    : params || {};
+  const {
+    status = "PENDING",
+    action,
+    page: pageNumber = 1,
+    size = 100,
+  } = query;
   const page = unwrapApiBody(
     await apiRequest.get("/api/change-requests", {
-      params: pruneEmptyParams({ targetType: "USER", status: [status], page: 1, size: 100 }),
+      params: pruneEmptyParams({
+        targetType: "USER",
+        status: normalizeArrayParam(status),
+        action: normalizeArrayParam(action),
+        page: pageNumber,
+        size: clampUserPageSize(size),
+      }),
     }),
   );
   const rows = Array.isArray(page) ? page : page?.content || [];
@@ -93,6 +108,12 @@ export async function getAccountChangeRequests(status = "PENDING") {
     const status = item?.status || "PENDING";
     return targetType === "USER";
   });
+}
+
+function normalizeArrayParam(value) {
+  if (Array.isArray(value)) return value.filter((item) => item !== undefined && item !== null && item !== "");
+  if (value === undefined || value === null || value === "") return [];
+  return [value];
 }
 
 export async function exportUsers() {
