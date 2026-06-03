@@ -82,9 +82,10 @@ const appStore = useAppStore();
 const auth = useAuthStore();
 const router = useRouter();
 
-const passwordSubtitle = computed(
-  () => `員編：${auth.employeeId || auth.userId || "1193285"}`,
-);
+const passwordSubtitle = computed(() => {
+  const employeeId = auth.employeeId || auth.userId || "";
+  return employeeId ? `員編：${employeeId}` : "";
+});
 
 const passwordNoticeMessage = computed(() => {
   if (auth.passwordNoticeType === "expired") {

@@ -92,7 +92,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  subtitle: { type: String, default: "員編：1193285" },
+  subtitle: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue", "submitted"]);

@@ -19,7 +19,7 @@
       <div>
         <label class="mb-2 block text-sm font-bold leading-normal text-natural">設定新密碼 *</label>
         <span class="relative block">
-          <input v-model="form.password" :type="show.password ? 'text' : 'password'" placeholder="請輸入目前密碼" :class="[
+          <input v-model="form.password" :type="show.password ? 'text' : 'password'" placeholder="請輸入新密碼" :class="[
             'h-10 w-full rounded-lg border bg-background-surface px-4 py-2 pr-12 text-base font-normal leading-normal text-natural outline-none transition placeholder:text-text-grey focus:border-border-focus focus:ring-2 focus:ring-primary/15',
             errors.password ? 'border-border-error' : 'border-copy-table-border',
           ]" />
@@ -87,7 +87,7 @@ const form = reactive({ password: "", confirm: "" });
 const errors = reactive({ password: "", confirm: "" });
 const show = reactive({ password: false, confirm: false });
 
-const subtitle = computed(() => `員編：${props.account?.id || "1193285"}`);
+const subtitle = computed(() => props.account?.id ? `員編：${props.account.id}` : "");
 
 watch(
   () => props.modelValue,

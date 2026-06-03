@@ -1,5 +1,5 @@
 <template>
-  <BaseModal :model-value="modelValue" title="新增人員" subtitle="員編：1193285" size="sm" panel-class="shadow-popup"
+  <BaseModal :model-value="modelValue" title="新增人員" subtitle="" size="sm" panel-class="shadow-popup"
     header-class="h-24 border-b border-white bg-background-page px-6 py-6" body-class="px-6 py-5"
     footer-class="h-sidebar-logo gap-6 border-t-0 bg-background-page px-6 py-6"
     icon-container-class="bg-copy-table-border" @update:model-value="$emit('update:modelValue', $event)">

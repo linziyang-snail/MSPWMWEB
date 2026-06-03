@@ -26,8 +26,8 @@
 
 ### Approval / ChangeRequest
 - `GET /api/change-requests`：新版多重查詢，使用 `ChangeRequestQuery`。
-  - query：`id`、`targetId`、`targetType`（必填）、`action[]`、`status[]`（必填）、`start`、`end`、`page`、`size`。
-  - `status` / `action` 以 repeated query key 送出，例如 `status=PENDING&status=REJECTED`，不使用 `status[]=PENDING`。
+  - query：`id`、`targetId`、`targetType`（必填）、`action`、`status`（必填）、`start`、`end`、`page`、`size`。
+  - `status` / `action` 多值以 repeated query key 送出，例如 `action=UPDATE&action=DELETE`、`status=PENDING&status=APPROVED`，不使用 `action[]=UPDATE` 或 `status[]=PENDING`。
   - `start` / `end` 依 Swagger 使用 `yyyy-MM-dd`。
   - response body 已改為 `PageChangeRequestDto`，列表資料在 `body.content`。
   - 舊 `/api/change-requests/history` 與 `/api/change-requests/search` 已不存在；前端相容 wrapper 皆改呼叫新版 `/api/change-requests`。
@@ -54,7 +54,7 @@
 - `userService.getUsers` 支援 `page` / `size` / `status`，並限制 `size <= 100`。
 - `organizationService.getOrganizations` 支援 `status`。
 - `approvalService.getChangeRequests` 改為新版核心查詢，回傳 page object；`getPendingChangeRequests` / `getChangeRequestHistory` / `searchChangeRequests` 保留相容函式名，但不再呼叫舊 URL。
-- `apiRequest` 新增 array repeated query serializer，供 Approval 的 `status[]` / `action[]` 查詢使用。
+- `apiRequest` 新增 array repeated query serializer，供 Approval 的多值 `status` / `action` 查詢使用。
 - 帳號新增 / 編輯的科別下拉改抓 `GET /api/organizations?status=ACTIVE` 並過濾 SECTION / 科別。
 - 科別管理依 tab 改抓對應 status；待審核 / 已駁回操作使用 change request id。
 - 全域前端 enum 改用 `CANCELED`。
@@ -65,6 +65,47 @@
 - 文案列表仍保留 compatibility service，不會亂打不存在的 Copy endpoint。
 - 操作歷程查詢 API 仍未確認。
 - 401 自動 refresh 流程尚未完整串成 interceptor retry；auth store 已保留 refresh token 寫回 access token 的 action。
+
+## ADMIN Smoke Test - 2026-06-03
+
+Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
+
+- total：12
+- passed：12
+- failed：0
+
+### User / Account
+
+| 頁面 / 功能 | API | 結果 |
+| --- | --- | --- |
+| 已啟用帳號 | `GET /api/users?page=1&size=100&status=ACTIVE` | page，count=15，totalElements=32 |
+| 待審核新帳號 | `GET /api/change-requests?targetType=USER&status=PENDING&action=CREATE&page=1&size=100` | page，count=3，totalElements=3 |
+| 待審核帳號異動 | `GET /api/change-requests?targetType=USER&status=PENDING&action=UPDATE&action=DELETE&page=1&size=100` | page，count=3，totalElements=3 |
+| 已停用帳號 | `GET /api/users?page=1&size=100&status=LOCKED` | page，count=0，totalElements=32 |
+| 已刪除帳號 | `GET /api/change-requests?targetType=USER&status=APPROVED&action=DELETE&page=1&size=100` | page，count=10，totalElements=10 |
+| 帳號搜尋 | `GET /api/users/keyword?page=1&size=20&status=ACTIVE&keyword=1` | page，count=10，totalElements=10 |
+| 角色列表 | `GET /api/roles` | array，count=3；roles=`ADMIN` / `MANAGER` / `USER` |
+
+### Organization / Category
+
+| 頁面 / 功能 | API | 結果 |
+| --- | --- | --- |
+| 全部科別 | `GET /api/organizations?status=ACTIVE` | array，count=3 |
+| 待審核科別 | `GET /api/change-requests?targetType=ORGANIZATION&status=PENDING&page=1&size=100` | page，count=2，totalElements=2 |
+| 已駁回科別 | `GET /api/change-requests?targetType=ORGANIZATION&status=REJECTED&page=1&size=100` | page，count=9，totalElements=9 |
+| 已刪除科別主資料 | `GET /api/organizations?status=DISABLED` | array，count=9 |
+| 已刪除科別審核紀錄 | `GET /api/change-requests?targetType=ORGANIZATION&status=APPROVED&action=DELETE&page=1&size=100` | page，count=9，totalElements=9 |
+
+### Confirmed ADMIN data-source rules
+
+- 審核流程頁以 `GET /api/change-requests` 為準。
+- 待審核新帳號使用 `targetType=USER&status=PENDING&action=CREATE`。
+- 待審核帳號異動使用 `targetType=USER&status=PENDING&action=UPDATE&action=DELETE`，不可混入 `CREATE`。
+- 已停用帳號使用 `GET /api/users?status=LOCKED`，`LOCKED` 不屬於審核單。
+- 已刪除帳號使用 `targetType=USER&status=APPROVED&action=DELETE` 顯示刪除流程資訊。
+- 待審核科別使用 `targetType=ORGANIZATION&status=PENDING`，不以 `organizations?status=PENDING` 作為主要資料來源。
+- 已駁回科別使用 `targetType=ORGANIZATION&status=REJECTED`，不可使用 `organizations?status=DISABLED`。
+- 已刪除科別使用 `organizations?status=DISABLED`，並合併 `targetType=ORGANIZATION&status=APPROVED&action=DELETE` 補刪除申請人、審核人、刪除日期。
 
 ## Compatibility services kept
 
