@@ -273,8 +273,8 @@ const handleChangePassword = async () => {
     form.password = "";
     message.value = "";
     appStore.showAlert({
-      title: "系統提示",
-      message: "密碼已更新，請使用新密碼重新登入。",
+      title: "密碼已更新",
+      message: "請使用新密碼重新登入系統。",
       confirmText: "確認",
       variant: "info",
     });
