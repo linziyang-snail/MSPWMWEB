@@ -198,7 +198,7 @@
               <p v-if="routeStatus === 'DELETED'" class="text-base font-normal leading-normal text-center text-natural">
                 {{ row.reviewerId || "-" }}
               </p>
-              <div v-else-if="['ACTIVE', 'LOCKED'].includes(row.status)" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
+              <div v-else-if="isManageableAccount(row)" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
                 <button
                   class="grid transition rounded size-8 place-items-center text-natural hover:bg-background-hover hover:text-primary"
                   type="button" aria-label="重設密碼" @click="openPasswordReset(row)">
@@ -239,7 +239,7 @@
                 <BaseButton v-if="row.status === 'ACTIVE'" variant="text" size="sm" @click="confirm(row, 'disable')">
                   停用
                 </BaseButton>
-                <BaseButton v-if="['ACTIVE', 'LOCKED'].includes(row.status)" variant="text" size="sm"
+                <BaseButton v-if="isManageableAccount(row)" variant="text" size="sm"
                   @click="confirm(row, 'reset')">
                   重設密碼
                 </BaseButton>
@@ -454,11 +454,17 @@ const filteredRows = computed(() => {
     rows = getApprovedDeleteRows();
     return sortRows(filterRowsByAccountFilters(rows));
   }
-  const targetStatus = routeStatus.value === "DELETED" ? "DISABLED" : routeStatus.value;
-  rows = users.value.filter((u) => u.status === targetStatus);
+  const targetStatuses = getRouteDisplayStatuses();
+  rows = users.value.filter((u) => targetStatuses.includes(u.status));
   rows = filterRowsByAccountFilters(rows);
   return sortRows(rows);
 });
+
+function getRouteDisplayStatuses() {
+  if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
+  if (routeStatus.value === "DELETED") return ["DISABLED"];
+  return [routeStatus.value];
+}
 
 function filterRowsByAccountFilters(rows) {
   const keyword = isServerKeywordSearchActive.value
@@ -775,7 +781,7 @@ function getAccountStatusLabel(status) {
       PENDING_APPROVAL: "待審核",
       LOCKED: "停用",
       DISABLED: "刪除",
-      PASSWORD_INVALID: "密碼失效",
+      PASSWORD_INVALID: "需改密碼",
     }[normalizedStatus] || statusLabelMap[normalizedStatus] || status || "-"
   );
 }
@@ -969,6 +975,7 @@ async function onPasswordReset(payload) {
       newPassword: payload.password,
     });
     userStore.invalidateUsers("ACTIVE");
+    userStore.invalidateUsers("PASSWORD_INVALID");
     userStore.invalidateUsers("LOCKED");
     await reloadAccountData({ forceUsers: true, forceRequests: false });
   } catch (error) {
@@ -1042,6 +1049,10 @@ function canViewOriginal(request = {}) {
   return getNormalizedAction(request) === "UPDATE";
 }
 
+function isManageableAccount(row = {}) {
+  return ["ACTIVE", "LOCKED", "PASSWORD_INVALID"].includes(row.status);
+}
+
 function isOwnPendingAccount(account) {
   return (
     account?.status === "PENDING" &&
@@ -1112,6 +1123,7 @@ async function reloadAccountData(options = {}) {
 async function reloadAccountDataAfterReview() {
   userStore.invalidateUsers("PENDING_APPROVAL");
   userStore.invalidateUsers("ACTIVE");
+  userStore.invalidateUsers("PASSWORD_INVALID");
   userStore.invalidateUsers("LOCKED");
   userStore.invalidateUsers("DISABLED");
   userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["CREATE"] });
@@ -1130,7 +1142,7 @@ const accountRouteApiStatus = computed(() => {
   if (route.name === "AccountDisabled" || route.name === "AccountLocked") return "LOCKED";
   if (route.name === "AccountDeleted") return "DISABLED";
   if (route.name === "AccountPasswordInvalid") return "PASSWORD_INVALID";
-  if (route.name === "AccountActive") return "ACTIVE";
+  if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
   return "ACTIVE";
 });
 

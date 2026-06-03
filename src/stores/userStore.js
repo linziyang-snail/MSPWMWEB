@@ -83,8 +83,17 @@ export const useUserStore = defineStore("users", {
     },
     invalidateUsers(status) {
       if (status) {
-        delete this.usersByStatus[status];
-        delete this.inFlightByKey[buildUsersKey({ page: 1, size: 100, status })];
+        const statusKey = buildStatusKey(status);
+        Object.keys(this.usersByStatus).forEach((key) => {
+          if (key.split(",").some((item) => statusKey.split(",").includes(item))) {
+            delete this.usersByStatus[key];
+          }
+        });
+        Object.keys(this.inFlightByKey).forEach((key) => {
+          if (key.includes(encodeURIComponent(statusKey)) || key.includes(statusKey)) {
+            delete this.inFlightByKey[key];
+          }
+        });
         return;
       }
       this.usersByStatus = {};
@@ -98,24 +107,34 @@ export const useUserStore = defineStore("users", {
     async fetchUsers(params = {}) {
       const { force = false, ...requestParams } = params || {};
       const status = requestParams.status || "ACTIVE";
+      const statuses = normalizeStatusList(status);
+      const statusKey = buildStatusKey(statuses);
       const key = buildUsersKey({ ...requestParams, status });
-      if (!force && this.usersByStatus[status]) {
-        this.users = this.usersByStatus[status];
-        return this.createPageFromCachedUsers(status, requestParams);
+      if (!force && this.usersByStatus[statusKey]) {
+        this.users = this.usersByStatus[statusKey];
+        return this.createPageFromCachedUsers(statusKey, requestParams);
       }
       if (this.inFlightByKey[key]) return this.inFlightByKey[key];
       this.loading = true;
       this.error = "";
       this.inFlightByKey[key] = (async () => {
-        const response = await getUsers({
-          page: this.page,
-          size: this.size,
-          ...requestParams,
-          status,
-        });
-        const rows = response?.content || [];
+        const pages = await Promise.all(
+          statuses.map((singleStatus) =>
+            getUsers({
+              page: this.page,
+              size: this.size,
+              ...requestParams,
+              status: singleStatus,
+            }),
+          ),
+        );
+        const response = mergeUserPages(pages, requestParams);
+        const rows = response.content || [];
         this.users = rows;
-        this.usersByStatus = { ...this.usersByStatus, [status]: rows };
+        this.usersByStatus = { ...this.usersByStatus, [statusKey]: rows };
+        if (statuses.length === 1) {
+          this.usersByStatus = { ...this.usersByStatus, [statuses[0]]: rows };
+        }
         this.totalElements = response?.totalElements || 0;
         this.page = response?.page || requestParams.page || this.page;
         this.size = response?.size || Math.min(requestParams.size || this.size, 100);
@@ -159,7 +178,7 @@ export const useUserStore = defineStore("users", {
       }
     },
     getCachedUsers(status = "ACTIVE") {
-      return this.usersByStatus[status] || [];
+      return this.usersByStatus[buildStatusKey(status)] || [];
     },
     getCachedChangeRequests(params = "PENDING") {
       return this.changeRequestsByStatus[buildChangeRequestsKey(params)] || [];
@@ -177,12 +196,39 @@ export const useUserStore = defineStore("users", {
 });
 
 function buildUsersKey(params = {}) {
+  const status = normalizeStatusList(params.status || "ACTIVE");
   const normalizedParams = {
     page: params.page || 1,
     size: Math.min(Number(params.size || 20), 100),
-    status: params.status || "ACTIVE",
+    status: buildStatusKey(status),
   };
   return `users:${new URLSearchParams(normalizedParams).toString()}`;
+}
+
+function normalizeStatusList(status) {
+  if (Array.isArray(status)) return status.filter(Boolean).map((item) => String(item));
+  return [status || "ACTIVE"];
+}
+
+function buildStatusKey(status) {
+  return normalizeStatusList(status).sort().join(",");
+}
+
+function mergeUserPages(pages = [], params = {}) {
+  const content = Array.from(
+    pages
+      .flatMap((pageData) => pageData?.content || [])
+      .reduce((map, row) => {
+        if (row?.id) map.set(String(row.id), row);
+        return map;
+      }, new Map()).values(),
+  );
+  return {
+    content,
+    totalElements: pages.reduce((sum, pageData) => sum + Number(pageData?.totalElements || 0), 0),
+    page: params.page || 1,
+    size: Math.min(Number(params.size || 100), 100),
+  };
 }
 
 function buildChangeRequestsKey(params = "PENDING") {

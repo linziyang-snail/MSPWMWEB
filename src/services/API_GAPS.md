@@ -10,6 +10,7 @@
 
 ### User
 - `GET /api/users?page=&size=&status=`：已支援 `status`，`size` 最大 100。
+- 已啟用帳號前端歸類包含 `ACTIVE` 與 `PASSWORD_INVALID`；目前以前端並行查詢兩種 status 後合併去重，避免依賴後端 repeated `status` 支援。
 - `POST /api/users`：新增使用者申請，`roleIds` required。
 - `GET /api/users/{id}`：查詢單一使用者；前端不額外加死數字驗證。
 - `PUT /api/users/{id}`：修改使用者申請。
@@ -99,6 +100,7 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
 ### Confirmed ADMIN data-source rules
 
 - 審核流程頁以 `GET /api/change-requests` 為準。
+- 已啟用帳號包含 `ACTIVE` / `PASSWORD_INVALID`；`PASSWORD_INVALID` 顯示為「需改密碼」，不歸入待審核 / 停用 / 刪除。
 - 待審核新帳號使用 `targetType=USER&status=PENDING&action=CREATE`。
 - 待審核帳號異動使用 `targetType=USER&status=PENDING&action=UPDATE&action=DELETE`，不可混入 `CREATE`。
 - 已停用帳號使用 `GET /api/users?status=LOCKED`，`LOCKED` 不屬於審核單。

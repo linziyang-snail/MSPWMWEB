@@ -23,12 +23,33 @@ export async function searchUsersByKeyword(params = {}) {
   if (!normalizedKeyword) {
     throw new Error("keyword is required");
   }
+  const statuses = normalizeArrayParam(status);
+  if (statuses.length > 1) {
+    const pages = await Promise.all(
+      statuses.map((singleStatus) =>
+        searchUsersByKeyword({
+          ...params,
+          page,
+          size,
+          status: singleStatus,
+          keyword: normalizedKeyword,
+        }),
+      ),
+    );
+    const content = mergeUsersById(pages.flatMap((pageData) => pageData?.content || []));
+    return {
+      content,
+      totalElements: pages.reduce((sum, pageData) => sum + Number(pageData?.totalElements || 0), 0),
+      page,
+      size: clampUserPageSize(size),
+    };
+  }
   return unwrapApiBody(
     await apiRequest.get("/api/users/keyword", {
       params: pruneEmptyParams({
         page,
         size: clampUserPageSize(size),
-        status,
+        status: statuses[0] || status,
         keyword: normalizedKeyword,
       }),
     }),
@@ -114,6 +135,16 @@ function normalizeArrayParam(value) {
   if (Array.isArray(value)) return value.filter((item) => item !== undefined && item !== null && item !== "");
   if (value === undefined || value === null || value === "") return [];
   return [value];
+}
+
+function mergeUsersById(rows = []) {
+  return Array.from(
+    rows.reduce((map, row) => {
+      if (!row?.id) return map;
+      map.set(String(row.id), row);
+      return map;
+    }, new Map()).values(),
+  );
 }
 
 export async function exportUsers() {
