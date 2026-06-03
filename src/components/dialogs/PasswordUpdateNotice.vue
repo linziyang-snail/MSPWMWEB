@@ -6,7 +6,7 @@
         aria-modal="true" aria-labelledby="password-update-title">
         <header class="flex h-24.5 items-center gap-4 border-b border-white bg-background-page px-6">
           <div class="grid rounded-full size-12 shrink-0 place-items-center bg-copy-table-border">
-            <ExclamationIcon class="h-6 w-2.75 text-primary" />
+            <ExclamationIcon class="text-primary" />
           </div>
           <h2 id="password-update-title" class="flex-1  text-xl font-bold leading-7 text-text-secondary">
             {{ title }}

@@ -181,6 +181,7 @@ import loginUserIcon from "@/assets/loginUser.svg";
 import ubotLogo from "@/assets/ubotLogo.svg";
 import PasswordUpdateNotice from "@/components/dialogs/PasswordUpdateNotice.vue";
 import { changeMyPassword } from "@/services/authService";
+import { useAppStore } from "@/stores/appStore";
 import { useAuthStore } from "@/stores/authStore";
 import {
   getDefaultEntryPathForRoles,
@@ -192,6 +193,7 @@ import { validateRequired, validateUserId } from "@/utils/validators";
 const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
+const appStore = useAppStore();
 const showPassword = ref(false);
 const showNewPassword = ref(false);
 const showConfirmPassword = ref(false);
@@ -234,14 +236,22 @@ const handleLogin = async () => {
     message.value = "登入成功";
     router.push(getLoginRedirect());
   } catch (error) {
-    if (isPasswordChangeRequiredError(error)) {
+    if (isPasswordExpiredResponse(error)) {
       pendingPasswordChange.userId = form.userId;
       pendingPasswordChange.oldPassword = form.password;
       openPasswordChangeNotice();
       return;
     }
-    if (isPasswordExpiredError(error)) {
+    if (isPendingApprovalResponse(error)) {
+      showLoginError(getErrorDescription(error) || "帳號尚未審核通過");
+      return;
+    }
+    if (isPasswordResetByAdminRequiredResponse(error)) {
       openPasswordExpiredNotice();
+      return;
+    }
+    if (getErrorCode(error) === "1007") {
+      showLoginError(getErrorDescription(error) || "登入失敗");
       return;
     }
     // 其他 API 錯誤由全站 interceptor 統一顯示。
@@ -261,7 +271,12 @@ const handleChangePassword = async () => {
     resetChangePasswordState();
     loginMode.value = "login";
     form.password = "";
-    message.value = "密碼已更新，請使用新密碼重新登入。";
+    message.value = "";
+    appStore.showAlert({
+      title: "系統提示",
+      message: "密碼已更新，請使用新密碼重新登入。",
+      confirmText: "確認",
+    });
   } catch {
     message.value = "";
   } finally {
@@ -321,18 +336,31 @@ function clearChangePasswordForm() {
   showConfirmPassword.value = false;
 }
 
-function isPasswordChangeRequiredError(error) {
-  return getErrorCode(error) === "1007";
+function isPasswordExpiredResponse(error) {
+  return getErrorCode(error) === "1007" && getErrorDescription(error).includes("密碼過期");
 }
 
-function isPasswordExpiredError(error) {
+function isPendingApprovalResponse(error) {
+  return getErrorCode(error) === "1007" && getErrorDescription(error).includes("帳號尚未審核通過");
+}
+
+function isPasswordResetByAdminRequiredResponse(error) {
   const code = getErrorCode(error);
-  const desc = String(error?.desc || error?.response?.data?.desc || "");
+  const desc = getErrorDescription(error);
   return code === "1008" || desc.includes("超級管理員重新設定密碼") || desc.includes("系統管理員重新設定密碼");
 }
 
 function getErrorCode(error) {
   return String(error?.code || error?.response?.data?.code || "");
+}
+
+function getErrorDescription(error) {
+  return String(error?.desc || error?.message || error?.response?.data?.desc || "");
+}
+
+function showLoginError(messageText) {
+  errors.password = messageText;
+  message.value = "";
 }
 
 const getDefaultEntryPath = () => {

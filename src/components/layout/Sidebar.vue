@@ -124,10 +124,15 @@ const auth = useAuthStore();
 const copyStore = useCopyStore();
 const userStore = useUserStore();
 const authRoles = computed(() => normalizeRoles(auth.roles));
+const canPreloadUserChangeRequests = computed(() =>
+  hasAnyRole(authRoles.value, ["ADMIN", "MANAGER"]),
+);
 
 onMounted(() => {
   copyStore.ensureLoaded();
-  userStore.ensureLoaded();
+  if (canPreloadUserChangeRequests.value) {
+    userStore.ensureLoaded();
+  }
 });
 
 const visibleSidebarSections = computed(() =>
