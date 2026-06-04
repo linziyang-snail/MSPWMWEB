@@ -1,6 +1,5 @@
 export const CHANGE_REQUEST_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELED"];
 export const CHANGE_REQUEST_ACTIONS = ["CREATE", "UPDATE", "DELETE"];
-export const OPERATION_HISTORY_TARGET_TYPES = ["USER", "ORGANIZATION"];
 
 export function safeParsePayload(payload) {
   if (!payload) return {};
@@ -48,20 +47,11 @@ export function getChangeRequestTargetTypeLabel(targetType = "") {
 }
 
 export function getChangedFieldsLabel(row = {}) {
-  const payload = safeParsePayload(row.payload);
-  const targetType = String(row.targetType || "").toUpperCase();
   const normalizedAction = String(row.action || "").toUpperCase();
   if (normalizedAction === "CREATE") return "基本資料";
   if (normalizedAction === "DELETE") return "狀態";
-  if (normalizedAction !== "UPDATE") return "-";
-  if (targetType === "ORGANIZATION") {
-    return payload.orgName || payload.name || payload.categoryName ? "科別名稱" : "基本資料";
-  }
-  const fields = [];
-  if (payload.userName) fields.push("姓名");
-  if (payload.orgId || payload.orgName) fields.push("科別");
-  if (payload.roleIds || payload.roles) fields.push("權限");
-  return fields.length ? fields.join("、") : "基本資料";
+  if (normalizedAction === "UPDATE") return "基本資料";
+  return "-";
 }
 
 export function getChangeRequestDate(row = {}) {
@@ -82,6 +72,10 @@ export function getChangeRequestTargetName(row = {}, payload = safeParsePayload(
   return "";
 }
 
+export function getOperationHistoryDisplayTargetId(row = {}, payload = safeParsePayload(row.payload)) {
+  return payload.userId || row.targetId || "-";
+}
+
 export function normalizeChangeRequestForHistory(row = {}) {
   const payload = safeParsePayload(row.payload);
   const targetType = String(row.targetType || "").toUpperCase();
@@ -90,6 +84,7 @@ export function normalizeChangeRequestForHistory(row = {}) {
   const displayDate = getChangeRequestDate(row);
   const targetId = getChangeRequestTargetId(row, payload);
   const targetName = getChangeRequestTargetName(row, payload);
+  const displayTargetId = getOperationHistoryDisplayTargetId(row, payload);
   const targetDisplay = getChangeRequestTargetDisplay(row, payload, targetType);
   const changedFields = getChangedFieldsLabel({ ...row, action, targetType });
 
@@ -106,6 +101,7 @@ export function normalizeChangeRequestForHistory(row = {}) {
     targetTypeLabel: getChangeRequestTargetTypeLabel(targetType),
     targetId,
     targetName,
+    displayTargetId,
     targetDisplay,
     action,
     actionLabel: getChangeRequestActionLabel(action),

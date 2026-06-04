@@ -77,8 +77,8 @@
               <td class="px-5">{{ formatDateTime(row.date) }}</td>
               <td class="px-5 font-medium">{{ row.requesterId }}</td>
               <td class="px-5">
-                <span class="block truncate" :title="row.targetDisplay">
-                  {{ row.targetDisplay }}
+                <span class="block truncate" :title="row.displayTargetId">
+                  {{ row.displayTargetId }}
                 </span>
               </td>
               <td class="px-5 text-center">
