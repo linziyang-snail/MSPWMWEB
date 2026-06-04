@@ -5,13 +5,13 @@
     title="操作歷程查詢"
     subtitle="查看系統所有操作記錄"
     size="history"
-    body-class="p-0"
+    body-class="flex min-h-0 flex-col overflow-hidden p-0"
     header-class="border-b border-border-muted bg-background-surface"
     footer-class="px-8 py-4"
     panel-class="shadow-popup"
     @update:model-value="$emit('update:modelValue', $event)"
   >
-    <div class="border-b border-border-muted px-6 py-5">
+    <div class="shrink-0 border-b border-border-muted px-6 py-5">
       <div class="flex items-center gap-4 max-lg:flex-wrap">
         <BaseSearchInput
           v-model="draftFilters.keyword"
@@ -44,7 +44,7 @@
       </div>
     </div>
 
-    <div class="min-h-0 px-6 py-5">
+    <div class="flex min-h-0 flex-1 flex-col px-6 py-5">
       <div
         v-if="loading"
         class="grid min-h-80 place-items-center text-sm font-medium text-text-secondary"
@@ -57,15 +57,15 @@
       >
         {{ errorMessage }}
       </div>
-      <div v-else class="max-h-[calc(100dvh-280px)] overflow-auto rounded-lg border border-border-muted">
-        <table class="w-full min-w-[920px] table-fixed text-left text-sm text-text-secondary">
+      <div v-else class="min-h-0 flex-1 overflow-auto rounded-lg border border-border-muted">
+        <table class="w-full min-w-[760px] table-fixed text-left text-sm text-text-secondary">
           <thead class="sticky top-0 z-10 h-12 bg-background-subtle text-sm font-bold text-text-heading">
             <tr>
-              <th class="w-44 px-5">日期</th>
-              <th class="w-36 px-5">操作者</th>
-              <th class="px-5">被異動帳號</th>
-              <th class="w-28 px-5 text-center">動作</th>
-              <th class="w-48 px-5">異動欄位</th>
+              <th class="w-1/5 px-5">日期</th>
+              <th class="w-1/5 px-5">操作者</th>
+              <th class="w-1/5 px-5">被異動帳號</th>
+              <th class="w-1/5 px-5 text-center">動作</th>
+              <th class="w-1/5 px-5">異動欄位</th>
             </tr>
           </thead>
           <tbody>
@@ -85,7 +85,7 @@
                 <BaseBadge :status="row.action" :label="row.actionLabel" />
               </td>
               <td class="px-5">
-                <span class="block truncate" :title="row.changedFields">
+                <span class="block whitespace-normal break-words" :title="row.changedFields">
                   {{ row.changedFields }}
                 </span>
               </td>

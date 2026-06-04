@@ -29,7 +29,9 @@ export async function getOperationHistory(params = {}) {
     force,
   });
   const content = sortChangeRequestsByDisplayDateDesc(
-    (pageData.content || []).map(normalizeChangeRequestForHistory),
+    (pageData.content || [])
+      .filter((row) => String(row?.status || "").toUpperCase() !== "REJECTED")
+      .map(normalizeChangeRequestForHistory),
   );
   return {
     list: content,
