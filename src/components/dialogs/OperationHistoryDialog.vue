@@ -1,55 +1,104 @@
 <template>
-  <BaseModal :model-value="modelValue" :icon="historyIcon" title="操作歷程查詢" subtitle="查看系統所有操作記錄" size="history"
-    body-class="p-0" footer-class="px-8 py-4 border-primary-border"
-    @update:model-value="$emit('update:modelValue', $event)">
-    <div class="px-6 py-6 border-t border-border">
-      <div class="flex items-center gap-6 max-lg:flex-wrap">
-        <BaseSearchInput v-model="keyword" class="flex-1 min-w-80" placeholder="搜尋人員姓名、標題或動作..." size="md"
-          @submit="loadRows" />
+  <BaseModal
+    :model-value="modelValue"
+    :icon="historyIcon"
+    title="操作歷程查詢"
+    subtitle="查看系統所有操作記錄"
+    size="history"
+    body-class="p-0"
+    header-class="border-b border-border-muted bg-background-surface"
+    footer-class="px-8 py-4"
+    panel-class="shadow-popup"
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
+    <div class="border-b border-border-muted px-6 py-5">
+      <div class="flex items-center gap-4 max-lg:flex-wrap">
+        <BaseSearchInput
+          v-model="draftFilters.keyword"
+          class="min-w-72 flex-1 lg:max-w-modal-history-search"
+          placeholder="搜尋人員姓名、標題或動作..."
+          size="md"
+          @submit="applyFilters"
+        />
 
-        <BaseDateInput v-model="startDate" class="w-modal-date shrink-0" placeholder="年/月/日" :max="endDate" />
+        <BaseDateInput
+          v-model="draftFilters.startDate"
+          class="w-modal-date shrink-0"
+          placeholder="年/月/日"
+          :max="draftFilters.endDate"
+        />
         <span class="text-lg font-medium text-text-disabled">~</span>
-        <BaseDateInput v-model="endDate" class="w-modal-date shrink-0" placeholder="年/月/日" :min="startDate" />
+        <BaseDateInput
+          v-model="draftFilters.endDate"
+          class="w-modal-date shrink-0"
+          placeholder="年/月/日"
+          :min="draftFilters.startDate"
+        />
 
-        <BaseButton class="w-24" :loading="loading" @click="loadRows">
+        <BaseButton class="w-24" :loading="loading" @click="applyFilters">
           查詢
         </BaseButton>
-        <BaseButton class="w-20" variant="secondary" @click="clearFilter">
+        <BaseButton class="w-20" variant="secondary" @click="clearFilters">
           清除
         </BaseButton>
       </div>
     </div>
 
-    <div class="px-12 pb-6 overflow-auto max-h-modal-history-table">
-      <table class="w-full text-base text-left table-fixed text-text-secondary">
-        <thead class="h-16 text-base font-bold bg-background-subtle">
-          <tr>
-            <th class="px-6 w-col-date">
-              <button class="inline-flex items-center gap-2 font-bold text-text-secondary" type="button"
-                @click="toggleDateSort">
-                日期
-                <SortIcon :direction="dateSortDirection" />
-              </button>
-            </th>
-            <th class="px-6 w-col-operator">操作者</th>
-            <th class="px-6 w-col-module">模組</th>
-            <th class="px-0 text-center w-col-action">動作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, index) in sortedRows" :key="row.id"
-            :class="['h-16', index === 2 && 'border-b border-border-strong']">
-            <td class="px-6">{{ formatOperationDateTime(row.createdAt) }}</td>
-            <td class="px-6 font-bold">{{ row.userName }}</td>
-            <td class="px-6">{{ row.module }}</td>
-            <td class="px-0 text-sm font-medium text-center align-middle w-col-action">
-              <StatusBadge :label="row.actionLabel" :status="row.action" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="min-h-0 px-6 py-5">
+      <div
+        v-if="loading"
+        class="grid min-h-80 place-items-center text-sm font-medium text-text-secondary"
+      >
+        載入中
+      </div>
+      <div
+        v-else-if="errorMessage"
+        class="grid min-h-80 place-items-center text-sm font-medium text-danger-text"
+      >
+        {{ errorMessage }}
+      </div>
+      <div v-else class="max-h-[calc(100dvh-280px)] overflow-auto rounded-lg border border-border-muted">
+        <table class="w-full min-w-[920px] table-fixed text-left text-sm text-text-secondary">
+          <thead class="sticky top-0 z-10 h-12 bg-background-subtle text-sm font-bold text-text-heading">
+            <tr>
+              <th class="w-44 px-5">日期</th>
+              <th class="w-36 px-5">操作者</th>
+              <th class="px-5">被異動帳號</th>
+              <th class="w-28 px-5 text-center">動作</th>
+              <th class="w-48 px-5">異動欄位</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in filteredRows"
+              :key="row.rowKey"
+              class="h-14 border-b border-border-muted last:border-b-0"
+            >
+              <td class="px-5">{{ formatDateTime(row.date) }}</td>
+              <td class="px-5 font-medium">{{ row.requesterId }}</td>
+              <td class="px-5">
+                <span class="block truncate" :title="row.targetDisplay">
+                  {{ row.targetDisplay }}
+                </span>
+              </td>
+              <td class="px-5 text-center">
+                <BaseBadge :status="row.action" :label="row.actionLabel" />
+              </td>
+              <td class="px-5">
+                <span class="block truncate" :title="row.changedFields">
+                  {{ row.changedFields }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-      <EmptyState v-if="!loading && !sortedRows.length" title="查無操作記錄" description="請調整查詢條件後再試一次。" />
+        <EmptyState
+          v-if="!filteredRows.length"
+          title="查無操作記錄"
+          description="請調整查詢條件後再試一次。"
+        />
+      </div>
     </div>
 
     <template #footer>
@@ -61,17 +110,17 @@
 </template>
 
 <script setup>
-import { computed, h, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 
 import historyIcon from "@/assets/history.svg";
-import sortIcon from "@/assets/icon-sort.svg";
+import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseDateInput from "@/components/base/BaseDateInput.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSearchInput from "@/components/base/BaseSearchInput.vue";
-import StatusBadge from "@/components/base/StatusBadge.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import { GetOperationHistory } from "@/services/operationHistoryService";
+import { formatDateTime } from "@/utils/formatDate";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -79,85 +128,129 @@ const props = defineProps({
 
 defineEmits(["update:modelValue"]);
 
-const keyword = ref("");
-const startDate = ref("");
-const endDate = ref("");
 const loading = ref(false);
+const loaded = ref(false);
+const errorMessage = ref("");
 const rows = ref([]);
-const dateSortDirection = ref("desc");
 
-const sortedRows = computed(() =>
-  [...rows.value].sort((a, b) => {
-    const aTime = getTime(a.createdAt);
-    const bTime = getTime(b.createdAt);
-    return dateSortDirection.value === "asc" ? aTime - bTime : bTime - aTime;
-  }),
+const draftFilters = reactive({
+  keyword: "",
+  startDate: "",
+  endDate: "",
+});
+
+const appliedFilters = reactive({
+  keyword: "",
+  startDate: "",
+  endDate: "",
+});
+
+const filteredRows = computed(() => {
+  const keyword = appliedFilters.keyword.trim().toLowerCase();
+  const startTime = getStartTime(appliedFilters.startDate);
+  const endTime = getEndTime(appliedFilters.endDate);
+  return rows.value.filter((row) => {
+    const rowTime = getTime(row.date);
+    const matchKeyword = !keyword || getSearchText(row).includes(keyword);
+    const matchStart = !startTime || rowTime >= startTime;
+    const matchEnd = !endTime || rowTime <= endTime;
+    return matchKeyword && matchStart && matchEnd;
+  });
+});
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) loadRowsOnce();
+  },
 );
 
-const loadRows = async () => {
+watch(
+  () => draftFilters.startDate,
+  (value) => {
+    if (value && draftFilters.endDate && normalizeDate(draftFilters.endDate) < normalizeDate(value)) {
+      draftFilters.endDate = value;
+    }
+  },
+);
+
+watch(
+  () => draftFilters.endDate,
+  (value) => {
+    if (value && draftFilters.startDate && normalizeDate(draftFilters.startDate) > normalizeDate(value)) {
+      draftFilters.startDate = value;
+    }
+  },
+);
+
+async function loadRowsOnce() {
+  if (loaded.value || loading.value) return;
   try {
     loading.value = true;
-    const response = await GetOperationHistory({
-      keyword: keyword.value,
-      startDate: startDate.value,
-      endDate: endDate.value,
-    });
-    rows.value = response?.list ?? [];
+    errorMessage.value = "";
+    const response = await GetOperationHistory();
+    rows.value = (response?.list ?? []).map((row) => ({
+      ...row,
+      rowKey: `${row.targetType}-${row.id}`,
+    }));
+    loaded.value = true;
   } catch (error) {
     console.error(error);
+    errorMessage.value = "操作歷程讀取失敗，請稍後再試";
   } finally {
     loading.value = false;
   }
-};
+}
 
-const clearFilter = () => {
-  keyword.value = "";
-  startDate.value = "";
-  endDate.value = "";
-  loadRows();
-};
+function applyFilters() {
+  appliedFilters.keyword = draftFilters.keyword;
+  appliedFilters.startDate = draftFilters.startDate;
+  appliedFilters.endDate = draftFilters.endDate;
+}
 
-watch(startDate, (value) => {
-  if (value && endDate.value && normalizeDate(endDate.value) < normalizeDate(value)) {
-    endDate.value = value;
-  }
-});
+function clearFilters() {
+  draftFilters.keyword = "";
+  draftFilters.startDate = "";
+  draftFilters.endDate = "";
+  applyFilters();
+}
 
-watch(endDate, (value) => {
-  if (value && startDate.value && normalizeDate(startDate.value) > normalizeDate(value)) {
-    startDate.value = value;
-  }
-});
+function getSearchText(row = {}) {
+  return [
+    row.requesterId,
+    row.targetId,
+    row.targetName,
+    row.targetDisplay,
+    row.payload?.userId,
+    row.payload?.userName,
+    row.payload?.orgName,
+    row.actionLabel,
+    row.changedFields,
+    row.remark,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
 
-const toggleDateSort = () => {
-  dateSortDirection.value = dateSortDirection.value === "desc" ? "asc" : "desc";
-};
+function getStartTime(value) {
+  if (!value) return 0;
+  return getTime(`${normalizeDate(value)}T00:00:00`);
+}
 
-const getTime = (value) => {
+function getEndTime(value) {
+  if (!value) return 0;
+  return getTime(`${normalizeDate(value)}T23:59:59`);
+}
+
+function getTime(value) {
+  if (!value) return 0;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-};
+}
 
 function normalizeDate(value) {
   if (!value) return "";
   return String(value).replaceAll("/", "-").slice(0, 10);
 }
-
-const formatOperationDateTime = (value) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  const pad = (number) => String(number).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
-const SortIcon = () => h("img", { src: sortIcon, alt: "", "aria-hidden": "true", class: "h-4 w-2.5 shrink-0" });
-
-watch(
-  () => props.modelValue,
-  (open) => {
-    if (open) loadRows();
-  },
-  { immediate: true },
-);
 </script>

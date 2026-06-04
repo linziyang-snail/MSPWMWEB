@@ -48,14 +48,38 @@ export function getChangeRequestTargetTypeLabel(targetType = "") {
 }
 
 export function getChangedFieldsLabel(row = {}) {
+  const payload = safeParsePayload(row.payload);
+  const targetType = String(row.targetType || "").toUpperCase();
   const normalizedAction = String(row.action || "").toUpperCase();
-  return (
-    {
-      CREATE: "基本資料",
-      UPDATE: "基本資料",
-      DELETE: "狀態",
-    }[normalizedAction] || "-"
-  );
+  if (normalizedAction === "CREATE") return "基本資料";
+  if (normalizedAction === "DELETE") return "狀態";
+  if (normalizedAction !== "UPDATE") return "-";
+  if (targetType === "ORGANIZATION") {
+    return payload.orgName || payload.name || payload.categoryName ? "科別名稱" : "基本資料";
+  }
+  const fields = [];
+  if (payload.userName) fields.push("姓名");
+  if (payload.orgId || payload.orgName) fields.push("科別");
+  if (payload.roleIds || payload.roles) fields.push("權限");
+  return fields.length ? fields.join("、") : "基本資料";
+}
+
+export function getChangeRequestDate(row = {}) {
+  return row.closedAt || row.createdAt || "";
+}
+
+export function getChangeRequestTargetId(row = {}, payload = safeParsePayload(row.payload)) {
+  const targetType = String(row.targetType || "").toUpperCase();
+  if (targetType === "USER") return payload.userId || payload.id || row.targetId || "-";
+  if (targetType === "ORGANIZATION") return row.targetId || payload.orgId || payload.id || payload.orgName || "-";
+  return row.targetId || "-";
+}
+
+export function getChangeRequestTargetName(row = {}, payload = safeParsePayload(row.payload)) {
+  const targetType = String(row.targetType || "").toUpperCase();
+  if (targetType === "USER") return payload.userName || "";
+  if (targetType === "ORGANIZATION") return payload.orgName || payload.name || payload.categoryName || "";
+  return "";
 }
 
 export function normalizeChangeRequestForHistory(row = {}) {
@@ -63,25 +87,35 @@ export function normalizeChangeRequestForHistory(row = {}) {
   const targetType = String(row.targetType || "").toUpperCase();
   const action = String(row.action || "").toUpperCase();
   const status = String(row.status || "").toUpperCase();
-  const displayDate = row.closedAt || row.createdAt || "";
+  const displayDate = getChangeRequestDate(row);
+  const targetId = getChangeRequestTargetId(row, payload);
+  const targetName = getChangeRequestTargetName(row, payload);
   const targetDisplay = getChangeRequestTargetDisplay(row, payload, targetType);
+  const changedFields = getChangedFieldsLabel({ ...row, action, targetType });
 
   return {
     ...row,
     id: row.id,
+    date: displayDate,
     displayDate,
     createdAt: row.createdAt || displayDate,
+    requesterId: row.requesterId || "-",
     operator: row.requesterId || "-",
     reviewer: row.reviewerId || "-",
     targetType,
     targetTypeLabel: getChangeRequestTargetTypeLabel(targetType),
+    targetId,
+    targetName,
     targetDisplay,
     action,
     actionLabel: getChangeRequestActionLabel(action),
     status,
     statusLabel: getChangeRequestStatusLabel(status),
-    changedFieldsLabel: getChangedFieldsLabel({ ...row, action }),
+    changedFields,
+    changedFieldsLabel: changedFields,
     remark: row.remark || "-",
+    payload,
+    raw: row,
     module: getChangeRequestTargetTypeLabel(targetType),
     userId: row.requesterId || "-",
     userName: row.requesterId || "-",

@@ -39,6 +39,7 @@
       :subtitle="passwordSubtitle"
       @submitted="handlePasswordChanged"
     />
+    <OperationHistoryDialog v-model="showOperationHistory" />
     <div
       v-if="appStore.isLoading"
       class="fixed inset-0 z-50 grid place-items-center bg-background-overlay"
@@ -62,6 +63,7 @@ import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import OperationHistoryDialog from "@/components/dialogs/OperationHistoryDialog.vue";
 import PasswordChangeModal from "@/components/dialogs/PasswordChangeModal.vue";
 import PasswordUpdateNotice from "@/components/dialogs/PasswordUpdateNotice.vue";
 import Header from "@/components/layout/Header.vue";
@@ -72,6 +74,7 @@ import { useAuthStore } from "@/stores/authStore";
 const sidebarOpen = ref(false);
 const showLogout = ref(false);
 const showChangePassword = ref(false);
+const showOperationHistory = ref(false);
 const showPasswordNotice = ref(false);
 const passwordNoticeDismissed = ref(false);
 
@@ -115,7 +118,7 @@ const handlePasswordChanged = () => {
 };
 
 const openOperationLogs = () => {
-  router.push("/operation-logs");
+  showOperationHistory.value = true;
 };
 
 const handleLogout = async () => {
