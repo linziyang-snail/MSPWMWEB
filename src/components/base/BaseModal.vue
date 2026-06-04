@@ -58,6 +58,7 @@
 import { computed, onBeforeUnmount, onMounted } from "vue";
 
 import closeIcon from "@/assets/icon-close.svg";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -92,6 +93,8 @@ const widthClass = computed(
       history: "w-modal-history max-w-modal-max",
     })[props.size] || "max-w-modal-md",
 );
+
+useBodyScrollLock(() => props.modelValue);
 
 const close = () => {
   emit("update:modelValue", false);

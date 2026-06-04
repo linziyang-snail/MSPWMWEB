@@ -1,4 +1,4 @@
-export const CHANGE_REQUEST_STATUSES = ["PENDING", "APPROVED", "CANCELED"];
+export const CHANGE_REQUEST_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELED"];
 export const CHANGE_REQUEST_ACTIONS = ["CREATE", "UPDATE", "DELETE"];
 
 export function safeParsePayload(payload) {
@@ -47,7 +47,12 @@ export function getChangeRequestTargetTypeLabel(targetType = "") {
 }
 
 export function getChangedFieldsLabel(row = {}) {
-  return String(row.action || "").toUpperCase() === "UPDATE" ? row.remark || "" : "";
+  if (row.remark) return row.remark;
+  const normalizedAction = String(row.action || "").toUpperCase();
+  if (normalizedAction === "CREATE") return "基本資料";
+  if (normalizedAction === "UPDATE") return "基本資料";
+  if (normalizedAction === "DELETE") return "狀態";
+  return "";
 }
 
 export function getChangeRequestDate(row = {}) {

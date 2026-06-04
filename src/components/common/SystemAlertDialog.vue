@@ -45,6 +45,7 @@ import { computed, h } from "vue";
 
 import alertIcon from "@/assets/alert.svg";
 import errorIcon from "@/assets/icon-x-circle.svg";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -60,6 +61,8 @@ const normalizedType = computed(() => String(props.type || "info").toLowerCase()
 const iconContainerClass = computed(() =>
   normalizedType.value === "error" ? "bg-danger-bg" : "bg-copy-table-border",
 );
+
+useBodyScrollLock(() => props.modelValue);
 
 function close() {
   emit("confirm");

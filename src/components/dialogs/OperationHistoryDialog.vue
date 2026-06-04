@@ -161,7 +161,12 @@ const filteredRows = computed(() => {
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) loadRowsOnce();
+    if (open) {
+      resetUiState();
+      loadRowsOnce();
+    } else {
+      resetUiState();
+    }
   },
 );
 
@@ -213,6 +218,17 @@ function clearFilters() {
   draftFilters.startDate = "";
   draftFilters.endDate = "";
   applyFilters();
+}
+
+function resetUiState() {
+  draftFilters.keyword = "";
+  draftFilters.startDate = "";
+  draftFilters.endDate = "";
+  appliedFilters.keyword = "";
+  appliedFilters.startDate = "";
+  appliedFilters.endDate = "";
+  errorMessage.value = "";
+  loading.value = false;
 }
 
 function getSearchText(row = {}) {

@@ -56,7 +56,19 @@
             class="px-4 py-3 text-sm font-medium border rounded-lg border-warning-border bg-warning-bg text-warning-text">
             <span class="mr-2">ⓘ</span>修改前的原始資料
           </div>
-          <AccountInfoTable :item="request" :data="request.before" />
+          <div
+            v-if="originalInfoLoadingIds.includes(request.id)"
+            class="rounded-lg border border-copy-table-border bg-background-surface px-4 py-3 text-sm font-medium text-text-secondary"
+          >
+            載入修改前資料中...
+          </div>
+          <div
+            v-else-if="originalInfoErrors[request.id]"
+            class="rounded-lg border border-danger-text bg-danger-bg px-4 py-3 text-sm font-medium text-danger-text"
+          >
+            {{ originalInfoErrors[request.id] }}
+          </div>
+          <AccountInfoTable v-else :item="request" :data="request.before" />
         </div>
 
         <div
@@ -342,7 +354,6 @@ import AccountEditPermissionModal from "@/components/dialogs/AccountEditPermissi
 import AccountPasswordResetModal from "@/components/dialogs/AccountPasswordResetModal.vue";
 import {
   approveChangeRequest,
-  getChangeRequestHistory,
   rejectChangeRequest,
 } from "@/services/approvalService";
 import {
@@ -381,7 +392,8 @@ const editPermissionOpen = ref(false);
 const users = ref([]);
 const accountChangeRows = ref([]);
 const expandedChangeIds = ref([]);
-const accountHistoryCache = new Map();
+const originalInfoLoadingIds = ref([]);
+const originalInfoErrors = ref({});
 const currentPage = ref(1);
 const sortState = ref({ key: "createdAt", direction: "desc" });
 const accountKeyword = ref("");
@@ -637,26 +649,25 @@ async function normalizeAccountChangeRows(rows = []) {
 }
 
 async function hydrateAccountChangeHistory(row) {
-  if (row.action === "CREATE" || hasMeaningfulAccountInfo(row.before)) return row;
-  const targetType = "USER";
   const targetId = row.targetId || row.userId;
-  if (!targetId) return row;
-  const cacheKey = `${targetType}:${targetId}`;
-  try {
-    const historyRows = accountHistoryCache.has(cacheKey)
-      ? accountHistoryCache.get(cacheKey)
-      : await getChangeRequestHistory({ targetType, targetId });
-    accountHistoryCache.set(cacheKey, historyRows);
-    const previousPayload = findPreviousAccountPayload(historyRows, row.id);
-    if (!previousPayload) return row;
-    return {
-      ...row,
-      before: normalizeAccountInfo(previousPayload, previousPayload.reviewStatus),
-    };
-  } catch (error) {
-    console.error(error);
-    return row;
+  if (!targetId) {
+    throw new Error("找不到員工編號，無法查詢修改前資料。");
   }
+  const user = await getUserById({ id: targetId });
+  if (!user?.id) {
+    throw new Error("查無修改前資料。");
+  }
+  return {
+    ...row,
+    before: normalizeAccountInfo({
+      id: user.id,
+      userId: user.id,
+      userName: user.userName,
+      orgName: user.orgName,
+      roles: user.roles,
+      status: user.status,
+    }),
+  };
 }
 
 function findPreviousAccountPayload(historyRows = [], currentId) {
@@ -764,6 +775,8 @@ function normalizeAccountInfo(data = {}) {
   const roleValue = data.roles?.[0] || data.role || data.roleName;
   const accountStatus = data.userStatus || data.accountStatus || data.status;
   return {
+    userId: data.userId || data.id || "",
+    userName: data.userName || "",
     roles: Array.isArray(data.roles) ? data.roles : roleValue ? [roleValue] : [],
     orgName: data.orgName || data.organizationName || data.orgId || "-",
     roleLabel: data.roleLabel
@@ -962,7 +975,16 @@ async function onEditPermission(payload) {
       orgId: Number(payload.orgId),
       roleIds: payload.roles.map((role) => roleIdMap[role]).filter(Boolean),
     });
-    await reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: true });
+    userStore.invalidateUsers("ACTIVE");
+    userStore.invalidateUsers("PASSWORD_INVALID");
+    userStore.invalidateAccountChangeRequests({ status: "PENDING", action: ["UPDATE", "DELETE"] });
+    await Promise.all([
+      reloadAccountData({ forceUsers: routeNeedsUsers.value, forceRequests: false }),
+      userStore.fetchAccountChangeRequests(
+        { status: "PENDING", action: ["UPDATE", "DELETE"] },
+        { force: true },
+      ),
+    ]);
   } catch (error) {
     console.error(error);
   }
@@ -1121,6 +1143,7 @@ async function reloadAccountData(options = {}) {
 }
 
 async function reloadAccountDataAfterReview(reviewResult = "approve", reviewedRow = selected.value) {
+  resetOriginalInfoPanel();
   const action = getNormalizedAction(reviewedRow);
   const isApproved = reviewResult === "approve";
   if (action === "CREATE") {
@@ -1182,6 +1205,7 @@ watch(
   () => route.name,
   async () => {
     try {
+      resetOriginalInfoPanel();
       await reloadAccountData();
     } catch (error) {
       console.error(error);
@@ -1203,6 +1227,7 @@ async function syncAccountRowsFromStore(options = {}) {
       : [];
   users.value = sourceUsers.map(normalizeAccountRowStatus);
   accountChangeRows.value = await normalizeAccountChangeRows(userStore.getCachedChangeRequests(requestQuery));
+  closeOriginalInfoIfRowMissing();
 }
 
 function shouldSearchUsersByKeyword() {
@@ -1269,10 +1294,40 @@ function toggleOriginal(id) {
 async function loadOriginalAccountInfo(id) {
   const row = accountChangeRows.value.find((item) => String(item.id) === String(id));
   if (!row || !canViewOriginal(row) || hasMeaningfulAccountInfo(row.before)) return;
-  const hydratedRow = await hydrateAccountChangeHistory(row);
-  accountChangeRows.value = accountChangeRows.value.map((item) =>
-    String(item.id) === String(id) ? hydratedRow : item,
-  );
+  originalInfoErrors.value = { ...originalInfoErrors.value, [id]: "" };
+  originalInfoLoadingIds.value = [...new Set([...originalInfoLoadingIds.value, id])];
+  try {
+    const hydratedRow = await hydrateAccountChangeHistory(row);
+    accountChangeRows.value = accountChangeRows.value.map((item) =>
+      String(item.id) === String(id) ? hydratedRow : item,
+    );
+  } catch (error) {
+    console.error(error);
+    originalInfoErrors.value = {
+      ...originalInfoErrors.value,
+      [id]: error?.message || "修改前資料讀取失敗，請稍後再試。",
+    };
+  } finally {
+    originalInfoLoadingIds.value = originalInfoLoadingIds.value.filter((item) => String(item) !== String(id));
+  }
+}
+
+function resetOriginalInfoPanel() {
+  expandedChangeIds.value = [];
+  originalInfoLoadingIds.value = [];
+  originalInfoErrors.value = {};
+}
+
+function closeOriginalInfoIfRowMissing() {
+  if (!expandedChangeIds.value.length) return;
+  const existingIds = new Set(accountChangeRows.value.map((row) => String(row.id)));
+  expandedChangeIds.value = expandedChangeIds.value.filter((id) => existingIds.has(String(id)));
+  originalInfoLoadingIds.value = originalInfoLoadingIds.value.filter((id) => existingIds.has(String(id)));
+  const nextErrors = {};
+  Object.entries(originalInfoErrors.value).forEach(([id, message]) => {
+    if (existingIds.has(String(id))) nextErrors[id] = message;
+  });
+  originalInfoErrors.value = nextErrors;
 }
 
 function formatMetaDateTime(value) {
@@ -1306,8 +1361,8 @@ const EyeIcon = assetIcon(eyeIcon, "size-4");
 const AccountInfoTable = (props, context = {}) => {
   const attrs = context?.attrs || {};
   const rows = [
-    ["員工編號", props.item.userId],
-    ["姓名", props.item.userName],
+    ["員工編號", props.data.userId || props.item.userId],
+    ["姓名", props.data.userName || props.item.userName],
     ["部門", props.data.orgName],
     ["權限", props.data.roleLabel],
     ["帳號狀態", props.data.statusLabel],

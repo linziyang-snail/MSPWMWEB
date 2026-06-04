@@ -52,6 +52,7 @@
 import { h, ref, watch } from "vue";
 
 import xCircleIcon from "@/assets/icon-x-circle.svg";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -60,6 +61,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "confirm"]);
 const reason = ref("");
+
+useBodyScrollLock(() => props.modelValue);
 
 watch(
   () => props.modelValue,

@@ -46,14 +46,17 @@
 import { h } from "vue";
 
 import checkCircleIcon from "@/assets/icon-check-circle-blue.svg";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 
-defineProps({
+const props = defineProps({
   modelValue: { type: Boolean, default: false },
   copyTitle: { type: String, default: "" },
   copyCode: { type: String, default: "" },
 });
 
 defineEmits(["update:modelValue", "confirm"]);
+
+useBodyScrollLock(() => props.modelValue);
 
 const CheckIcon = (_props = {}, context = {}) =>
   h("img", { ...(context?.attrs || {}), src: checkCircleIcon, alt: "", "aria-hidden": "true" });
