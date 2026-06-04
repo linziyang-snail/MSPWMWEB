@@ -1,60 +1,166 @@
+import {
+  approveChangeRequest,
+  cancelChangeRequest,
+  getChangeRequests,
+  rejectChangeRequest,
+} from "@/services/approvalService";
 import apiRequest from "./apiRequest";
 
+const COPY_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELED"];
+const COPY_ACTIONS = ["CREATE", "UPDATE", "DELETE"];
+
 export async function submitCopy(payload) {
-  const {
-    number,
-    title,
-    content,
-    nnbCategory,
-    wbkCategory,
-    url,
-    clickAction,
-    expirationType,
-    retentionMonths,
-    expiredAt,
-  } = payload || {};
-  const body = {
-    number,
-    title,
-    content,
-    nnbCategory,
-    wbkCategory,
-    url,
-    clickAction,
-    expirationType,
-    retentionMonths,
-    expiredAt,
-  };
-  return apiRequest.post("/api/copies", body);
+  return apiRequest.post("/api/copies", normalizeSubmitCopyPayload(payload));
 }
 
-export const getCompatibleCopies = () => {
-  return Promise.resolve([]);
-};
+export async function getCopyChangeRequests(params = {}) {
+  const {
+    status = COPY_STATUSES,
+    action,
+    page = 1,
+    size = 100,
+    force = false,
+  } = params || {};
+  const pageData = await getChangeRequests({
+    targetType: "COPY",
+    status,
+    action,
+    page,
+    size,
+    force,
+  });
+  const content = (pageData.content || []).map(normalizeCopyChangeRequest);
+  return {
+    ...pageData,
+    content,
+    list: content,
+    totalElements: Number(pageData.totalElements ?? content.length),
+  };
+}
 
-export const getCompatibleCopyCounts = () => {
-  return Promise.resolve({});
-};
+export const getCopyPendingRequests = (params = {}) =>
+  getCopyChangeRequests({ ...params, status: "PENDING" });
 
-export const createCompatibleCopy = (payload) => {
-  return submitCopy(payload);
-};
+export const getCopyApprovedRequests = (params = {}) =>
+  getCopyChangeRequests({ ...params, status: "APPROVED" });
 
-export const cancelCompatibleCopy = () => {
-  return Promise.reject(new Error("正式 API 尚未提供文案取消送審 endpoint"));
-};
+export const getCopyRejectedRequests = (params = {}) =>
+  getCopyChangeRequests({ ...params, status: "REJECTED" });
 
-export const approveCompatibleCopy = () => {
-  return Promise.reject(new Error("正式 API 尚未提供文案核准 endpoint"));
-};
+export const getCopyCanceledRequests = (params = {}) =>
+  getCopyChangeRequests({ ...params, status: "CANCELED" });
 
-export const rejectCompatibleCopy = () => {
-  return Promise.reject(new Error("正式 API 尚未提供文案駁回 endpoint"));
-};
+export const approveCopyChangeRequest = (id) => approveChangeRequest({ id });
 
-/**
- * 文案送審
- * @param {Object} data - 文案送審資料
- * @returns {Promise} - 文案送審結果
- */
+export const rejectCopyChangeRequest = (id, reason = "") =>
+  rejectChangeRequest({ id, remark: reason });
+
+export const cancelCopyChangeRequest = (id) => cancelChangeRequest({ id });
+
+export const getCompatibleCopies = async () =>
+  (await getCopyChangeRequests()).content;
+
+export const getCompatibleCopyCounts = () => Promise.resolve({});
+
+export const createCompatibleCopy = (payload) => submitCopy(payload);
+
+export const cancelCompatibleCopy = (id) => cancelCopyChangeRequest(id);
+
+export const approveCompatibleCopy = (id) => approveCopyChangeRequest(id);
+
+export const rejectCompatibleCopy = (id, reason) => rejectCopyChangeRequest(id, reason);
+
 export const SubmitCopy = (data) => submitCopy(data);
+
+function normalizeSubmitCopyPayload(payload = {}) {
+  const expirationType = payload.expirationType || "NONE";
+  const clickAction = payload.clickAction || "NONE";
+  const body = {
+    number: String(payload.number ?? payload.code ?? "").trim(),
+    title: String(payload.title ?? "").trim(),
+    content: String(payload.content ?? "").trim(),
+    nnbCategory: payload.nnbCategory || "",
+    wbkCategory: payload.wbkCategory || "",
+    url: clickAction === "OPEN_URL" ? payload.url || "" : payload.url || "",
+    clickAction,
+    expirationType,
+  };
+  if (expirationType === "RETENTION_MONTHS") {
+    body.retentionMonths = Number(payload.retentionMonths);
+  }
+  if (expirationType === "EXPIRED_AT") {
+    body.expiredAt = toDateTimeString(payload.expiredAt);
+  }
+  return body;
+}
+
+function normalizeCopyChangeRequest(row = {}) {
+  const payload = safeParsePayload(row.payload);
+  const action = String(row.action || "").toUpperCase();
+  const status = String(row.status || "").toUpperCase();
+  const code = payload.number || payload.code || row.targetId || "-";
+  const title = payload.title || "-";
+  return {
+    ...row,
+    id: row.id,
+    changeRequestId: row.id,
+    targetType: "COPY",
+    targetId: row.targetId || code,
+    action,
+    actionLabel: getCopyActionLabel(action),
+    status,
+    code,
+    number: code,
+    title,
+    content: payload.content || "",
+    nnbCategory: payload.nnbCategory || "",
+    wbkCategory: payload.wbkCategory || "",
+    url: payload.url || "",
+    clickAction: payload.clickAction || "NONE",
+    expirationType: payload.expirationType || "NONE",
+    retentionMonths: payload.retentionMonths ?? "",
+    expiredAt: payload.expiredAt || "",
+    note: payload.note || "",
+    submittedBy: row.requesterId || "-",
+    submittedAt: row.createdAt || "",
+    createdBy: row.requesterId || "-",
+    createdAt: row.createdAt || "",
+    approvedBy: status === "APPROVED" ? row.reviewerId || "-" : "",
+    approvedAt: status === "APPROVED" ? row.closedAt || "" : "",
+    rejectedBy: status === "REJECTED" ? row.reviewerId || "-" : "",
+    rejectedAt: status === "REJECTED" ? row.closedAt || "" : "",
+    cancelledBy: status === "CANCELED" ? row.reviewerId || row.requesterId || "-" : "",
+    cancelledAt: status === "CANCELED" ? row.closedAt || row.createdAt || "" : "",
+    reviewerId: row.reviewerId || "",
+    reviewAt: row.closedAt || "",
+    rejectReason: row.remark || "",
+    remark: row.remark || "",
+    payload,
+  };
+}
+
+function safeParsePayload(payload) {
+  if (!payload) return {};
+  if (typeof payload === "object") return payload;
+  const normalized = String(payload).trim();
+  if (!normalized) return {};
+  try {
+    return JSON.parse(normalized);
+  } catch {
+    return {};
+  }
+}
+
+function getCopyActionLabel(action = "") {
+  return {
+    CREATE: "新增",
+    UPDATE: "編輯",
+    DELETE: "刪除",
+  }[String(action || "").toUpperCase()] || action || "-";
+}
+
+function toDateTimeString(value) {
+  if (!value) return "";
+  if (String(value).includes("T")) return String(value);
+  return `${String(value).slice(0, 10)}T00:00:00`;
+}

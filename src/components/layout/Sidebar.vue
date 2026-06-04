@@ -105,7 +105,7 @@ import SidebarAssetIcon from "@/components/layout/SidebarAssetIcon.vue";
 import { useAuthStore } from "@/stores/authStore";
 import { useCopyStore } from "@/stores/copyStore";
 import { useUserStore } from "@/stores/userStore";
-import { hasAnyRole, normalizeRoles } from "@/utils/authRoles";
+import { hasAdminRole, hasAnyRole, normalizeRoles } from "@/utils/authRoles";
 import { sidebarBottomItems, sidebarSections } from "@/utils/navigation";
 
 defineProps({
@@ -125,13 +125,12 @@ const copyStore = useCopyStore();
 const userStore = useUserStore();
 const authRoles = computed(() => normalizeRoles(auth.roles));
 const canPreloadUserChangeRequests = computed(() =>
-  hasAnyRole(authRoles.value, ["ADMIN", "MANAGER"]),
+  hasAdminRole(authRoles.value),
 );
 
 onMounted(() => {
-  copyStore.ensureLoaded();
   if (canPreloadUserChangeRequests.value) {
-    userStore.ensureLoaded();
+    userStore.ensureLoaded({ roles: authRoles.value });
   }
 });
 

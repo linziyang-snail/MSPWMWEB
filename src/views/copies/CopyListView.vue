@@ -2,7 +2,7 @@
   <div>
     <PageTitle
       title="全部文案"
-      description="對應 Figma 經辦區的全部文案卡片/列表，先以 mock data 呈現。"
+      description="對應 Figma 經辦區的全部文案卡片/列表。"
       eyebrow="Copy"
     >
       <template #actions>
@@ -11,7 +11,7 @@
         >
       </template>
     </PageTitle>
-    <div class="space-y-4">
+    <div v-if="rows.length" class="space-y-4">
       <article
         v-for="copy in rows"
         :key="copy.number"
@@ -79,6 +79,7 @@
         </div>
       </article>
     </div>
+    <EmptyState v-else />
     <BaseModal v-model="modalOpen" title="文案內容">
       <pre
         class="whitespace-pre-wrap rounded-md bg-background-subtle p-4 text-sm text-text-secondary"
@@ -94,6 +95,7 @@ import { computed, ref } from "vue";
 import BaseBadge from "@/components/base/BaseBadge.vue";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
+import EmptyState from "@/components/common/EmptyState.vue";
 import PageTitle from "@/components/common/PageTitle.vue";
 
 const selected = ref(null);
@@ -101,32 +103,5 @@ const modalOpen = computed({
   get: () => Boolean(selected.value),
   set: (value) => !value && (selected.value = null),
 });
-const rows = [
-  {
-    number: "INFO202603180003",
-    title: "APP更新通知",
-    content:
-      "親愛的客戶您好，聯邦銀行 APP 已推出新版本，新增多項功能，請更新至最新版。",
-    status: "PENDING",
-    requester: "陳小華",
-    createdAt: "2026/03/18 11:30",
-  },
-  {
-    number: "INFO202603150001",
-    title: "登入成功通知",
-    content:
-      "親愛的客戶您好，您已成功登入網路銀行，如非本人操作請立即聯繫客服。",
-    status: "APPROVED",
-    requester: "張主任",
-    createdAt: "2026/03/15 14:00",
-  },
-  {
-    number: "INFO202603160001",
-    title: "交易限額異常警示",
-    content: "您的交易限額設定發生異動，請登入確認帳戶安全。",
-    status: "APPROVED",
-    requester: "李專員",
-    createdAt: "2026/03/16 09:20",
-  },
-];
+const rows = [];
 </script>

@@ -26,13 +26,13 @@
           </FormField>
 
           <div class="grid gap-8 md:grid-cols-2">
-            <FormField label="文案時效">
+            <FormField label="文案時效" :error="errors.retentionMonths">
               <label class="flex items-center gap-3">
                 <input v-model="expirationMode" class="size-4 accent-primary" type="radio" value="RETENTION_MONTHS" />
                 <BaseSelect v-model="form.retentionMonths" :options="retentionOptions" />
               </label>
             </FormField>
-            <FormField label="文案到期日">
+            <FormField label="文案到期日" :error="errors.expiredAt">
               <label class="flex items-center gap-3">
                 <input v-model="expirationMode" class="size-4 accent-primary" type="radio" value="EXPIRED_AT" />
                 <BaseDateInput v-model="form.expiredAt" :disabled="expirationMode !== 'EXPIRED_AT'" />
@@ -60,8 +60,8 @@
           </FormField>
 
           <div class="grid gap-8 md:grid-cols-2">
-            <FormField label="URL">
-              <BaseInput v-model="form.url" placeholder="請輸入" :disabled="form.clickAction === 'NONE'" />
+            <FormField label="URL" :error="errors.url">
+              <BaseInput v-model="form.url" placeholder="請輸入" :disabled="form.clickAction === 'NONE'" :error="!!errors.url" />
             </FormField>
             <FormField label="動作行為">
               <BaseSelect v-model="form.clickAction" :options="clickActionOptions" placeholder="請選擇" />
@@ -151,6 +151,9 @@ const errors = reactive({
   code: "",
   title: "",
   content: "",
+  url: "",
+  retentionMonths: "",
+  expiredAt: "",
 });
 
 const modalTitle = computed(() =>
@@ -208,7 +211,15 @@ const validate = () => {
   errors.code = form.code.trim() ? "" : "請輸入文案編號";
   errors.title = form.title.trim() ? "" : "請輸入文案標題";
   errors.content = form.content.trim() ? "" : "請輸入文案內容";
-  return !errors.code && !errors.title && !errors.content;
+  errors.url = form.clickAction === "OPEN_URL" && !form.url.trim() ? "請輸入 URL" : "";
+  const months = Number(form.retentionMonths);
+  errors.retentionMonths =
+    expirationMode.value === "RETENTION_MONTHS" && (!months || months < 1 || months > 12)
+      ? "請選擇 1-12 個月"
+      : "";
+  errors.expiredAt =
+    expirationMode.value === "EXPIRED_AT" && !form.expiredAt ? "請選擇到期日" : "";
+  return !errors.code && !errors.title && !errors.content && !errors.url && !errors.retentionMonths && !errors.expiredAt;
 };
 
 const submit = async () => {
@@ -216,14 +227,19 @@ const submit = async () => {
   try {
     submitting.value = true;
     const payload = {
-      ...form,
+      number: form.code,
+      title: form.title,
+      content: form.content,
+      nnbCategory: form.nnbCategory || "",
+      wbkCategory: form.wbkCategory || "",
+      url: form.clickAction === "NONE" ? "" : form.url || "",
+      clickAction: form.clickAction || "NONE",
       expirationType: expirationMode.value,
       retentionMonths:
         expirationMode.value === "RETENTION_MONTHS"
           ? Number(form.retentionMonths)
-          : null,
-      expiredAt: expirationMode.value === "EXPIRED_AT" ? form.expiredAt : null,
-      category: form.nnbCategory,
+          : undefined,
+      expiredAt: expirationMode.value === "EXPIRED_AT" ? toDateTimeString(form.expiredAt) : undefined,
     };
     const item =
       props.mode === "copy" && props.source
@@ -239,6 +255,12 @@ const submit = async () => {
 const close = () => {
   emit("update:modelValue", false);
 };
+
+function toDateTimeString(value) {
+  if (!value) return "";
+  if (String(value).includes("T")) return String(value);
+  return `${String(value).slice(0, 10)}T00:00:00`;
+}
 
 const parameterLabels = [
   "一",

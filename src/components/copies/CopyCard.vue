@@ -103,7 +103,7 @@
           </div>
         </div>
       </div>
-      <aside v-if="reviewerMode && copy.status === 'PENDING'" class="mt-4 flex w-full justify-end gap-4 xl:col-span-1 xl:mt-0 xl:w-24 xl:flex-col xl:justify-center xl:gap-6">
+      <aside v-if="reviewerMode && copy.status === 'PENDING' && canReview" class="mt-4 flex w-full justify-end gap-4 xl:col-span-1 xl:mt-0 xl:w-24 xl:flex-col xl:justify-center xl:gap-6">
         <button
           type="button"
           class="inline-flex h-10 w-24 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-base font-bold leading-normal text-text-inverse transition hover:bg-primary-hover"
@@ -118,6 +118,9 @@
         >
           <CancelIcon /> <span>駁回</span>
         </button>
+      </aside>
+      <aside v-else-if="reviewerMode && copy.status === 'PENDING'" class="mt-4 flex w-full justify-end xl:col-span-1 xl:mt-0 xl:w-24 xl:items-center xl:justify-center">
+        <span class="text-xs font-medium leading-5 text-text-grey">等待其他管理員審核</span>
       </aside>
     </div>
 
@@ -158,6 +161,7 @@ const hasAction = computed(
   () => (!reviewerMode.value && props.copy.status === "PENDING") || canCopy.value,
 );
 const reviewerMode = computed(() => props.mode === "reviewer");
+const canReview = computed(() => props.copy.canReview !== false);
 
 function formatMetaDateTime(value) {
   if (!value) return "-";

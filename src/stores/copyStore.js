@@ -1,118 +1,149 @@
 import { defineStore } from "pinia";
 
 import {
-  approveCompatibleCopy,
-  cancelCompatibleCopy,
-  createCompatibleCopy,
-  getCompatibleCopies,
-  rejectCompatibleCopy,
+  approveCopyChangeRequest,
+  cancelCopyChangeRequest,
+  getCopyChangeRequests,
+  rejectCopyChangeRequest,
+  submitCopy,
 } from "@/services/copyService";
 
-/**
- * 經辦文案 store —— mock 版本
- * - 不打 API
- * - 提供 list / counts / create / cancel / copyAndCreate
- */
+const ALL_COPY_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELED"];
+
 export const useCopyStore = defineStore("copies", {
   state: () => ({
     items: [],
+    itemsByStatus: {},
+    totalsByStatus: {},
     draft: null,
-    loaded: false,
+    loadedKeys: {},
+    inFlightByKey: {},
     loading: false,
     error: "",
   }),
 
   getters: {
-    counts: (state) => getCounts(state.items),
+    counts: (state) => ({
+      all: Object.values(state.totalsByStatus).reduce((sum, count) => sum + Number(count || 0), 0),
+      pending: Number(state.totalsByStatus.PENDING || 0),
+      approved: Number(state.totalsByStatus.APPROVED || 0),
+      rejected: Number(state.totalsByStatus.REJECTED || 0),
+      cancelled: Number(state.totalsByStatus.CANCELED || 0),
+    }),
     byStatus: (state) => (status) =>
-      status ? state.items.filter((it) => it.status === status) : state.items,
+      status ? state.itemsByStatus[status] || [] : state.items,
   },
 
   actions: {
-    async ensureLoaded() {
-      if (this.loaded || this.loading) return;
+    async ensureLoaded(params = {}) {
+      const status = params.status || ALL_COPY_STATUSES;
+      const key = buildCopyStoreKey(status);
+      if (this.loadedKeys[key] && !params.force) {
+        this.items = getRowsForStatus(this.itemsByStatus, status);
+        return this.items;
+      }
+      if (this.inFlightByKey[key] && !params.force) return this.inFlightByKey[key];
       this.loading = true;
       this.error = "";
-      try {
-        this.items = await getCompatibleCopies();
-        this.loaded = true;
-      } catch (error) {
-        this.error = "文案資料載入失敗";
-        console.error(error);
-      } finally {
-        this.loading = false;
-      }
+      this.inFlightByKey[key] = getCopyChangeRequests({
+        status,
+        page: params.page || 1,
+        size: params.size || 100,
+        force: params.force,
+      })
+        .then((response) => {
+          const rows = response.content || [];
+          setRowsForStatus(this.itemsByStatus, this.totalsByStatus, status, rows, response.totalElements);
+          this.items = getRowsForStatus(this.itemsByStatus, status);
+          this.loadedKeys[key] = true;
+          return this.items;
+        })
+        .catch((error) => {
+          this.error = "文案資料載入失敗";
+          console.error(error);
+          throw error;
+        })
+        .finally(() => {
+          delete this.inFlightByKey[key];
+          this.loading = false;
+        });
+      return this.inFlightByKey[key];
     },
 
-    /** 經辦：新增文案並送出審核 */
     async create(payload) {
-      const item = await createCompatibleCopy(payload);
-      if (item) this.items = [item, ...this.items];
-      return item;
+      const response = await submitCopy(payload);
+      this.invalidate("PENDING");
+      return response;
     },
 
-    /** 經辦：取消送審 (待審核 → 已取消) */
     async cancelSubmission(id) {
-      const item = await cancelCompatibleCopy(id);
-      if (item) this.replaceItem(item);
+      await cancelCopyChangeRequest(id);
+      this.invalidate(["PENDING", "CANCELED"]);
     },
 
-    /** 覆核主管：核准文案 */
     async approveSubmission(id) {
-      const item = await approveCompatibleCopy(id);
-      if (item) this.replaceItem(item);
+      await approveCopyChangeRequest(id);
+      this.invalidate(["PENDING", "APPROVED"]);
     },
 
-    /** 覆核主管：駁回文案 */
     async rejectSubmission(id, reason) {
-      const item = await rejectCompatibleCopy(id, reason);
-      if (item) this.replaceItem(item);
+      await rejectCopyChangeRequest(id, reason);
+      this.invalidate(["PENDING", "REJECTED"]);
     },
 
-    /** 經辦：以既有文案複製建立新版本 */
-    async copyAndCreate(sourceId, overrides = {}) {
-      const source = this.items.find((it) => it.id === sourceId);
-      if (!source) return null;
-      return this.create({
-        title: overrides.title ?? `${source.title} (副本)`,
-        category: overrides.category ?? source.category,
-        nnbCategory:
-          overrides.nnbCategory ?? source.nnbCategory ?? source.category,
-        wbkCategory: overrides.wbkCategory ?? source.wbkCategory,
-        content: overrides.content ?? source.content,
-        note: overrides.note ?? source.note,
-        clickAction: overrides.clickAction ?? source.clickAction,
-        url: overrides.url ?? source.url,
-        expirationType: overrides.expirationType ?? source.expirationType,
-        retentionMonths: overrides.retentionMonths ?? source.retentionMonths,
-        expiredAt: overrides.expiredAt ?? source.expiredAt,
+    async copyAndCreate(_sourceId, overrides = {}) {
+      return this.create(overrides);
+    },
+
+    invalidate(status) {
+      normalizeStatusList(status || ALL_COPY_STATUSES).forEach((item) => {
+        delete this.itemsByStatus[item];
+        delete this.totalsByStatus[item];
       });
+      this.items = getRowsForStatus(this.itemsByStatus, ALL_COPY_STATUSES);
+      this.loadedKeys = {};
     },
 
-    replaceItem(item) {
-      const index = this.items.findIndex(
-        (existing) => Number(existing.id) === Number(item.id),
-      );
-      if (index >= 0) this.items[index] = item;
+    resetState() {
+      this.items = [];
+      this.itemsByStatus = {};
+      this.totalsByStatus = {};
+      this.draft = null;
+      this.loadedKeys = {};
+      this.inFlightByKey = {};
+      this.loading = false;
+      this.error = "";
     },
   },
 });
 
-const getCounts = (rows) =>
-  rows.reduce(
-    (acc, row) => {
-      acc.all += 1;
-      if (row.status === "PENDING") acc.pending += 1;
-      if (row.status === "APPROVED") acc.approved += 1;
-      if (row.status === "REJECTED") acc.rejected += 1;
-      if (row.status === "CANCELED") acc.cancelled += 1;
-      return acc;
-    },
-    {
-      all: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      cancelled: 0,
-    },
-  );
+function normalizeStatusList(status) {
+  if (Array.isArray(status)) return status.filter(Boolean).map((item) => String(item));
+  return status ? [String(status)] : [...ALL_COPY_STATUSES];
+}
+
+function buildCopyStoreKey(status) {
+  return normalizeStatusList(status).sort().join(",");
+}
+
+function getRowsForStatus(itemsByStatus, status) {
+  return normalizeStatusList(status)
+    .flatMap((item) => itemsByStatus[item] || [])
+    .sort((a, b) =>
+      String(b.submittedAt || b.createdAt || "").localeCompare(String(a.submittedAt || a.createdAt || "")),
+    );
+}
+
+function setRowsForStatus(itemsByStatus, totalsByStatus, status, rows, totalElements) {
+  const statuses = normalizeStatusList(status);
+  if (statuses.length === 1) {
+    itemsByStatus[statuses[0]] = rows;
+    totalsByStatus[statuses[0]] = Number(totalElements ?? rows.length);
+    return;
+  }
+  statuses.forEach((singleStatus) => {
+    const filteredRows = rows.filter((row) => row.status === singleStatus);
+    itemsByStatus[singleStatus] = filteredRows;
+    totalsByStatus[singleStatus] = filteredRows.length;
+  });
+}

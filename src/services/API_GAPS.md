@@ -42,7 +42,9 @@
 
 ### Copy
 - 目前正式 API 只有 `POST /api/copies`：文案送審。
-- 正式 API 尚未提供 `GET /api/copies`、`GET /api/copies/{number}`、文案修改、停用、取消、核准、駁回 endpoint。
+- COPY 審核列表 / 歷程使用 `GET /api/change-requests?targetType=COPY`。
+- COPY 核准 / 駁回 / 取消使用 change request endpoint：`PUT /api/change-requests/{id}/approve`、`reject`、`cancel`。
+- 正式 API 尚未提供 `GET /api/copies`、`GET /api/copies/{number}`、文案修改、停用 endpoint。
 
 ### Deprecated APIs still centralized in service
 - CopyCategory：`/api/departments/copy-categories/**`，後端已標示 deprecated。
@@ -62,9 +64,8 @@
 
 ## Remaining official API gaps
 
-- 文案列表 / 詳情 / 取消 / 核准 / 駁回仍缺正式 Copy API；目前只可正式送 `POST /api/copies`。
-- 文案列表仍保留 compatibility service，不會亂打不存在的 Copy endpoint。
-- 操作歷程查詢第一版以 `GET /api/change-requests` 聚合 USER / ORGANIZATION，分別查詢後於前端 merge / sort。
+- 文案主檔列表 / 詳情仍缺正式 `GET /api/copies`；目前文案管理列表以 `targetType=COPY` change requests 呈現送審 / 審核紀錄。
+- 操作歷程查詢目前只查 USER change requests。
 - 401 自動 refresh 流程尚未完整串成 interceptor retry；auth store 已保留 refresh token 寫回 access token 的 action。
 
 ## ADMIN Smoke Test - 2026-06-03

@@ -4,6 +4,8 @@ import {
   getAccountChangeRequests,
   getUsers,
 } from "@/services/userService";
+import { hasAdminRole, normalizeRoles } from "@/utils/authRoles";
+import { readAuthStorage } from "@/utils/authStorage";
 
 const USER_PENDING_CREATE_QUERY = { status: "PENDING", action: ["CREATE"] };
 const USER_PENDING_CHANGES_QUERY = { status: "PENDING", action: ["UPDATE", "DELETE"] };
@@ -33,6 +35,7 @@ export const useUserStore = defineStore("users", {
   },
   actions: {
     async ensureLoaded(params = {}) {
+      if (!canLoadAdminUserData(params)) return;
       if (this.loaded) return;
       if (this.loadingPromise) return this.loadingPromise;
       this.loadingPromise = Promise.all([
@@ -48,6 +51,7 @@ export const useUserStore = defineStore("users", {
       return this.loadingPromise;
     },
     async refreshAll(params = {}) {
+      if (!canLoadAdminUserData(params)) return;
       this.loaded = false;
       this.loadingPromise = null;
       await Promise.all([
@@ -258,4 +262,9 @@ function getRowsTotalElements(rows = []) {
   const totalElements = rows?.totalElements;
   if (Number.isFinite(Number(totalElements))) return Number(totalElements);
   return Array.isArray(rows) ? rows.length : 0;
+}
+
+function canLoadAdminUserData(params = {}) {
+  const roles = normalizeRoles(params.roles || readAuthStorage()?.roles || []);
+  return hasAdminRole(roles);
 }

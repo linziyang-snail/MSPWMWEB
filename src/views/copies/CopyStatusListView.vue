@@ -72,6 +72,7 @@ import CopyFormModal from "@/components/dialogs/CopyFormModal.vue";
 import RejectCopyDialog from "@/components/dialogs/RejectCopyDialog.vue";
 import { useAuthStore } from "@/stores/authStore";
 import { useCopyStore } from "@/stores/copyStore";
+import { normalizeRoles } from "@/utils/authRoles";
 
 const route = useRoute();
 const copyStore = useCopyStore();
@@ -88,13 +89,12 @@ const approveDialog = ref({ open: false, target: null });
 const rejectDialog = ref({ open: false, target: null });
 
 const routeStatus = computed(() => route.meta.status || "");
-const authRoles = computed(() => (Array.isArray(auth.roles) ? auth.roles : []));
+const authRoles = computed(() => normalizeRoles(auth.roles));
+const currentUserId = computed(() => auth.employeeId || auth.userId || "");
 const isReviewer = computed(() => authRoles.value.includes("MANAGER"));
 const copyCardMode = computed(() => (isReviewer.value ? "reviewer" : "editor"));
 
-onMounted(() => {
-  copyStore.ensureLoaded();
-});
+onMounted(loadCopies);
 
 const filtered = computed(() => {
   const list = routeStatus.value
@@ -104,8 +104,9 @@ const filtered = computed(() => {
     ? list.filter((copy) => copy.status !== "CANCELED")
     : list;
   const kw = keyword.value.trim().toLowerCase();
-  if (!kw) return roleScopedList;
-  return roleScopedList.filter((c) =>
+  const visibleRows = roleScopedList.map(withReviewPermission);
+  if (!kw) return visibleRows;
+  return visibleRows.filter((c) =>
     `${c.code}${c.title}${c.content}`.toLowerCase().includes(kw),
   );
 });
@@ -114,6 +115,7 @@ watch(
   () => route.path,
   () => {
     keyword.value = "";
+    loadCopies();
   },
 );
 
@@ -152,7 +154,8 @@ const onReject = (copy) => {
 const confirmCancel = async () => {
   try {
     if (cancelDialog.value.target) {
-      await copyStore.cancelSubmission(cancelDialog.value.target.id);
+      await copyStore.cancelSubmission(cancelDialog.value.target.changeRequestId);
+      await loadCopies({ force: true });
     }
   } catch (error) {
     console.error(error);
@@ -163,7 +166,8 @@ const confirmCancel = async () => {
 const confirmApprove = async () => {
   try {
     if (approveDialog.value.target) {
-      await copyStore.approveSubmission(approveDialog.value.target.id);
+      await copyStore.approveSubmission(approveDialog.value.target.changeRequestId);
+      await loadCopies({ force: true });
     }
   } catch (error) {
     console.error(error);
@@ -174,7 +178,8 @@ const confirmApprove = async () => {
 const confirmReject = async (reason) => {
   try {
     if (rejectDialog.value.target) {
-      await copyStore.rejectSubmission(rejectDialog.value.target.id, reason);
+      await copyStore.rejectSubmission(rejectDialog.value.target.changeRequestId, reason);
+      await loadCopies({ force: true });
     }
   } catch (error) {
     console.error(error);
@@ -183,8 +188,26 @@ const confirmReject = async (reason) => {
   }
 };
 const onSubmitted = () => {
-  /* mock 送出後資料已進 store，這裡僅關閉 modal */
+  loadCopies({ force: true });
 };
+
+function loadCopies(options = {}) {
+  return copyStore.ensureLoaded({
+    status: routeStatus.value || undefined,
+    force: options.force,
+  });
+}
+
+function withReviewPermission(copy) {
+  const requesterId = copy.requesterId || copy.submittedBy || "";
+  return {
+    ...copy,
+    canReview:
+      !currentUserId.value ||
+      !requesterId ||
+      String(requesterId) !== String(currentUserId.value),
+  };
+}
 
 const PlusIcon = () => h("img", { src: addIcon, alt: "", "aria-hidden": "true", class: "size-4" });
 </script>
