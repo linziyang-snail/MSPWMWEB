@@ -21,7 +21,8 @@ export function hasAdminRole(roles = []) {
 export function canAccessRoles(userRoles = [], allowedRoles = []) {
   const normalizedUserRoles = normalizeRoles(userRoles);
   if (!allowedRoles?.length) return true;
-  if (hasAdminRole(normalizedUserRoles)) return true;
+  // No global ADMIN bypass: ADMIN only reaches routes that list ADMIN (account
+  // and category management), not copy management.
   const normalizedAllowedRoles = normalizeRoles(allowedRoles);
   return normalizedAllowedRoles.some((role) => normalizedUserRoles.includes(role));
 }

@@ -24,8 +24,12 @@ describe("canAccessRoles (drives the /403 guard)", () => {
   it("allows when no roles are required", () => {
     expect(canAccessRoles(["USER"], [])).toBe(true);
   });
-  it("ADMIN bypasses every gate", () => {
-    expect(canAccessRoles(["ADMIN"], ["USER"])).toBe(true);
+  it("ADMIN is gated like everyone else — no global bypass", () => {
+    // ADMIN must not reach copy management (USER/MANAGER only)...
+    expect(canAccessRoles(["ADMIN"], ["USER"])).toBe(false);
+    expect(canAccessRoles(["ADMIN"], ["USER", "MANAGER"])).toBe(false);
+    // ...but does reach its own ADMIN routes.
+    expect(canAccessRoles(["ADMIN"], ["ADMIN"])).toBe(true);
   });
   it("allows on a matching role", () => {
     expect(canAccessRoles(["MANAGER"], ["USER", "MANAGER"])).toBe(true);
