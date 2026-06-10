@@ -45,19 +45,31 @@ export const useCopyStore = defineStore("copies", {
       if (this.inFlightByKey[key] && !params.force) return this.inFlightByKey[key];
       this.loading = true;
       this.error = "";
-      this.inFlightByKey[key] = getCopyChangeRequests({
-        status,
-        page: params.page || 1,
-        size: params.size || 100,
-        force: params.force,
-      })
-        .then((response) => {
-          const rows = response.content || [];
-          setRowsForStatus(this.itemsByStatus, this.totalsByStatus, status, rows, response.totalElements);
-          this.items = getRowsForStatus(this.itemsByStatus, status);
-          this.loadedKeys[key] = true;
-          return this.items;
-        })
+      this.inFlightByKey[key] = (async () => {
+        const size = 100;
+        let pageNum = 1;
+        let rows = [];
+        let total = 0;
+        // 1 request for <=100 rows; fetch further pages only when the dataset
+        // actually exceeds a page, so nothing is truncated past 100.
+        for (let guard = 0; guard < 100; guard += 1) {
+          const response = await getCopyChangeRequests({
+            status,
+            page: pageNum,
+            size,
+            force: params.force,
+          });
+          const pageRows = response.content || [];
+          rows = rows.concat(pageRows);
+          total = Number(response.totalElements ?? rows.length);
+          if (pageRows.length < size || rows.length >= total) break;
+          pageNum += 1;
+        }
+        setRowsForStatus(this.itemsByStatus, this.totalsByStatus, status, rows, total);
+        this.items = getRowsForStatus(this.itemsByStatus, status);
+        this.loadedKeys[key] = true;
+        return this.items;
+      })()
         .catch((error) => {
           this.error = "文案資料載入失敗";
           console.error(error);

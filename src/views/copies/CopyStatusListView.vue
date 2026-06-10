@@ -15,7 +15,7 @@
     <!-- 卡片列表 -->
     <section v-if="filtered.length" class="space-y-5">
       <CopyCard
-        v-for="copy in filtered"
+        v-for="copy in paged"
         :key="copy.id"
         :copy="copy"
         :mode="copyCardMode"
@@ -27,6 +27,15 @@
       />
     </section>
     <EmptyState v-else />
+
+    <BasePagination
+      v-if="filtered.length > PAGE_SIZE"
+      :page="page"
+      :size="PAGE_SIZE"
+      :total="filtered.length"
+      class="rounded-2xl border border-border"
+      @update:page="page = $event"
+    />
 
     <!-- Modals -->
     <CopyDetailModal v-model="detailOpen" :copy="selected" />
@@ -62,6 +71,7 @@ import { useRoute } from "vue-router";
 
 import addIcon from "@/assets/add.svg";
 import BaseButton from "@/components/base/BaseButton.vue";
+import BasePagination from "@/components/base/BasePagination.vue";
 import BaseSearchInput from "@/components/base/BaseSearchInput.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import CopyCard from "@/components/copies/CopyCard.vue";
@@ -79,6 +89,8 @@ const copyStore = useCopyStore();
 const auth = useAuthStore();
 
 const keyword = ref("");
+const PAGE_SIZE = 10;
+const page = ref(1);
 const selected = ref(null);
 const detailOpen = ref(false);
 const formOpen = ref(false);
@@ -111,10 +123,28 @@ const filtered = computed(() => {
   );
 });
 
+const paged = computed(() => {
+  const start = (page.value - 1) * PAGE_SIZE;
+  return filtered.value.slice(start, start + PAGE_SIZE);
+});
+
+watch(keyword, () => {
+  page.value = 1;
+});
+
+watch(
+  () => filtered.value.length,
+  (length) => {
+    const totalPages = Math.max(1, Math.ceil(length / PAGE_SIZE));
+    if (page.value > totalPages) page.value = totalPages;
+  },
+);
+
 watch(
   () => route.path,
   () => {
     keyword.value = "";
+    page.value = 1;
     loadCopies({ force: true });
   },
 );

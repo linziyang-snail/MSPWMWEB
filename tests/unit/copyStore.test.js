@@ -38,6 +38,27 @@ describe("copyStore.ensureLoaded caching", () => {
     await store.ensureLoaded({ status: "PENDING", force: true });
     expect(getCopyChangeRequests).toHaveBeenCalledTimes(2);
   });
+
+  it("fetches further pages when the dataset exceeds one page (>100)", async () => {
+    const store = useCopyStore();
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({
+      id: i,
+      status: "PENDING",
+    }));
+    const tail = Array.from({ length: 50 }, (_, i) => ({
+      id: 100 + i,
+      status: "PENDING",
+    }));
+    getCopyChangeRequests
+      .mockResolvedValueOnce({ content: fullPage, totalElements: 150 })
+      .mockResolvedValueOnce({ content: tail, totalElements: 150 });
+
+    await store.ensureLoaded({ status: "PENDING" });
+
+    expect(getCopyChangeRequests).toHaveBeenCalledTimes(2);
+    expect(store.counts.pending).toBe(150);
+    expect(store.byStatus("PENDING")).toHaveLength(150);
+  });
 });
 
 describe("copyStore mutations invalidate cache", () => {
