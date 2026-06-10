@@ -16,7 +16,17 @@ export default defineConfig({
     trace: "on-first-retry",
     ignoreHTTPSErrors: true,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // E2E_CHANNEL=msedge (or chrome) launches the system-installed browser, so no
+  // Playwright Chromium download is needed (useful behind a corporate firewall).
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: process.env.E2E_CHANNEL || undefined,
+      },
+    },
+  ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {

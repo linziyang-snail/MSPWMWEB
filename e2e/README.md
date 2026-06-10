@@ -7,7 +7,15 @@ manually on a machine that can reach the backend (e.g. the company PC).
 
 ```powershell
 npm install
-npx playwright install chromium   # downloads the browser (not committed)
+npx playwright install chromium   # downloads Playwright's browser
+```
+
+**Behind a corporate firewall** (the download to cdn.playwright.dev times out):
+skip the download and use the system-installed Edge/Chrome instead — set
+`E2E_CHANNEL` when running:
+
+```powershell
+$env:E2E_CHANNEL="msedge"   # or "chrome"
 ```
 
 ## Credentials & env vars (never committed)
