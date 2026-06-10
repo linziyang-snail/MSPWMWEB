@@ -365,13 +365,16 @@ import {
   updateUser,
 } from "@/services/userService";
 import { useAuthStore } from "@/stores/authStore";
+import { useRoleStore } from "@/stores/roleStore";
 import { useUserStore } from "@/stores/userStore";
-import { roleIdMap, roleLabelMap, statusLabelMap } from "@/utils/constants";
+import { roleLabelMap, statusLabelMap } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
 const auth = useAuthStore();
 const userStore = useUserStore();
+const roleStore = useRoleStore();
+roleStore.ensureLoaded();
 const currentUserId = computed(() => auth.userId || "");
 const selected = ref(null);
 const dialog = ref({
@@ -806,7 +809,7 @@ function getAccountBadgeLabel(status) {
 function formatRoleIds(roleIds = []) {
   if (!Array.isArray(roleIds) || !roleIds.length) return "-";
   return roleIds
-    .map((id) => Object.entries(roleIdMap).find(([, roleId]) => roleId === Number(id))?.[0])
+    .map((id) => roleStore.roleIdToName[Number(id)])
     .map((role) => getAccountRoleLabel(role))
     .filter(Boolean)
     .join(", ") || "-";
@@ -973,7 +976,7 @@ async function onEditPermission(payload) {
       id: payload.id,
       userName: payload.userName,
       orgId: Number(payload.orgId),
-      roleIds: payload.roles.map((role) => roleIdMap[role]).filter(Boolean),
+      roleIds: payload.roles.map((role) => roleStore.roleNameToId[role]).filter(Boolean),
     });
     userStore.invalidateUsers("ACTIVE");
     userStore.invalidateUsers("PASSWORD_INVALID");

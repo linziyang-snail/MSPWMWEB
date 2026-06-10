@@ -59,6 +59,7 @@ import BaseInput from "@/components/base/BaseInput.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import { getOrganizations } from "@/services/organizationService";
+import { useRoleStore } from "@/stores/roleStore";
 import { isActiveSectionOrganization, roleLabelMap } from "@/utils/constants";
 
 const props = defineProps({
@@ -68,11 +69,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "submitted"]);
 
-const roleOptions = [
-  { label: "經辦人員", value: "USER" },
-  { label: "覆核主管", value: "MANAGER" },
-  { label: "超級管理員", value: "ADMIN" },
-];
+const roleStore = useRoleStore();
+const roleOptions = computed(() => roleStore.assignableRoleOptions);
 const roleValueMap = {
   經辦: "USER",
   經辦人員: "USER",
@@ -109,6 +107,7 @@ watch(
   () => props.modelValue,
   (open) => {
     if (!open) return;
+    roleStore.ensureLoaded();
     syncForm();
     fetchOrganizations();
   },

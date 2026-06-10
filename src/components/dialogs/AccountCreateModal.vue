@@ -88,11 +88,8 @@ import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import { getOrganizations } from "@/services/organizationService";
 import { createUser } from "@/services/userService";
-import {
-  isActiveSectionOrganization,
-  roleIdMap,
-  roleLabelMap,
-} from "@/utils/constants";
+import { useRoleStore } from "@/stores/roleStore";
+import { isActiveSectionOrganization, roleLabelMap } from "@/utils/constants";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -100,11 +97,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "submitted"]);
 
-const roleOptions = [
-  { label: "經辦人員", value: "USER" },
-  { label: "覆核主管", value: "MANAGER" },
-  { label: "超級管理員", value: "ADMIN" },
-];
+const roleStore = useRoleStore();
+const roleOptions = computed(() => roleStore.assignableRoleOptions);
 const form = reactive({
   id: "",
   orgId: "",
@@ -144,6 +138,7 @@ watch(
     });
     clearErrors();
     showPassword.value = false;
+    roleStore.ensureLoaded();
     fetchOrganizations();
   },
 );
@@ -166,7 +161,7 @@ function validate() {
 async function submit() {
   if (!validate()) return;
   const id = normalizeEmployeeId(form.id);
-  const roleIds = [roleIdMap[form.role]].filter(Boolean);
+  const roleIds = [roleStore.roleNameToId[form.role]].filter(Boolean);
   const payload = {
     id,
     password: form.password,
