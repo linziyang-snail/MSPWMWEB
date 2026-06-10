@@ -308,9 +308,13 @@ const insertParameter = () => {
   const inserted = `${leadingSpace}${token}${trailingSpace}`;
   form.content = normalizeParameterSpacing(`${before}${inserted}${after}`);
 
+  // Caret must be derived from the normalized string (normalizeParameterSpacing
+  // trims/collapses spaces), otherwise it lands inside the token and the next
+  // insert gets nested. Place it right after the inserted token + its space.
+  const caret = normalizeParameterSpacing(`${before}${inserted}`).length;
   requestAnimationFrame(() => {
     textarea?.focus();
-    const cursor = Math.min(start + inserted.length, form.content.length);
+    const cursor = Math.min(caret, form.content.length);
     textarea?.setSelectionRange(cursor, cursor);
   });
 };
