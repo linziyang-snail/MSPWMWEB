@@ -102,6 +102,7 @@ import { useRoute } from "vue-router";
 
 import ubotLogo from "@/assets/ubotLogo.svg";
 import SidebarAssetIcon from "@/components/layout/SidebarAssetIcon.vue";
+import { useApprovalStore } from "@/stores/approvalStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useCopyStore } from "@/stores/copyStore";
 import { useUserStore } from "@/stores/userStore";
@@ -123,6 +124,7 @@ const route = useRoute();
 const auth = useAuthStore();
 const copyStore = useCopyStore();
 const userStore = useUserStore();
+const approvalStore = useApprovalStore();
 const authRoles = computed(() => normalizeRoles(auth.roles));
 const canPreloadUserChangeRequests = computed(() =>
   hasAdminRole(authRoles.value),
@@ -131,6 +133,7 @@ const canPreloadUserChangeRequests = computed(() =>
 onMounted(() => {
   if (canPreloadUserChangeRequests.value) {
     userStore.ensureLoaded({ roles: authRoles.value });
+    approvalStore.fetchCategoryPendingCount();
   }
 });
 
@@ -178,6 +181,9 @@ const childCount = (item) => {
   }
   if (["accountPendingChange", "AccountPendingReview"].includes(item.countKey)) {
     return userStore.pendingChangeCount;
+  }
+  if (item.countKey === "CategoryPending") {
+    return approvalStore.categoryPendingCount;
   }
   return copyStore.counts[item.countKey] || 0;
 };

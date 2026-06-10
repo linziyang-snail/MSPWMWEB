@@ -264,6 +264,7 @@ import {
   getOrganizations,
   invalidateOrganizations,
 } from "@/services/organizationService";
+import { useApprovalStore } from "@/stores/approvalStore";
 import { useAuthStore } from "@/stores/authStore";
 import {
   ACTION_LABEL_MAP,
@@ -279,6 +280,7 @@ import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
 const auth = useAuthStore();
+const approvalStore = useApprovalStore();
 const filters = reactive({ id: "", targetType: "", status: "" });
 const categoryCreateOpen = ref(false);
 const deleteCategoryDialogOpen = ref(false);
@@ -314,6 +316,7 @@ const onCategoryCreated = async () => {
   invalidateOrganizations("ACTIVE");
   invalidateOrganizations("PENDING");
   invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
+  approvalStore.fetchCategoryPendingCount({ force: true });
   if (isPendingCategoryPage.value) {
     await refreshCategoryData({
       forceOrganizations: true,
@@ -770,6 +773,7 @@ async function approveSelectedCategory() {
     const action = selectedCategory.value.action;
     await approveChangeRequest({ id: selectedCategory.value.changeRequestId });
     invalidateCategoryCachesAfterApprove(action);
+    approvalStore.fetchCategoryPendingCount({ force: true });
     await refreshCategoryData({
       forceOrganizations: true,
       forceRequests: true,
@@ -791,6 +795,7 @@ async function rejectSelectedCategory(reason) {
       remark: reason,
     });
     invalidateCategoryCachesAfterReject();
+    approvalStore.fetchCategoryPendingCount({ force: true });
     await refreshCategoryData({
       forceOrganizations: true,
       forceRequests: true,
