@@ -6,6 +6,11 @@ dist/
 .env.*
 !.env.example
 
+# Playwright (E2E) artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 # AI assistant / coding-tool files — keep local, not for the company repo
 CLAUDE.md
 CLAUDE.local.md
