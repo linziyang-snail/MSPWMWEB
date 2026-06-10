@@ -12,15 +12,20 @@ npx playwright install chromium   # downloads the browser (not committed)
 
 ## Credentials & env vars (never committed)
 
+Employee IDs default to the known test accounts, so usually you only set the
+**passwords**:
+
 | var | meaning |
 | --- | --- |
-| `E2E_USER_ID` / `E2E_USER_PW` | 經辦 account |
-| `E2E_MANAGER_ID` / `E2E_MANAGER_PW` | 覆核主管 account |
-| `E2E_ADMIN_ID` / `E2E_ADMIN_PW` | 超級管理員 account |
-| `E2E_MUTATE=1` | enable the data-creating flows (creates a test copy / category) |
+| `E2E_USER_PW` | 經辦 password (id defaults to 1126580) |
+| `E2E_MANAGER_PW` | 覆核主管 password (id defaults to 9903674) |
+| `E2E_ADMIN_PW` | 超級管理員 password (id defaults to admin01) |
+| `E2E_ADMIN2_PW` | second admin password (id defaults to admin02) — approves admin01's requests |
+| `E2E_MUTATE=1` | enable the data-creating / approval flows |
 | `E2E_BASE_URL` | target an already-running app instead of auto-starting dev |
+| `E2E_<ROLE>_ID` | override an employee id if needed |
 
-Tests for a role are **skipped** when its credentials are absent.
+Tests for a role are **skipped** when its password is absent.
 
 ## Run (PowerShell)
 

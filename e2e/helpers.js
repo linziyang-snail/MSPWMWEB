@@ -1,12 +1,16 @@
-// Shared E2E helpers. Credentials come from env vars — never hardcode them.
-//   E2E_USER_ID / E2E_USER_PW        (經辦)
-//   E2E_MANAGER_ID / E2E_MANAGER_PW  (覆核主管)
-//   E2E_ADMIN_ID / E2E_ADMIN_PW      (超級管理員)
-//   E2E_MUTATE=1                     enable the data-creating flows
+// Shared E2E helpers. Employee IDs default to the known test accounts; only the
+// PASSWORDS must be supplied via env vars (never hardcode passwords):
+//   E2E_USER_PW      經辦         (id default 1126580)
+//   E2E_MANAGER_PW   覆核主管      (id default 9903674)
+//   E2E_ADMIN_PW     超級管理員    (id default admin01)
+//   E2E_ADMIN2_PW    第二位管理員  (id default admin02, used to approve admin01's requests)
+//   E2E_MUTATE=1     enable the data-creating / approval flows
+// Any id can still be overridden with E2E_<ROLE>_ID.
 const accounts = {
-  USER: { id: process.env.E2E_USER_ID, pw: process.env.E2E_USER_PW },
-  MANAGER: { id: process.env.E2E_MANAGER_ID, pw: process.env.E2E_MANAGER_PW },
-  ADMIN: { id: process.env.E2E_ADMIN_ID, pw: process.env.E2E_ADMIN_PW },
+  USER: { id: process.env.E2E_USER_ID || "1126580", pw: process.env.E2E_USER_PW },
+  MANAGER: { id: process.env.E2E_MANAGER_ID || "9903674", pw: process.env.E2E_MANAGER_PW },
+  ADMIN: { id: process.env.E2E_ADMIN_ID || "admin01", pw: process.env.E2E_ADMIN_PW },
+  ADMIN2: { id: process.env.E2E_ADMIN2_ID || "admin02", pw: process.env.E2E_ADMIN2_PW },
 };
 
 export const MUTATE = process.env.E2E_MUTATE === "1";
