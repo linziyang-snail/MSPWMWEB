@@ -5,8 +5,10 @@ import {
   logout as logoutApi,
   refreshToken as refreshTokenApi,
 } from "@/services/authService";
+import { invalidateChangeRequests } from "@/services/approvalService";
 import { invalidateOrganizationsCache } from "@/services/organizationService";
 import { useApprovalStore } from "@/stores/approvalStore";
+import { useCopyStore } from "@/stores/copyStore";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useUserStore } from "@/stores/userStore";
 import { normalizeRoles } from "@/utils/authRoles";
@@ -47,7 +49,9 @@ function resetSessionStores() {
   useUserStore().resetState();
   useApprovalStore().resetState();
   useOrganizationStore().resetState();
+  useCopyStore().resetState();
   invalidateOrganizationsCache();
+  invalidateChangeRequests();
 }
 
 export const useAuthStore = defineStore("auth", {
