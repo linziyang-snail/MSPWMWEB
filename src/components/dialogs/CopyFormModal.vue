@@ -230,6 +230,7 @@ const submit = async () => {
       number: form.code,
       title: form.title,
       content: form.content,
+      note: form.note || "",
       nnbCategory: form.nnbCategory || "",
       wbkCategory: form.wbkCategory || "",
       url: form.clickAction === "NONE" ? "" : form.url || "",

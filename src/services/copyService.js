@@ -57,6 +57,7 @@ function normalizeSubmitCopyPayload(payload = {}) {
     url: clickAction === "OPEN_URL" ? payload.url || "" : payload.url || "",
     clickAction,
     expirationType,
+    remark: payload.note ?? payload.remark ?? "",
   };
   if (expirationType === "RETENTION_MONTHS") {
     body.retentionMonths = Number(payload.retentionMonths);
@@ -93,7 +94,7 @@ function normalizeCopyChangeRequest(row = {}) {
     expirationType: payload.expirationType || "NONE",
     retentionMonths: payload.retentionMonths ?? "",
     expiredAt: payload.expiredAt || "",
-    note: payload.note || "",
+    note: payload.remark ?? payload.note ?? "",
     submittedBy: row.requesterId || "-",
     submittedAt: row.createdAt || "",
     createdBy: row.requesterId || "-",
