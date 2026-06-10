@@ -97,7 +97,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="category in displayedCategoryRows" :key="category.rowKey"
+          <tr v-for="category in pagedCategoryRows" :key="category.rowKey"
             class="h-20 border-b border-border-muted last:border-0 hover:bg-background-hover">
             <td class="px-4 py-4 text-base font-normal leading-normal text-natural xl:px-5">
               {{ formatCategoryDate(category) }}
@@ -161,16 +161,16 @@
         <div class="flex items-center gap-2 text-xs font-bold leading-normal text-natural">
           <button
             class="px-4 text-center transition border rounded h-7 border-text-grey bg-background-surface hover:bg-background-hover disabled:opacity-60"
-            type="button" disabled>
+            type="button" :disabled="currentPage <= 1" @click="currentPage -= 1">
             上頁
           </button>
           <span
             class="grid px-4 border rounded h-7 min-w-10 place-items-center border-primary bg-primary text-text-inverse">
-            1
+            {{ currentPage }} / {{ categoryTotalPages }}
           </span>
           <button
             class="px-4 text-center transition border rounded h-7 border-text-grey bg-background-surface hover:bg-background-hover disabled:opacity-60"
-            type="button" disabled>
+            type="button" :disabled="currentPage >= categoryTotalPages" @click="currentPage += 1">
             下頁
           </button>
         </div>
@@ -294,6 +294,8 @@ const organizations = ref([]);
 const categoryChangeRequests = ref([]);
 const approvedDeleteCategoryRequests = ref([]);
 const categorySortState = ref({ key: "date", direction: "desc" });
+const currentPage = ref(1);
+const PAGE_SIZE = 20;
 
 onMounted(async () => {
   try {
@@ -307,6 +309,7 @@ onMounted(async () => {
 watch(
   () => route.name,
   async () => {
+    currentPage.value = 1;
     if (isCategoryPage.value)
       await refreshCategoryData({ forceOrganizations: true, forceRequests: true });
   },
@@ -363,6 +366,24 @@ const categoryRows = computed(() => {
 
 const displayedCategoryRows = computed(() =>
   sortCategoryRows(categoryRows.value),
+);
+
+const categoryTotalPages = computed(() =>
+  Math.max(1, Math.ceil(displayedCategoryRows.value.length / PAGE_SIZE)),
+);
+
+const pagedCategoryRows = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE;
+  return displayedCategoryRows.value.slice(start, start + PAGE_SIZE);
+});
+
+watch(
+  () => displayedCategoryRows.value.length,
+  () => {
+    if (currentPage.value > categoryTotalPages.value) {
+      currentPage.value = categoryTotalPages.value;
+    }
+  },
 );
 
 const isActiveCategoryPage = computed(() => route.name === "CategoryAll");
@@ -475,26 +496,37 @@ async function refreshOrganizations(params = {}) {
   );
 }
 
+// 1 request for <=100 rows; fetch further pages only when the dataset exceeds
+// a page, so nothing is truncated past 100.
+async function fetchAllChangeRequests(params = {}) {
+  const size = 100;
+  let page = 1;
+  let content = [];
+  for (let guard = 0; guard < 100; guard += 1) {
+    const response = await getChangeRequests({ ...params, page, size });
+    const rows = response?.content ?? (Array.isArray(response) ? response : []);
+    content = content.concat(rows);
+    if (rows.length < size) break;
+    page += 1;
+  }
+  return content;
+}
+
 async function refreshCategoryChangeRequests(status = "PENDING", options = {}) {
-  categoryChangeRequests.value =
-    (await getPendingChangeRequests({
-      targetType: "ORGANIZATION",
-      status,
-      force: Boolean(options.force),
-    })) ?? [];
+  categoryChangeRequests.value = await fetchAllChangeRequests({
+    targetType: "ORGANIZATION",
+    status,
+    force: Boolean(options.force),
+  });
 }
 
 async function refreshApprovedDeleteCategoryRequests(options = {}) {
-  const response = await getChangeRequests({
+  approvedDeleteCategoryRequests.value = await fetchAllChangeRequests({
     targetType: "ORGANIZATION",
     status: ["APPROVED"],
     action: ["DELETE"],
-    page: 1,
-    size: 100,
     force: Boolean(options.force),
   });
-  approvedDeleteCategoryRequests.value =
-    response?.content ?? (Array.isArray(response) ? response : []);
 }
 
 function normalizeOrganizationRows(response) {
