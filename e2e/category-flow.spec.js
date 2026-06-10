@@ -11,7 +11,14 @@ test.describe("category flow", () => {
     await page.goto("/categories/all");
     await page.getByRole("button", { name: "新增科別" }).click();
     await page.getByPlaceholder("請輸入科別名稱").fill(name);
+    // Wait for the POST to finish so a following navigation doesn't abort it.
+    const posted = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/organizations") &&
+        r.request().method() === "POST",
+    );
     await page.getByRole("button", { name: "確認提交" }).click();
+    await posted;
   }
 
   test("ADMIN creates a category and it shows up under 待審核科別", async ({

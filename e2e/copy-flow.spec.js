@@ -15,7 +15,12 @@ test.describe("copy flow", () => {
     await page.getByPlaceholder("C123456789012").fill(number);
     await page.getByPlaceholder("請輸入文案標題").fill(title);
     await page.getByPlaceholder("請輸入推播文案內容...").fill(`內容 ${stamp}`);
+    // Wait for the POST to finish so a following navigation doesn't abort it.
+    const posted = page.waitForResponse(
+      (r) => r.url().includes("/api/copies") && r.request().method() === "POST",
+    );
     await page.getByRole("button", { name: "送出審核" }).click();
+    await posted;
   }
 
   test("USER submits a copy and it shows up under 待審核文案", async ({
@@ -26,7 +31,9 @@ test.describe("copy flow", () => {
     await submitCopy(page, title);
 
     await page.goto("/copies/pending");
-    await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("MANAGER approves a USER-submitted copy", async ({ page }) => {
@@ -38,12 +45,14 @@ test.describe("copy flow", () => {
 
     await login(page, "MANAGER");
     await page.goto("/copies/pending");
-    const card = page.locator("article", { hasText: title });
+    const card = page.locator("article").filter({ hasText: title });
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("button", { name: "核准" }).click();
     await page.getByRole("button", { name: "確認核准" }).click();
 
     await page.goto("/copies/approved");
-    await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
