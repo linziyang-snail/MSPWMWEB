@@ -9,34 +9,37 @@ import {
 const DEFAULT_PAGE_SIZE = 100;
 
 export async function getOperationHistory(params = {}) {
-  const {
-    page = 1,
-    size = DEFAULT_PAGE_SIZE,
-    start,
-    end,
-    startDate,
-    endDate,
-    force = false,
-  } = params || {};
-  const pageData = await getChangeRequests({
-    targetType: "USER",
-    status: CHANGE_REQUEST_STATUSES,
-    action: CHANGE_REQUEST_ACTIONS,
-    page,
-    size,
-    start: start || startDate,
-    end: end || endDate,
-    force,
-  });
+  const { start, end, startDate, endDate, force = false } = params || {};
+  const size = DEFAULT_PAGE_SIZE;
+  let page = 1;
+  let raw = [];
+  // 1 request for <=100 rows; fetch further pages only when the dataset
+  // exceeds a page, so nothing is truncated past 100.
+  for (let guard = 0; guard < 100; guard += 1) {
+    const pageData = await getChangeRequests({
+      targetType: "USER",
+      status: CHANGE_REQUEST_STATUSES,
+      action: CHANGE_REQUEST_ACTIONS,
+      page,
+      size,
+      start: start || startDate,
+      end: end || endDate,
+      force,
+    });
+    const rows = pageData.content || [];
+    raw = raw.concat(rows);
+    if (rows.length < size) break;
+    page += 1;
+  }
   const content = sortChangeRequestsByDisplayDateDesc(
-    (pageData.content || []).map(normalizeChangeRequestForHistory),
+    raw.map(normalizeChangeRequestForHistory),
   );
   return {
     list: content,
     content,
-    totalElements: Number(pageData.totalElements || content.length),
-    page,
-    size,
+    totalElements: content.length,
+    page: 1,
+    size: content.length,
   };
 }
 

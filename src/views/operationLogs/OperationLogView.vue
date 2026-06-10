@@ -26,7 +26,7 @@
       </div>
     </SearchFilterBar>
 
-    <BaseTable :columns="columns" :rows="rows" row-key="rowKey">
+    <BaseTable :columns="columns" :rows="pagedRows" row-key="rowKey">
       <template #cell-displayDate="{ row }">
         {{ formatDateTime(row.displayDate) }}
       </template>
@@ -48,7 +48,12 @@
       </template>
       <template #empty><EmptyState v-if="rows.length === 0" /></template>
     </BaseTable>
-    <BasePagination :page="1" :total="rows.length" :size="20" />
+    <BasePagination
+      :page="currentPage"
+      :total="rows.length"
+      :size="PAGE_SIZE"
+      @update:page="currentPage = $event"
+    />
   </div>
 </template>
 
@@ -83,6 +88,9 @@ const filters = reactive({
   startDate: "",
   endDate: "",
 });
+
+const currentPage = ref(1);
+const PAGE_SIZE = 20;
 
 const columns = [
   { key: "displayDate", label: "日期" },
@@ -124,6 +132,26 @@ const rows = computed(() =>
       const matchStatus = !filters.status || row.status === filters.status;
       return matchKeyword && matchTargetType && matchAction && matchStatus;
     }),
+);
+
+const pagedRows = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE;
+  return rows.value.slice(start, start + PAGE_SIZE);
+});
+
+watch(
+  () => [filters.keyword, filters.targetType, filters.action, filters.status],
+  () => {
+    currentPage.value = 1;
+  },
+);
+
+watch(
+  () => rows.value.length,
+  () => {
+    const totalPages = Math.max(1, Math.ceil(rows.value.length / PAGE_SIZE));
+    if (currentPage.value > totalPages) currentPage.value = totalPages;
+  },
 );
 
 onMounted(loadOperationLogs);
