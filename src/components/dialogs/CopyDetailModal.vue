@@ -39,7 +39,7 @@
           </FieldRow>
           <FieldRow label="文案時效">
             <span class="inline-flex items-center gap-2 text-sm font-bold leading-normal text-natural">
-              <span class="grid size-5 rounded-full border border-2 border-primary place-items-center">
+              <span class="grid size-5 rounded-full border-2 border-primary place-items-center">
                 <span class="size-2.5 rounded-full bg-primary" />
               </span>
               {{ retentionLabel }}
