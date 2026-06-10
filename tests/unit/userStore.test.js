@@ -52,4 +52,18 @@ describe("userStore.fetchUsers caching", () => {
     await store.fetchUsers({ status: "ACTIVE", size: 100, force: true });
     expect(getUsers).toHaveBeenCalledTimes(2);
   });
+
+  it("fetches further pages when a status exceeds one page (>100)", async () => {
+    const store = useUserStore();
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({ id: `u${i}` }));
+    const tail = Array.from({ length: 30 }, (_, i) => ({ id: `u${100 + i}` }));
+    getUsers
+      .mockResolvedValueOnce({ content: fullPage, totalElements: 130 })
+      .mockResolvedValueOnce({ content: tail, totalElements: 130 });
+
+    await store.fetchUsers({ status: "ACTIVE", size: 100 });
+
+    expect(getUsers).toHaveBeenCalledTimes(2);
+    expect(store.getCachedUsers("ACTIVE")).toHaveLength(130);
+  });
 });

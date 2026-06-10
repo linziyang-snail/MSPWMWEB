@@ -117,12 +117,7 @@ export const useUserStore = defineStore("users", {
       this.inFlightByKey[key] = (async () => {
         const pages = await Promise.all(
           statuses.map((singleStatus) =>
-            getUsers({
-              page: this.page,
-              size: this.size,
-              ...requestParams,
-              status: singleStatus,
-            }),
+            fetchAllUsersForStatus(singleStatus, requestParams),
           ),
         );
         const response = mergeUserPages(pages, requestParams);
@@ -213,6 +208,24 @@ function normalizeStatusList(status) {
 
 function buildStatusKey(status) {
   return normalizeStatusList(status).sort().join(",");
+}
+
+// Fetch every page for one status (1 request for <=100 rows; more only when
+// the dataset exceeds a page) so client-side sort/filter/search see all rows.
+async function fetchAllUsersForStatus(status, requestParams = {}) {
+  const size = 100;
+  let page = 1;
+  let content = [];
+  let totalElements = 0;
+  for (let guard = 0; guard < 100; guard += 1) {
+    const response = await getUsers({ ...requestParams, status, page, size });
+    const rows = response?.content || [];
+    content = content.concat(rows);
+    totalElements = Number(response?.totalElements ?? content.length);
+    if (rows.length < size) break;
+    page += 1;
+  }
+  return { content, totalElements, page: 1, size: content.length };
 }
 
 function mergeUserPages(pages = [], params = {}) {

@@ -181,7 +181,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in filteredRows" :key="row.id"
+          <tr v-for="row in pagedRows" :key="row.id"
             class="h-20 border-b border-border-muted last:border-0 hover:bg-background-hover">
             <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">
               {{ formatDate(row.createdAt) }}
@@ -272,16 +272,16 @@
         <div class="flex items-center gap-2 text-xs font-bold leading-normal text-natural">
           <button
             class="px-4 text-center transition border rounded h-7 border-text-grey bg-background-surface hover:bg-background-hover disabled:opacity-60"
-            type="button" disabled>
+            type="button" :disabled="currentPage <= 1" @click="currentPage -= 1">
             上頁
           </button>
           <span
             class="grid px-4 border rounded h-7 min-w-10 place-items-center border-primary bg-primary text-text-inverse">
-            {{ currentPage }}
+            {{ currentPage }} / {{ totalPages }}
           </span>
           <button
             class="px-4 text-center transition border rounded h-7 border-text-grey bg-background-surface hover:bg-background-hover disabled:opacity-60"
-            type="button" disabled>
+            type="button" :disabled="currentPage >= totalPages" @click="currentPage += 1">
             下頁
           </button>
         </div>
@@ -398,6 +398,7 @@ const expandedChangeIds = ref([]);
 const originalInfoLoadingIds = ref([]);
 const originalInfoErrors = ref({});
 const currentPage = ref(1);
+const PAGE_SIZE = 20;
 const sortState = ref({ key: "createdAt", direction: "desc" });
 const accountKeyword = ref("");
 const activeStartDate = ref("");
@@ -474,6 +475,22 @@ const filteredRows = computed(() => {
   rows = filterRowsByAccountFilters(rows);
   return sortRows(rows);
 });
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredRows.value.length / PAGE_SIZE)),
+);
+
+const pagedRows = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE;
+  return filteredRows.value.slice(start, start + PAGE_SIZE);
+});
+
+watch(
+  () => filteredRows.value.length,
+  () => {
+    if (currentPage.value > totalPages.value) currentPage.value = totalPages.value;
+  },
+);
 
 function getRouteDisplayStatuses() {
   if (route.name === "AccountActive") return ["ACTIVE"];
