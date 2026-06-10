@@ -476,7 +476,9 @@ const filteredRows = computed(() => {
 });
 
 function getRouteDisplayStatuses() {
-  if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
+  if (route.name === "AccountActive") return ["ACTIVE"];
+  if (route.name === "AccountDisabled" || route.name === "AccountLocked")
+    return ["LOCKED", "PASSWORD_INVALID"];
   if (routeStatus.value === "DELETED") return ["DISABLED"];
   return [routeStatus.value];
 }
@@ -1176,10 +1178,11 @@ async function reloadAccountDataAfterReview(reviewResult = "approve", reviewedRo
 
 const accountRouteApiStatus = computed(() => {
   if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
-  if (route.name === "AccountDisabled" || route.name === "AccountLocked") return "LOCKED";
+  if (route.name === "AccountDisabled" || route.name === "AccountLocked")
+    return ["LOCKED", "PASSWORD_INVALID"];
   if (route.name === "AccountDeleted") return "DISABLED";
   if (route.name === "AccountPasswordInvalid") return "PASSWORD_INVALID";
-  if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
+  if (route.name === "AccountActive") return "ACTIVE";
   return "ACTIVE";
 });
 
