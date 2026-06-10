@@ -24,8 +24,8 @@
       </button>
     </header>
 
-    <div :class="reviewerMode && copy.status === 'PENDING' ? 'xl:grid xl:grid-cols-12 xl:gap-10' : ''">
-      <div class="flex gap-4 rounded-xl border border-primary-border bg-primary-subtle/60 px-5 py-6 xl:col-span-11">
+    <div :class="reviewerMode && copy.status === 'PENDING' ? 'xl:flex xl:items-start xl:gap-6' : ''">
+      <div class="flex gap-4 rounded-xl border border-primary-border bg-primary-subtle/60 px-5 py-6 xl:min-w-0 xl:flex-1">
         <div class="pt-0.5">
           <span class="grid rounded-full size-8 place-items-center bg-primary text-text-inverse">
             <DocIcon class="size-4" />
@@ -103,7 +103,7 @@
           </div>
         </div>
       </div>
-      <aside v-if="reviewerMode && copy.status === 'PENDING' && canReview" class="mt-4 flex w-full justify-end gap-4 xl:col-span-1 xl:mt-0 xl:w-24 xl:flex-col xl:justify-center xl:gap-6">
+      <aside v-if="reviewerMode && copy.status === 'PENDING' && canReview" class="mt-4 flex w-full justify-end gap-4 xl:mt-0 xl:w-24 xl:shrink-0 xl:flex-col xl:justify-center xl:gap-6">
         <button
           type="button"
           class="inline-flex h-10 w-24 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-base font-bold leading-normal text-text-inverse transition hover:bg-primary-hover"
@@ -119,7 +119,7 @@
           <CancelIcon /> <span>駁回</span>
         </button>
       </aside>
-      <aside v-else-if="reviewerMode && copy.status === 'PENDING'" class="mt-4 flex w-full justify-end xl:col-span-1 xl:mt-0 xl:w-24 xl:items-center xl:justify-center">
+      <aside v-else-if="reviewerMode && copy.status === 'PENDING'" class="mt-4 flex w-full justify-end xl:mt-0 xl:w-24 xl:shrink-0 xl:items-center xl:justify-center">
         <span class="text-xs font-medium leading-5 text-text-grey">等待其他管理員審核</span>
       </aside>
     </div>
