@@ -90,6 +90,11 @@ import { getOrganizations } from "@/services/organizationService";
 import { createUser } from "@/services/userService";
 import { useRoleStore } from "@/stores/roleStore";
 import { isActiveSectionOrganization, roleLabelMap } from "@/utils/constants";
+import {
+  normalizeEmployeeId,
+  validateEmployeeId,
+  validatePassword,
+} from "@/utils/validators";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -208,34 +213,6 @@ function normalizeOrganizationRows(response) {
   if (Array.isArray(response?.data)) return response.data;
   if (Array.isArray(response?.data?.content)) return response.data.content;
   return [];
-}
-
-function normalizeEmployeeId(value) {
-  return String(value || "").trim().padStart(7, "0");
-}
-
-function validateEmployeeId(value) {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) return "請輸入員編";
-  if (!/^\d+$/.test(rawValue)) return "員編限輸入數字";
-  if (rawValue.length > 7) return "員編最多7碼";
-  return "";
-}
-
-function validatePassword(value, accountId) {
-  if (!value) return "密碼必須至少12個字元";
-  if (value.length < 12) return "密碼必須至少12個字元";
-  const categoryCount = [
-    /[a-z]/.test(value),
-    /[A-Z]/.test(value),
-    /\d/.test(value),
-    /[^A-Za-z0-9]/.test(value),
-  ].filter(Boolean).length;
-  if (categoryCount < 3) return "密碼須包含英文大小寫、數字、符號其中三項";
-  if (accountId && value.toLowerCase().includes(accountId.toLowerCase())) {
-    return "密碼不可包含帳號";
-  }
-  return "";
 }
 
 const UserPlusIcon = (_props = {}, context = {}) =>
