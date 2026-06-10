@@ -5,3 +5,15 @@ dist/
 .env
 .env.*
 !.env.example
+
+# AI assistant / coding-tool files — keep local, not for the company repo
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.cursor/
+.cursorrules
+.cursorignore
+.windsurfrules
+.aider*
+.mcp.json
+.github/copilot-instructions.md
