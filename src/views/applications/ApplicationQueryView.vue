@@ -295,7 +295,8 @@ const categorySortState = ref({ key: "date", direction: "desc" });
 
 onMounted(async () => {
   try {
-    if (isCategoryPage.value) await refreshCategoryData();
+    if (isCategoryPage.value)
+      await refreshCategoryData({ forceOrganizations: true, forceRequests: true });
   } catch (error) {
     console.error(error);
   }
@@ -304,7 +305,8 @@ onMounted(async () => {
 watch(
   () => route.name,
   async () => {
-    if (isCategoryPage.value) await refreshCategoryData();
+    if (isCategoryPage.value)
+      await refreshCategoryData({ forceOrganizations: true, forceRequests: true });
   },
 );
 

@@ -1206,7 +1206,7 @@ watch(
   async () => {
     try {
       resetOriginalInfoPanel();
-      await reloadAccountData();
+      await reloadAccountData({ forceUsers: true, forceRequests: true });
     } catch (error) {
       console.error(error);
     }
