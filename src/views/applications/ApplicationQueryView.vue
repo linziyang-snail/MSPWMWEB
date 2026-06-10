@@ -661,8 +661,10 @@ function resolveOrganizationName(
   const payloadName =
     after.orgName ||
     after.categoryName ||
+    after.name ||
     payload.orgName ||
-    payload.categoryName;
+    payload.categoryName ||
+    payload.name;
   if (payloadName) return payloadName;
   const targetId = row.targetId || sourceOrg?.id;
   return (
