@@ -39,7 +39,7 @@ export const sidebarSections = [
     highlightActive: false,
     children: [
       { label: "全部科別", to: "/categories/all" },
-      { label: "待審核科別", to: "/categories/pending", count: 4 },
+      { label: "待審核科別", to: "/categories/pending" },
       { label: "已駁回科別", to: "/categories/rejected" },
       { label: "已刪除科別", to: "/categories/deleted" },
     ],

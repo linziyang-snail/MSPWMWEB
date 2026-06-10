@@ -38,39 +38,12 @@ export async function getCopyChangeRequests(params = {}) {
   };
 }
 
-export const getCopyPendingRequests = (params = {}) =>
-  getCopyChangeRequests({ ...params, status: "PENDING" });
-
-export const getCopyApprovedRequests = (params = {}) =>
-  getCopyChangeRequests({ ...params, status: "APPROVED" });
-
-export const getCopyRejectedRequests = (params = {}) =>
-  getCopyChangeRequests({ ...params, status: "REJECTED" });
-
-export const getCopyCanceledRequests = (params = {}) =>
-  getCopyChangeRequests({ ...params, status: "CANCELED" });
-
 export const approveCopyChangeRequest = (id) => approveChangeRequest({ id });
 
 export const rejectCopyChangeRequest = (id, reason = "") =>
   rejectChangeRequest({ id, remark: reason });
 
 export const cancelCopyChangeRequest = (id) => cancelChangeRequest({ id });
-
-export const getCompatibleCopies = async () =>
-  (await getCopyChangeRequests()).content;
-
-export const getCompatibleCopyCounts = () => Promise.resolve({});
-
-export const createCompatibleCopy = (payload) => submitCopy(payload);
-
-export const cancelCompatibleCopy = (id) => cancelCopyChangeRequest(id);
-
-export const approveCompatibleCopy = (id) => approveCopyChangeRequest(id);
-
-export const rejectCompatibleCopy = (id, reason) => rejectCopyChangeRequest(id, reason);
-
-export const SubmitCopy = (data) => submitCopy(data);
 
 function normalizeSubmitCopyPayload(payload = {}) {
   const expirationType = payload.expirationType || "NONE";
