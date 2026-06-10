@@ -115,7 +115,7 @@
   --spacing-logo-bank-w: 167px;
   --spacing-logo-bank-h: 45px;
   --spacing-modal-password: 448px;
-  --spacing-modal-copy-detail: clamp(344px, 40vw, 896px);
+  --spacing-modal-copy-detail: 960px;
   --spacing-modal-preview: 672px;
   --spacing-modal-shell-max: calc(100dvh - 48px);
   --spacing-modal-md: 640px;

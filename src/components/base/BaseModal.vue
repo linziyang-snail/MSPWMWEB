@@ -81,16 +81,19 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "close"]);
 
+// Always pair the panel's base `w-full` with a max-width only (no fixed width),
+// so every modal keeps its design width and only shrinks once the viewport gets
+// narrower than it — instead of overflowing or rescaling continuously.
 const widthClass = computed(
   () =>
     ({
-      sm: "w-modal-password",
+      sm: "max-w-modal-password",
       md: "max-w-modal-md",
-      lg: "w-modal-lg max-w-modal-max",
-      xl: "w-modal-xl max-w-modal-max",
-      copyDetail: "w-modal-copy-detail max-w-modal-max",
-      preview: "w-modal-preview max-w-modal-max",
-      history: "w-modal-history max-w-modal-max",
+      lg: "max-w-modal-lg",
+      xl: "max-w-modal-xl",
+      copyDetail: "max-w-modal-copy-detail",
+      preview: "max-w-modal-preview",
+      history: "max-w-modal-history",
     })[props.size] || "max-w-modal-md",
 );
 
