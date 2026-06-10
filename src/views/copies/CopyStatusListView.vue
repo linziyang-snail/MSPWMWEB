@@ -94,7 +94,7 @@ const currentUserId = computed(() => auth.employeeId || auth.userId || "");
 const isReviewer = computed(() => authRoles.value.includes("MANAGER"));
 const copyCardMode = computed(() => (isReviewer.value ? "reviewer" : "editor"));
 
-onMounted(loadCopies);
+onMounted(() => loadCopies({ force: true }));
 
 const filtered = computed(() => {
   const list = routeStatus.value
@@ -115,7 +115,7 @@ watch(
   () => route.path,
   () => {
     keyword.value = "";
-    loadCopies();
+    loadCopies({ force: true });
   },
 );
 
