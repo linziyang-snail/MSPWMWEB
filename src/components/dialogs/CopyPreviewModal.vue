@@ -73,7 +73,7 @@
             <span class="font-bold text-natural">參數{{ i + 1 }}</span>
             <span
               class="rounded border border-copy-table-border bg-background-surface px-2 py-1 font-normal text-natural">
-              |$|{{ param }}|$|
+              |${{ param }}|
             </span>
             <span class="text-center text-text-grey">→</span>
             <span class="font-bold text-primary">{{ paramValues[i] || "" }}</span>
@@ -117,7 +117,7 @@ watch(
 
 const paramMatches = computed(() => {
   if (!props.content) return [];
-  return [...props.content.matchAll(/\|\$\|([^|]+)\|\$\|/g)].map((m) => m[1]);
+  return [...props.content.matchAll(/\|\$(\d+)\|/g)].map((m) => m[1]);
 });
 
 const paramCount = computed(() => paramMatches.value.length);

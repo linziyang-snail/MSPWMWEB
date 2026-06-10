@@ -263,41 +263,16 @@ function toDateTimeString(value) {
   return `${String(value).slice(0, 10)}T00:00:00`;
 }
 
-const parameterLabels = [
-  "一",
-  "二",
-  "三",
-  "四",
-  "五",
-  "六",
-  "七",
-  "八",
-  "九",
-  "十",
-];
-
-const toChineseNumber = (number) => {
-  if (number <= parameterLabels.length) return parameterLabels[number - 1];
-  if (number < 20) return `十${parameterLabels[number - 11]}`;
-  const tens = Math.floor(number / 10);
-  const ones = number % 10;
-  return `${parameterLabels[tens - 1]}十${ones ? parameterLabels[ones - 1] : ""}`;
-};
-
-const getParameterLabel = (number) => {
-  return toChineseNumber(number);
-};
-
 const normalizeParameterSpacing = (value) =>
   value
-    .replace(/[ \t]*(\|\$\|[^|]+\|\$\|)[ \t]*/g, " $1 ")
+    .replace(/[ \t]*(\|\$\d+\|)[ \t]*/g, " $1 ")
     .replace(/[ \t]{2,}/g, " ")
     .trimStart();
 
 const insertParameter = () => {
-  const currentCount = [...form.content.matchAll(/\|\$\|[^|]+\|\$\|/g)].length;
+  const currentCount = [...form.content.matchAll(/\|\$\d+\|/g)].length;
   const nextParameterNumber = currentCount + 1;
-  const token = `|$|參數${getParameterLabel(nextParameterNumber)}|$|`;
+  const token = `|$${nextParameterNumber}|`;
   const textarea = contentTextareaRef.value?.textareaRef;
   const start = textarea?.selectionStart ?? form.content.length;
   const end = textarea?.selectionEnd ?? start;
