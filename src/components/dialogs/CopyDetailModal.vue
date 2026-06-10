@@ -22,8 +22,8 @@
       <SectionCard>
         <SectionTitle icon="hash" title="選取APP對應之推播分類" />
         <div class="grid grid-cols-2 mt-5 gap-x-12 gap-y-3">
-          <KeyValueRow label="行動銀行" :value="copy.nnbCategory || '個人'" />
-          <KeyValueRow label="NewNew" :value="copy.wbkCategory || '消費'" />
+          <KeyValueRow label="行動銀行" :value="copy.wbkCategory || '個人'" />
+          <KeyValueRow label="NewNew" :value="copy.nnbCategory || '消費'" />
         </div>
       </SectionCard>
 

@@ -10,10 +10,10 @@
         <SectionTitle title="選取APP對應之推播分類" />
         <div class="grid gap-8 mt-5 md:grid-cols-2">
           <FormField label="行動銀行">
-            <BaseSelect v-model="form.nnbCategory" :options="wbkOptions" />
+            <BaseSelect v-model="form.wbkCategory" :options="wbkOptions" />
           </FormField>
           <FormField label="NewNew">
-            <BaseSelect v-model="form.wbkCategory" :options="nnbOptions" />
+            <BaseSelect v-model="form.nnbCategory" :options="nnbOptions" />
           </FormField>
         </div>
       </section>
@@ -137,8 +137,8 @@ const clickActionOptions = CLICK_ACTION_OPTIONS;
 const form = reactive({
   code: "",
   title: "",
-  nnbCategory: "個人",
-  wbkCategory: "消費",
+  nnbCategory: "消費",
+  wbkCategory: "個人",
   content: "",
   clickAction: "NONE",
   url: "",
@@ -171,8 +171,8 @@ watch(
       Object.assign(form, {
         code: source.code,
         title: `${source.title}（副本）`,
-        nnbCategory: source.nnbCategory || source.category || "個人",
-        wbkCategory: source.wbkCategory || "消費",
+        nnbCategory: source.nnbCategory || source.category || "消費",
+        wbkCategory: source.wbkCategory || "個人",
         content: source.content || "",
         clickAction: source.clickAction || "NONE",
         url: source.url || "",
@@ -192,8 +192,8 @@ const resetForm = () => {
   Object.assign(form, {
     code: "",
     title: "",
-    nnbCategory: "個人",
-    wbkCategory: "消費",
+    nnbCategory: "消費",
+    wbkCategory: "個人",
     content: "",
     clickAction: "NONE",
     url: "",
