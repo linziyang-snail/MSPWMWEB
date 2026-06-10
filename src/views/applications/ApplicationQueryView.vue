@@ -368,6 +368,18 @@ const displayedCategoryRows = computed(() =>
   sortCategoryRows(categoryRows.value),
 );
 
+const isActiveCategoryPage = computed(() => route.name === "CategoryAll");
+const isPendingCategoryPage = computed(() => route.name === "CategoryPending");
+const isRejectedCategoryPage = computed(
+  () => route.name === "CategoryRejected",
+);
+const isTableCategoryPage = computed(
+  () => isCategoryPage.value && !isActiveCategoryPage.value,
+);
+
+// Declared after the is*CategoryPage computeds: this watch eagerly evaluates
+// displayedCategoryRows -> categoryRows at setup, which reads isPendingCategory
+// Page, so those must already exist (otherwise a TDZ error breaks reactivity).
 const categoryTotalPages = computed(() =>
   Math.max(1, Math.ceil(displayedCategoryRows.value.length / PAGE_SIZE)),
 );
@@ -384,15 +396,6 @@ watch(
       currentPage.value = categoryTotalPages.value;
     }
   },
-);
-
-const isActiveCategoryPage = computed(() => route.name === "CategoryAll");
-const isPendingCategoryPage = computed(() => route.name === "CategoryPending");
-const isRejectedCategoryPage = computed(
-  () => route.name === "CategoryRejected",
-);
-const isTableCategoryPage = computed(
-  () => isCategoryPage.value && !isActiveCategoryPage.value,
 );
 const categoryTrailingColumnLabel = computed(() =>
   isRejectedCategoryPage.value
