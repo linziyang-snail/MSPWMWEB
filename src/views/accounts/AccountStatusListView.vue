@@ -493,9 +493,9 @@ watch(
 );
 
 function getRouteDisplayStatuses() {
-  if (route.name === "AccountActive") return ["ACTIVE"];
-  if (route.name === "AccountDisabled" || route.name === "AccountLocked")
-    return ["LOCKED", "PASSWORD_INVALID"];
+  // PASSWORD_INVALID (需改密碼) is an active-but-must-change state, shown under
+  // 已啟用; 已停用 holds only LOCKED.
+  if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
   if (routeStatus.value === "DELETED") return ["DISABLED"];
   return [routeStatus.value];
 }
@@ -1195,11 +1195,10 @@ async function reloadAccountDataAfterReview(reviewResult = "approve", reviewedRo
 
 const accountRouteApiStatus = computed(() => {
   if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
-  if (route.name === "AccountDisabled" || route.name === "AccountLocked")
-    return ["LOCKED", "PASSWORD_INVALID"];
+  if (route.name === "AccountDisabled" || route.name === "AccountLocked") return "LOCKED";
   if (route.name === "AccountDeleted") return "DISABLED";
   if (route.name === "AccountPasswordInvalid") return "PASSWORD_INVALID";
-  if (route.name === "AccountActive") return "ACTIVE";
+  if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
   return "ACTIVE";
 });
 
