@@ -1,3 +1,5 @@
+import { expect } from "@playwright/test";
+
 // Shared E2E helpers. Employee IDs default to the known test accounts; only the
 // PASSWORDS must be supplied via env vars (never hardcode passwords):
 //   E2E_USER_PW      經辦         (id default 1126580)
@@ -22,10 +24,20 @@ export function hasCreds(role) {
 
 export async function login(page, role) {
   const a = accounts[role];
+  // Start from a clean session so switching users mid-test can't leave auth or
+  // overlay state that blocks the login form.
   await page.goto("/login");
+  await page.evaluate(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+  await page.goto("/login");
+
+  const loginButton = page.getByRole("button", { name: "立即登入" });
   await page.getByPlaceholder("請輸入您的員工編號").fill(a.id);
   await page.getByPlaceholder("請輸入您的密碼").fill(a.pw);
-  await page.getByRole("button", { name: /立即登入|登入中/ }).click();
+  await expect(loginButton).toBeEnabled();
+  await loginButton.click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
     timeout: 15_000,
   });
