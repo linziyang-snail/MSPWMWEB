@@ -48,6 +48,16 @@ test.describe("copy flow", () => {
     return page.locator("article").filter({ hasText: title });
   }
 
+  // Confirm a cancel dialog and wait for the PUT so a following navigation
+  // doesn't race the not-yet-committed status change.
+  async function confirmCancel(page) {
+    const done = page.waitForResponse(
+      (r) => r.url().includes("/cancel") && r.request().method() === "PUT",
+    );
+    await page.getByRole("button", { name: "確認刪除" }).click();
+    await done;
+  }
+
   test("USER submits a copy and it shows up under 待審核文案", async ({
     page,
   }) => {
@@ -108,7 +118,7 @@ test.describe("copy flow", () => {
     const card = await searchPending(page, "/copies/pending", title);
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("button", { name: "取消送審" }).click();
-    await page.getByRole("button", { name: "確認刪除" }).click();
+    await confirmCancel(page);
 
     await searchPending(page, "/copies/cancelled", title);
     await expect(page.getByRole("heading", { name: title })).toBeVisible({
@@ -127,7 +137,7 @@ test.describe("copy flow", () => {
     let card = await searchPending(page, "/copies/pending", title);
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("button", { name: "取消送審" }).click();
-    await page.getByRole("button", { name: "確認刪除" }).click();
+    await confirmCancel(page);
 
     // duplicate from cancelled (new number; the title is prefilled with （副本）)
     card = await searchPending(page, "/copies/cancelled", title);
