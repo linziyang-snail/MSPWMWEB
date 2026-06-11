@@ -24,8 +24,10 @@ test.describe("category flow", () => {
     await page.goto("/categories/pending");
     const row = page.locator("tr").filter({ hasText: name });
     await expect(row).toBeVisible({ timeout: 15_000 });
+    const approved = page.waitForResponse((r) => r.url().includes("/approve"));
     await row.getByRole("button", { name: "核准" }).click();
     await page.getByRole("button", { name: "確認核准" }).click();
+    await approved;
   }
 
   test("ADMIN creates a category and it shows up under 待審核科別", async ({

@@ -80,8 +80,12 @@ test.describe("copy flow", () => {
     await login(page, "MANAGER");
     const card = await searchPending(page, "/copies/pending", title);
     await expect(card).toBeVisible({ timeout: 15_000 });
+    const approved = page.waitForResponse(
+      (r) => r.url().includes("/approve") && r.request().method() === "PUT",
+    );
     await card.getByRole("button", { name: "核准" }).click();
     await page.getByRole("button", { name: "確認核准" }).click();
+    await approved;
 
     await searchPending(page, "/copies/approved", title);
     await expect(page.getByRole("heading", { name: title })).toBeVisible({
@@ -100,9 +104,13 @@ test.describe("copy flow", () => {
     await login(page, "MANAGER");
     const card = await searchPending(page, "/copies/pending", title);
     await expect(card).toBeVisible({ timeout: 15_000 });
+    const rejected = page.waitForResponse(
+      (r) => r.url().includes("/reject") && r.request().method() === "PUT",
+    );
     await card.getByRole("button", { name: "駁回" }).click();
     await page.getByPlaceholder(/請輸入駁回原因/).fill("E2E駁回原因測試");
     await page.getByRole("button", { name: "確認駁回" }).click();
+    await rejected;
 
     await searchPending(page, "/copies/rejected", title);
     await expect(page.getByRole("heading", { name: title })).toBeVisible({
