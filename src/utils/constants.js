@@ -60,13 +60,6 @@ export const statusLabelMap = {
   審核中: "審核中",
 };
 
-export const requestStatusLabelMap = {
-  PENDING: "待覆核",
-  APPROVED: "已放行",
-  REJECTED: "已駁回",
-  CANCELED: "已取消",
-};
-
 export const requestActionLabelMap = {
   CREATE: "新增",
   UPDATE: "修改",
@@ -94,14 +87,6 @@ export const expirationTypeLabelMap = {
   NONE: "無",
   RETENTION_MONTHS: "保存時效",
   EXPIRED_AT: "指定到期日",
-};
-
-export const copyStatusLabelMap = {
-  APPROVED: "已放行",
-  PENDING: "待覆核",
-  REJECTED: "已駁回",
-  CANCELED: "已取消",
-  DISABLED: "已停用",
 };
 
 export const CLICK_ACTION_OPTIONS = [
@@ -146,24 +131,12 @@ export function isActiveOrganization(org = {}) {
   return normalizeOrganizationStatusValue(org.status) === "ACTIVE";
 }
 
-export function isActiveStatus(status) {
-  return normalizeOrganizationStatusValue(status) === "ACTIVE";
-}
-
 export function isPendingOrganization(org = {}) {
   return normalizeOrganizationStatusValue(org.status) === "PENDING";
 }
 
-export function isPendingStatus(status) {
-  return normalizeOrganizationStatusValue(status) === "PENDING";
-}
-
 export function isDisabledOrganization(org = {}) {
   return normalizeOrganizationStatusValue(org.status) === "DISABLED";
-}
-
-export function isDisabledStatus(status) {
-  return normalizeOrganizationStatusValue(status) === "DISABLED";
 }
 
 export function isActiveSectionOrganization(org = {}) {
