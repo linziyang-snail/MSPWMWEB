@@ -19,7 +19,10 @@ test.describe("account flow", () => {
   // teleported option. When the option text equals the trigger text, .last()
   // targets the teleported option rather than the trigger.
   async function pickFromSelect(page, labelText, optionName) {
+    // Scope to the modal's <form> (the active page has no form of its own) so the
+    // label match can't hit the table's sortable 科別 column header.
     const trigger = page
+      .locator("form")
       .getByText(labelText, { exact: true })
       .locator("..")
       .getByRole("button");
