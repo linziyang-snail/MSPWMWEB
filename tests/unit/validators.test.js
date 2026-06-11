@@ -78,8 +78,7 @@ describe("validateCopyForm", () => {
     expect(validateCopyForm({ ...base, number: "" }).number).toBeTruthy();
   });
   it("requires url when clickAction is OPEN_URL", () => {
-    // NOTE: business rule says URL is optional even for OPEN_URL — this test
-    // pins the CURRENT behavior; revisit validators.js if the rule changes.
+    // OPEN_URL requires a url; a blank url must be a validation error.
     expect(validateCopyForm({ ...base, clickAction: "OPEN_URL", url: "" }).url).toBeTruthy();
   });
   it("validates retentionMonths range 1-12", () => {
