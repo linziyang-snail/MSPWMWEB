@@ -66,35 +66,6 @@ export function invalidateOrganizations(status) {
   Object.keys(organizationsInFlight).forEach((key) => delete organizationsInFlight[key]);
 }
 
-/**
- * 查詢可管理的組織列表
- * @returns {Promise} - 組織列表
- */
-export const GetOrganizations = (params) => getOrganizations(params);
-
-/**
- * 新增組織
- * @param {Object} data - 新增組織資料
- * @returns {Promise} - 新增組織結果
- */
-export const CreateOrganization = (data) => createOrganization(data);
-
-/**
- * 修改組織
- * @param {number} id - 組織 ID
- * @param {Object} data - 修改組織資料
- * @returns {Promise} - 修改組織結果
- */
-export const UpdateOrganization = (id, data) =>
-  updateOrganization(id, data);
-
-/**
- * 停用組織
- * @param {number} id - 組織 ID
- * @returns {Promise} - 停用組織結果
- */
-export const DisableOrganization = (id) => disableOrganization({ id });
-
 function normalizeIdParams(params) {
   if (params && typeof params === "object") return params;
   return { id: params };

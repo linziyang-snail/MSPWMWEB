@@ -18,9 +18,3 @@ export async function getRoles(options = {}) {
     });
   return rolesPromise;
 }
-
-/**
- * 查詢所有角色
- * @returns {Promise} - 角色列表
- */
-export const GetRoles = () => getRoles();

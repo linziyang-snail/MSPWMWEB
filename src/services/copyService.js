@@ -4,6 +4,8 @@ import {
   getChangeRequests,
   rejectChangeRequest,
 } from "@/services/approvalService";
+import { safeParsePayload } from "@/utils/changeRequestUtils";
+
 import apiRequest from "./apiRequest";
 
 const COPY_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELED"];
@@ -111,18 +113,6 @@ function normalizeCopyChangeRequest(row = {}) {
     remark: row.remark || "",
     payload,
   };
-}
-
-function safeParsePayload(payload) {
-  if (!payload) return {};
-  if (typeof payload === "object") return payload;
-  const normalized = String(payload).trim();
-  if (!normalized) return {};
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    return {};
-  }
 }
 
 function getCopyActionLabel(action = "") {
