@@ -89,6 +89,7 @@ import BaseButton from "@/components/base/BaseButton.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import { ChangeMyPassword } from "@/services/userService";
 import { useAuthStore } from "@/stores/authStore";
+import { validatePassword } from "@/utils/validators";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -119,11 +120,7 @@ watch(
 
 const validate = () => {
   errors.current = form.current ? "" : "請輸入目前密碼";
-  errors.password = !form.password
-    ? "請輸入新密碼"
-    : form.password.length < 12
-      ? "密碼必須至少12個字元"
-      : "";
+  errors.password = validatePassword(form.password, auth.userId);
   errors.confirm = !form.confirm
     ? "請再次輸入新密碼"
     : form.confirm !== form.password

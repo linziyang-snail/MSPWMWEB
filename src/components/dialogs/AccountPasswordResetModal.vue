@@ -75,6 +75,7 @@ import eyeOpenIcon from "@/assets/loginEyeOpen.svg";
 import keyIcon from "@/assets/icon-key.svg";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
+import { validatePassword } from "@/utils/validators";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -103,11 +104,7 @@ watch(
 );
 
 function validate() {
-  errors.password = !form.password
-    ? "密碼必須至少12個字元"
-    : form.password.length < 12
-      ? "密碼必須至少12個字元"
-      : "";
+  errors.password = validatePassword(form.password, props.account?.id);
   errors.confirm = !form.confirm
     ? "請再次輸入新密碼"
     : form.confirm !== form.password
