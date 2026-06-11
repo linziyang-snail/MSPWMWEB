@@ -24,13 +24,31 @@ test.describe("copy flow", () => {
     await page.getByRole("button", { name: "新增文案" }).click();
     await page.getByPlaceholder("C123456789012").fill(number);
     await page.getByPlaceholder("請輸入文案標題").fill(title);
-    await page.getByPlaceholder("請輸入推播文案內容...").fill(`內容 ${number}`);
-    // Wait for the POST to finish so a following navigation doesn't abort it.
+
+    // Realistic content: a sentence with 1-10 inserted parameters interspersed
+    // between text (exercises the 插入參數 feature). Plus a 備註.
+    const content = page.getByPlaceholder("請輸入推播文案內容...");
+    const insertBtn = page.getByRole("button", { name: "插入參數" });
+    await content.fill("這是一段推播文案，有關於信用卡優惠 ");
+    const paramCount = 1 + Math.floor(Math.random() * 10);
+    for (let i = 0; i < paramCount; i += 1) {
+      await content.focus();
+      await page.keyboard.press("Control+End");
+      await insertBtn.click();
+      await content.focus();
+      await page.keyboard.press("Control+End");
+      await page.keyboard.type(` 謝謝${i + 1} `);
+    }
+    await page.getByPlaceholder("請輸入文案備註...").fill(`E2E備註 ${number}`);
+
+    // Wait for the POST, and verify the inserted parameters + 備註 reached the API.
     const posted = page.waitForResponse(
       (r) => r.url().includes("/api/copies") && r.request().method() === "POST",
     );
     await page.getByRole("button", { name: "送出審核" }).click();
-    await posted;
+    const body = (await posted).request().postDataJSON();
+    expect(body.content).toMatch(/\|\$1\|/); // at least one inserted parameter
+    expect(body.remark).toBeTruthy(); // 備註 was sent
   }
 
   // Search filters across all loaded rows, so the copy is found regardless of
