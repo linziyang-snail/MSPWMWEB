@@ -130,6 +130,28 @@ test.describe("account flow", () => {
     await page.getByRole("button", { name: "確認" }).click(); // 密碼已更新 alert
   }
 
+  // Search the 已啟用 list for an account and click one of its row actions
+  // (aria-label: 重設密碼 / 編輯帳號 / 刪除帳號).
+  async function openActiveRowAction(page, id, ariaLabel) {
+    await page.goto("/accounts/active");
+    await page.getByPlaceholder("請輸入員編、人員姓名").fill(id);
+    await page.getByRole("button", { name: "查詢" }).click();
+    const row = page.locator("tr").filter({ hasText: id });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await row.getByRole("button", { name: ariaLabel }).click();
+  }
+
+  // UPDATE/DELETE requests appear as cards under 待審核帳號異動.
+  async function approveChangeReview(page, id) {
+    await page.goto("/accounts/pending-review");
+    const card = page.locator("article").filter({ hasText: id });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    const approved = page.waitForResponse((r) => r.url().includes("/approve"));
+    await card.getByRole("button", { name: "核准" }).click();
+    await page.getByRole("button", { name: "確認核准" }).click();
+    await approved;
+  }
+
   test("ADMIN creates a 經辦 account, ADMIN2 approves → shows in 已啟用", async ({
     page,
   }) => {
@@ -155,5 +177,82 @@ test.describe("account flow", () => {
     // Now ACTIVE: logging in with the new password reaches the 經辦 home (copies).
     await loginWith(page, id, NEW_PW);
     await expect(page).toHaveURL(/\/copies\//);
+  });
+
+  test("ADMIN edits the account name, ADMIN2 approves the change", async ({
+    page,
+  }) => {
+    const { id } = await createAndApproveAccount(page);
+    const newName = `改名${uid().slice(-4)}`;
+
+    await login(page, "ADMIN");
+    await openActiveRowAction(page, id, "編輯帳號");
+    await page
+      .locator("form")
+      .getByText("人員姓名", { exact: true })
+      .locator("..")
+      .getByRole("textbox")
+      .fill(newName);
+    const updated = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/users/") &&
+        r.request().method() === "PUT" &&
+        !r.url().includes("/password"),
+    );
+    await page.getByRole("button", { name: "儲存變更" }).click();
+    await updated;
+
+    await login(page, "ADMIN2");
+    await approveChangeReview(page, id);
+
+    // the approved new name now shows on the account
+    await login(page, "ADMIN");
+    await page.goto("/accounts/active");
+    await page.getByPlaceholder("請輸入員編、人員姓名").fill(id);
+    await page.getByRole("button", { name: "查詢" }).click();
+    await expect(page.locator("tr").filter({ hasText: newName })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("ADMIN resets the account password (immediate, no approval)", async ({
+    page,
+  }) => {
+    const { id } = await createAndApproveAccount(page);
+
+    await login(page, "ADMIN");
+    await openActiveRowAction(page, id, "重設密碼");
+    await page.getByPlaceholder("請輸入新密碼").fill(NEW_PW);
+    await page.getByPlaceholder("至少12個字元（必填)").fill(NEW_PW);
+    const reset = page.waitForResponse(
+      (r) => r.url().includes("/password") && r.request().method() === "PUT",
+    );
+    await page.getByRole("button", { name: "確認修改" }).click();
+    const body = await (await reset).text();
+    expect(body, "password reset failed").toContain('"0000"');
+  });
+
+  test("ADMIN deletes the account, ADMIN2 approves → 已刪除", async ({
+    page,
+  }) => {
+    const { id } = await createAndApproveAccount(page);
+
+    await login(page, "ADMIN");
+    await openActiveRowAction(page, id, "刪除帳號");
+    const deleted = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/users/") && r.request().method() === "DELETE",
+    );
+    await page.getByRole("button", { name: "確認刪除" }).click();
+    await deleted;
+
+    await login(page, "ADMIN2");
+    await approveChangeReview(page, id);
+
+    await login(page, "ADMIN");
+    await page.goto("/accounts/deleted");
+    await expect(page.locator("tr").filter({ hasText: id })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
