@@ -14,11 +14,16 @@ test.describe("account flow", () => {
     "set E2E_ADMIN_PW and E2E_ADMIN2_PW (two admins are required)",
   );
 
-  // BaseSelect is a custom dropdown: click the trigger (shows the placeholder or
-  // current value), then click the teleported option. When the option text equals
-  // the trigger text, .last() targets the teleported option rather than the trigger.
-  async function pickFromSelect(page, triggerName, optionName) {
-    await page.getByRole("button", { name: triggerName }).click();
+  // BaseSelect is a custom dropdown. Locate the trigger by its field label (not
+  // by its current text, which may be a default value), open it, then click the
+  // teleported option. When the option text equals the trigger text, .last()
+  // targets the teleported option rather than the trigger.
+  async function pickFromSelect(page, labelText, optionName) {
+    const trigger = page
+      .getByText(labelText, { exact: true })
+      .locator("..")
+      .getByRole("button");
+    await trigger.click();
     await page
       .getByRole("button", { name: optionName, exact: true })
       .last()
@@ -55,8 +60,8 @@ test.describe("account flow", () => {
     await page.getByPlaceholder("請輸入員編(限數字)").fill(id);
     await page.getByPlaceholder("至少12個字元（必填)").fill(VALID_PW);
     await page.getByPlaceholder("請輸入中文姓名").fill(name);
-    await pickFromSelect(page, "請選擇科別", category);
-    await pickFromSelect(page, "經辦人員", roleLabel);
+    await pickFromSelect(page, "科別", category);
+    await pickFromSelect(page, "權限等級", roleLabel);
     const created = page.waitForResponse(
       (r) => r.url().includes("/api/users") && r.request().method() === "POST",
     );
