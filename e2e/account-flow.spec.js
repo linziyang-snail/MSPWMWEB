@@ -78,11 +78,12 @@ test.describe("account flow", () => {
   }
 
   async function approveNewAccount(page, id) {
+    // 待審核新帳號 (CREATE) renders as a table; the new account's id is in a cell.
     await page.goto("/accounts/pending-changes");
-    const card = page.locator("article").filter({ hasText: id });
-    await expect(card).toBeVisible({ timeout: 15_000 });
+    const row = page.locator("tr").filter({ hasText: id });
+    await expect(row).toBeVisible({ timeout: 15_000 });
     const approved = page.waitForResponse((r) => r.url().includes("/approve"));
-    await card.getByRole("button", { name: "核准" }).click();
+    await row.getByRole("button", { name: "核准" }).click();
     await page.getByRole("button", { name: "確認核准" }).click();
     await approved;
   }
