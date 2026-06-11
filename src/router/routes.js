@@ -2,15 +2,19 @@ import AppLayout from "@/layouts/AppLayout.vue";
 import AuthLayout from "@/layouts/AuthLayout.vue";
 import { getDefaultEntryPathForRoles } from "@/utils/authRoles";
 import { readAuthStorage } from "@/utils/authStorage";
-import ChangePasswordView from "@/views/account/ChangePasswordView.vue";
-import AccountStatusListView from "@/views/accounts/AccountStatusListView.vue";
-import ApplicationQueryView from "@/views/applications/ApplicationQueryView.vue";
-import LoginView from "@/views/auth/LoginView.vue";
-import CopyStatusListView from "@/views/copies/CopyStatusListView.vue";
-import CopySubmitView from "@/views/copies/CopySubmitView.vue";
-import ForbiddenView from "@/views/errors/ForbiddenView.vue";
-import NotFoundView from "@/views/errors/NotFoundView.vue";
-import OperationLogView from "@/views/operationLogs/OperationLogView.vue";
+// Views are lazy-loaded so each route ships its own chunk (the heavy ADMIN
+// views don't load for USER/MANAGER and vice-versa). Layouts stay static.
+const ChangePasswordView = () => import("@/views/account/ChangePasswordView.vue");
+const AccountStatusListView = () =>
+  import("@/views/accounts/AccountStatusListView.vue");
+const ApplicationQueryView = () =>
+  import("@/views/applications/ApplicationQueryView.vue");
+const LoginView = () => import("@/views/auth/LoginView.vue");
+const CopyStatusListView = () => import("@/views/copies/CopyStatusListView.vue");
+const CopySubmitView = () => import("@/views/copies/CopySubmitView.vue");
+const ForbiddenView = () => import("@/views/errors/ForbiddenView.vue");
+const NotFoundView = () => import("@/views/errors/NotFoundView.vue");
+const OperationLogView = () => import("@/views/operationLogs/OperationLogView.vue");
 
 function getDefaultEntryPath() {
   const auth = readAuthStorage();
