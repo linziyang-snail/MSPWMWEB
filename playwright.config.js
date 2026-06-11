@@ -7,14 +7,20 @@ const baseURL = process.env.E2E_BASE_URL || "http://localhost:5173";
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  // Run serially against the single dev server + shared backend — parallel
+  // workers overwhelmed it and made login/click/goto time out flakily.
+  fullyParallel: false,
+  workers: Number(process.env.E2E_WORKERS) || 1,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  retries: 1,
+  timeout: 60_000,
   reporter: "list",
   use: {
     baseURL,
     trace: "on-first-retry",
     ignoreHTTPSErrors: true,
+    actionTimeout: 20_000,
+    navigationTimeout: 30_000,
   },
   // E2E_CHANNEL=msedge (or chrome) launches the system-installed browser, so no
   // Playwright Chromium download is needed (useful behind a corporate firewall).
