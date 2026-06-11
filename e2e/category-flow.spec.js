@@ -67,7 +67,11 @@ test.describe("category flow", () => {
     await expect(row).toBeVisible({ timeout: 15_000 });
     await row.getByRole("button", { name: "駁回" }).click();
     await page.getByPlaceholder(/請輸入駁回原因/).fill("E2E科別駁回原因");
+    const rejected = page.waitForResponse(
+      (r) => r.url().includes("/reject") && r.request().method() === "PUT",
+    );
     await page.getByRole("button", { name: "確認駁回" }).click();
+    await rejected;
 
     await page.goto("/categories/rejected");
     await expect(page.getByText(name)).toBeVisible({ timeout: 15_000 });
