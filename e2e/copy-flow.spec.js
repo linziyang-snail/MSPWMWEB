@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 import { MUTATE, hasCreds, login } from "./helpers.js";
 
+const SEARCH = "搜尋文案編號、標題或內容...";
+
 // Creates real data — opt in with E2E_MUTATE=1.
 test.describe("copy flow", () => {
   test.skip(!MUTATE, "set E2E_MUTATE=1 to run data-creating flows");
@@ -23,6 +25,14 @@ test.describe("copy flow", () => {
     await posted;
   }
 
+  // Search filters across all loaded rows, so the copy is found regardless of
+  // which page it would otherwise land on.
+  async function findCopyHeading(page, statusPath, title) {
+    await page.goto(statusPath);
+    await page.getByPlaceholder(SEARCH).fill(title);
+    return page.getByRole("heading", { name: title });
+  }
+
   test("USER submits a copy and it shows up under 待審核文案", async ({
     page,
   }) => {
@@ -30,10 +40,8 @@ test.describe("copy flow", () => {
     await login(page, "USER");
     await submitCopy(page, title);
 
-    await page.goto("/copies/pending");
-    await expect(page.getByRole("heading", { name: title })).toBeVisible({
-      timeout: 15_000,
-    });
+    const heading = await findCopyHeading(page, "/copies/pending", title);
+    await expect(heading).toBeVisible({ timeout: 15_000 });
   });
 
   test("MANAGER approves a USER-submitted copy", async ({ page }) => {
@@ -45,14 +53,13 @@ test.describe("copy flow", () => {
 
     await login(page, "MANAGER");
     await page.goto("/copies/pending");
+    await page.getByPlaceholder(SEARCH).fill(title);
     const card = page.locator("article").filter({ hasText: title });
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("button", { name: "核准" }).click();
     await page.getByRole("button", { name: "確認核准" }).click();
 
-    await page.goto("/copies/approved");
-    await expect(page.getByRole("heading", { name: title })).toBeVisible({
-      timeout: 15_000,
-    });
+    const approved = await findCopyHeading(page, "/copies/approved", title);
+    await expect(approved).toBeVisible({ timeout: 15_000 });
   });
 });
