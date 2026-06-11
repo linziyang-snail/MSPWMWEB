@@ -69,7 +69,12 @@ test.describe("account flow", () => {
       (r) => r.url().includes("/api/users") && r.request().method() === "POST",
     );
     await page.getByRole("button", { name: "建立帳號" }).click();
-    await created;
+    const resp = await created;
+    const body = await resp.text();
+    // Surface the real reason if the backend rejected the create.
+    expect(body, `account create failed (status ${resp.status()})`).toContain(
+      '"0000"',
+    );
   }
 
   async function approveNewAccount(page, id) {
