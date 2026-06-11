@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { MUTATE, hasCreds, login, uid } from "./helpers.js";
+import { MUTATE, hasCreds, login, loginWith, uid } from "./helpers.js";
 
-// A password that satisfies the rules (>=12, >=3 of upper/lower/digit/symbol,
-// must not contain the account id).
+// Passwords that satisfy the rules (>=12, >=3 of upper/lower/digit/symbol, must
+// not contain the account id).
 const VALID_PW = "Ubotubot1234!";
+const NEW_PW = "Ubotubot5678!";
 
 // Creates real data (a throwaway category + account) — opt in with E2E_MUTATE=1.
 test.describe("account flow", () => {
@@ -16,11 +17,10 @@ test.describe("account flow", () => {
 
   // BaseSelect is a custom dropdown. Locate the trigger by its field label (not
   // by its current text, which may be a default value), open it, then click the
-  // teleported option. When the option text equals the trigger text, .last()
-  // targets the teleported option rather than the trigger.
+  // teleported option. Scope to the modal <form> so the label can't hit the
+  // table's sortable 科別 column header. .last() targets the teleported option
+  // when its text equals the trigger's.
   async function pickFromSelect(page, labelText, optionName) {
-    // Scope to the modal's <form> (the active page has no form of its own) so the
-    // label match can't hit the table's sortable 科別 column header.
     const trigger = page
       .locator("form")
       .getByText(labelText, { exact: true })
@@ -71,7 +71,6 @@ test.describe("account flow", () => {
     await page.getByRole("button", { name: "建立帳號" }).click();
     const resp = await created;
     const body = await resp.text();
-    // Surface the real reason if the backend rejected the create.
     expect(body, `account create failed (status ${resp.status()})`).toContain(
       '"0000"',
     );
@@ -88,21 +87,53 @@ test.describe("account flow", () => {
     await approved;
   }
 
+  // ADMIN creates a section + account; ADMIN2 approves it. Returns the account.
+  async function createAndApproveAccount(page, roleLabel = "經辦人員") {
+    const stamp = uid();
+    const account = {
+      category: `E2E帳科${stamp}`,
+      id: `7${stamp.slice(-6)}`, // 7-digit numeric employee id
+      name: `E2E測試員${stamp.slice(-4)}`,
+    };
+    await createActiveCategory(page, account.category);
+    await login(page, "ADMIN");
+    await createAccount(page, { ...account, roleLabel });
+    await login(page, "ADMIN2");
+    await approveNewAccount(page, account.id);
+    return account;
+  }
+
+  // A freshly-approved account is PASSWORD_INVALID: logging in pops the "must
+  // change password" notice, then a change-password form; the old password is
+  // remembered and sent with the new one.
+  async function firstLoginChangePassword(page, id, oldPw, newPw) {
+    await page.goto("/login");
+    await page.evaluate(() => {
+      sessionStorage.clear();
+      localStorage.clear();
+    });
+    await page.goto("/login");
+    await page.getByPlaceholder("請輸入您的員工編號").fill(id);
+    await page.getByPlaceholder("請輸入您的密碼").fill(oldPw);
+    await page.getByRole("button", { name: "立即登入" }).click();
+
+    await page.getByRole("button", { name: "確認" }).click(); // 請更新您的密碼 notice
+    await page.getByPlaceholder("請輸入新密碼").fill(newPw);
+    await page.getByPlaceholder("請再次輸入新密碼").fill(newPw);
+    const changed = page.waitForResponse(
+      (r) =>
+        r.url().includes("/auth/me/password") &&
+        r.request().method() === "PUT",
+    );
+    await page.getByRole("button", { name: "修改密碼" }).click();
+    await changed;
+    await page.getByRole("button", { name: "確認" }).click(); // 密碼已更新 alert
+  }
+
   test("ADMIN creates a 經辦 account, ADMIN2 approves → shows in 已啟用", async ({
     page,
   }) => {
-    const stamp = uid();
-    const category = `E2E帳科${stamp}`;
-    const id = `7${stamp.slice(-6)}`; // 7-digit numeric employee id
-    const name = `E2E測試員${stamp.slice(-4)}`;
-
-    await createActiveCategory(page, category);
-
-    await login(page, "ADMIN");
-    await createAccount(page, { id, name, category, roleLabel: "經辦人員" });
-
-    await login(page, "ADMIN2");
-    await approveNewAccount(page, id);
+    const { id } = await createAndApproveAccount(page);
 
     // Approved new accounts are PASSWORD_INVALID, which lives under 已啟用 (需改密碼).
     await login(page, "ADMIN");
@@ -112,5 +143,17 @@ test.describe("account flow", () => {
     await expect(page.locator("tr").filter({ hasText: id })).toBeVisible({
       timeout: 15_000,
     });
+  });
+
+  test("new account changes password on first login, then can log in", async ({
+    page,
+  }) => {
+    const { id } = await createAndApproveAccount(page);
+
+    await firstLoginChangePassword(page, id, VALID_PW, NEW_PW);
+
+    // Now ACTIVE: logging in with the new password reaches the 經辦 home (copies).
+    await loginWith(page, id, NEW_PW);
+    await expect(page).toHaveURL(/\/copies\//);
   });
 });

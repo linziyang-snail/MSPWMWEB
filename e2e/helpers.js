@@ -31,8 +31,9 @@ export function hasCreds(role) {
   return Boolean(a?.id && a?.pw);
 }
 
-export async function login(page, role) {
-  const a = accounts[role];
+// Clean-session login with explicit credentials; waits until navigation leaves
+// /login. (Not for first-login accounts that must change their password.)
+export async function loginWith(page, id, pw) {
   // Start from a clean session so switching users mid-test can't leave auth or
   // overlay state that blocks the login form.
   await page.goto("/login");
@@ -43,11 +44,16 @@ export async function login(page, role) {
   await page.goto("/login");
 
   const loginButton = page.getByRole("button", { name: "立即登入" });
-  await page.getByPlaceholder("請輸入您的員工編號").fill(a.id);
-  await page.getByPlaceholder("請輸入您的密碼").fill(a.pw);
+  await page.getByPlaceholder("請輸入您的員工編號").fill(id);
+  await page.getByPlaceholder("請輸入您的密碼").fill(pw);
   await expect(loginButton).toBeEnabled();
   await loginButton.click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
     timeout: 15_000,
   });
+}
+
+export async function login(page, role) {
+  const a = accounts[role];
+  await loginWith(page, a.id, a.pw);
 }
