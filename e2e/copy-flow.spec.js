@@ -1,17 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-import { MUTATE, hasCreds, login } from "./helpers.js";
+import { MUTATE, hasCreds, login, uid } from "./helpers.js";
 
 const SEARCH = "搜尋文案編號、標題或內容...";
-
-// Unique low-order id (timestamp tail + random) so parallel/near-in-time copies
-// never collide on the DB-unique `number`.
-function uid() {
-  return (
-    String(Date.now()).slice(-6) +
-    String(Math.floor(Math.random() * 1000)).padStart(3, "0")
-  );
-}
 
 // Creates real data — opt in with E2E_MUTATE=1.
 test.describe("copy flow", () => {
@@ -41,7 +32,6 @@ test.describe("copy flow", () => {
     }
     await page.getByPlaceholder("請輸入文案備註...").fill(`E2E備註 ${number}`);
 
-    // Wait for the POST, and verify the inserted parameters + 備註 reached the API.
     const posted = page.waitForResponse(
       (r) => r.url().includes("/api/copies") && r.request().method() === "POST",
     );
@@ -51,12 +41,11 @@ test.describe("copy flow", () => {
     expect(body.remark).toBeTruthy(); // 備註 was sent
   }
 
-  // Search filters across all loaded rows, so the copy is found regardless of
-  // which page it would otherwise land on.
-  async function findCopyHeading(page, statusPath, title) {
+  // Search filters across all loaded rows, so a copy is found regardless of page.
+  async function searchPending(page, statusPath, title) {
     await page.goto(statusPath);
     await page.getByPlaceholder(SEARCH).fill(title);
-    return page.getByRole("heading", { name: title });
+    return page.locator("article").filter({ hasText: title });
   }
 
   test("USER submits a copy and it shows up under 待審核文案", async ({
@@ -66,26 +55,94 @@ test.describe("copy flow", () => {
     await login(page, "USER");
     await submitCopy(page, title);
 
-    const heading = await findCopyHeading(page, "/copies/pending", title);
-    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await searchPending(page, "/copies/pending", title);
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("MANAGER approves a USER-submitted copy", async ({ page }) => {
     test.skip(!hasCreds("MANAGER"), "set E2E_MANAGER_PW");
     const title = `E2E核准文案 ${uid()}`;
-
     await login(page, "USER");
     await submitCopy(page, title);
 
     await login(page, "MANAGER");
-    await page.goto("/copies/pending");
-    await page.getByPlaceholder(SEARCH).fill(title);
-    const card = page.locator("article").filter({ hasText: title });
+    const card = await searchPending(page, "/copies/pending", title);
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.getByRole("button", { name: "核准" }).click();
     await page.getByRole("button", { name: "確認核准" }).click();
 
-    const approved = await findCopyHeading(page, "/copies/approved", title);
-    await expect(approved).toBeVisible({ timeout: 15_000 });
+    await searchPending(page, "/copies/approved", title);
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("MANAGER rejects a USER-submitted copy with a reason", async ({
+    page,
+  }) => {
+    test.skip(!hasCreds("MANAGER"), "set E2E_MANAGER_PW");
+    const title = `E2E駁回文案 ${uid()}`;
+    await login(page, "USER");
+    await submitCopy(page, title);
+
+    await login(page, "MANAGER");
+    const card = await searchPending(page, "/copies/pending", title);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.getByRole("button", { name: "駁回" }).click();
+    await page.getByPlaceholder(/請輸入駁回原因/).fill("E2E駁回原因測試");
+    await page.getByRole("button", { name: "確認駁回" }).click();
+
+    await searchPending(page, "/copies/rejected", title);
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("USER cancels their own pending copy", async ({ page }) => {
+    const title = `E2E取消文案 ${uid()}`;
+    await login(page, "USER");
+    await submitCopy(page, title);
+
+    const card = await searchPending(page, "/copies/pending", title);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.getByRole("button", { name: "取消送審" }).click();
+    await page.getByRole("button", { name: "確認刪除" }).click();
+
+    await searchPending(page, "/copies/cancelled", title);
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("USER duplicates a cancelled copy into a new pending one", async ({
+    page,
+  }) => {
+    const title = `E2E複製文案 ${uid()}`;
+    await login(page, "USER");
+    await submitCopy(page, title);
+
+    // cancel it
+    let card = await searchPending(page, "/copies/pending", title);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.getByRole("button", { name: "取消送審" }).click();
+    await page.getByRole("button", { name: "確認刪除" }).click();
+
+    // duplicate from cancelled (new number; the title is prefilled with （副本）)
+    card = await searchPending(page, "/copies/cancelled", title);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.getByRole("button", { name: "複製新建" }).click();
+    await page.getByPlaceholder("C123456789012").fill(`E2E${uid()}`);
+    const posted = page.waitForResponse(
+      (r) => r.url().includes("/api/copies") && r.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "送出審核" }).click();
+    await posted;
+
+    await searchPending(page, "/copies/pending", `${title}（副本）`);
+    await expect(
+      page.getByRole("heading", { name: `${title}（副本）` }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

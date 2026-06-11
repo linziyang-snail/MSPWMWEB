@@ -17,6 +17,15 @@ const accounts = {
 
 export const MUTATE = process.env.E2E_MUTATE === "1";
 
+// Unique low-order id (timestamp tail + random) so parallel / near-in-time
+// records never collide on unique fields (copy number, names, etc.).
+export function uid() {
+  return (
+    String(Date.now()).slice(-6) +
+    String(Math.floor(Math.random() * 1000)).padStart(3, "0")
+  );
+}
+
 export function hasCreds(role) {
   const a = accounts[role];
   return Boolean(a?.id && a?.pw);
