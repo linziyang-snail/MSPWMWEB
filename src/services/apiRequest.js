@@ -74,26 +74,36 @@ apiRequest.interceptors.response.use(
   },
 );
 
-// Exchange the current access token for a new one via /auth/refresh.
-// Uses a bare axios call so it bypasses these interceptors (no recursion, no
-// global error handling), and dedupes concurrent 401s onto one refresh.
+// Exchange the current access token for a new one via /auth/refresh. The token
+// travels in the Authorization header (no request body); a 200 returns the new
+// token. Uses a bare axios call so it bypasses these interceptors (no recursion,
+// no global error handling), and dedupes concurrent 401s onto one refresh.
 function requestRefresh() {
   if (!refreshPromise) {
     const token = readAccessToken();
     refreshPromise = axios
       .post(
         `${apiBaseURL}/auth/refresh`,
-        { token },
-        { headers: { "Content-Type": "application/json" }, timeout: 60000 },
+        {},
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          timeout: 60000,
+        },
       )
       .then((response) => {
         const data = response?.data ?? {};
-        if (data.code && data.code !== "0000") {
+        if (data && data.code && data.code !== "0000") {
           throw new Error("Token refresh rejected");
         }
-        const body = data.body || data;
+        const body =
+          data && typeof data === "object" && "body" in data ? data.body : data;
         const nextToken =
-          body.accessToken || body.token || data.accessToken || data.token || "";
+          typeof body === "string"
+            ? body
+            : body?.accessToken || body?.token || data?.accessToken || data?.token || "";
         if (!nextToken) throw new Error("Token refresh returned no token");
         writeAccessToken(nextToken);
         return nextToken;
