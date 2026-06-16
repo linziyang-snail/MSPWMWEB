@@ -13,10 +13,6 @@ export async function logout() {
   return apiRequest.post("/auth/logout", {});
 }
 
-export async function refreshToken() {
-  return apiRequest.post("/auth/refresh", {});
-}
-
 export async function changeMyPassword(payload) {
   const { id, oldPassword, newPassword } = payload || {};
   const body = { id, oldPassword, newPassword };
