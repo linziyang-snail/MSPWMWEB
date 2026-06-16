@@ -1,17 +1,12 @@
 import axios from "axios";
 
 import { useAppStore } from "@/stores/appStore";
-import {
-  clearAuthStorage,
-  readAccessToken,
-  writeAccessToken,
-} from "@/utils/authStorage";
+import { clearAuthStorage, readAccessToken } from "@/utils/authStorage";
 import { resolveApiErrorMessage } from "@/utils/resolveApiErrorMessage";
 
 import { apiBaseURL } from "./config";
 
 let pendingRequests = 0;
-let refreshPromise = null;
 
 const apiRequest = axios.create({
   baseURL: apiBaseURL,
@@ -54,66 +49,13 @@ apiRequest.interceptors.response.use(
     }
     return response.data;
   },
-  async (error) => {
+  (error) => {
     settleRequest();
     const apiError = normalizeApiError(error);
-    const config = error?.config || {};
-    // On 401, exchange the expiring token for a fresh one and replay the
-    // original request once (sliding session); only log out if refresh fails.
-    if (apiError.status === 401 && !config.__retriedAuth && readAccessToken()) {
-      try {
-        await requestRefresh();
-        config.__retriedAuth = true;
-        return apiRequest(config);
-      } catch {
-        // refresh failed — fall through to the normal 401 handling (logout)
-      }
-    }
-    handleApiError(apiError, config);
+    handleApiError(apiError, error?.config);
     return Promise.reject(apiError);
   },
 );
-
-// Exchange the current access token for a new one via /auth/refresh. The token
-// travels in the Authorization header (no request body); a 200 returns the new
-// token. Uses a bare axios call so it bypasses these interceptors (no recursion,
-// no global error handling), and dedupes concurrent 401s onto one refresh.
-function requestRefresh() {
-  if (!refreshPromise) {
-    const token = readAccessToken();
-    refreshPromise = axios
-      .post(
-        `${apiBaseURL}/auth/refresh`,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          timeout: 60000,
-        },
-      )
-      .then((response) => {
-        const data = response?.data ?? {};
-        if (data && data.code && data.code !== "0000") {
-          throw new Error("Token refresh rejected");
-        }
-        const body =
-          data && typeof data === "object" && "body" in data ? data.body : data;
-        const nextToken =
-          typeof body === "string"
-            ? body
-            : body?.accessToken || body?.token || data?.accessToken || data?.token || "";
-        if (!nextToken) throw new Error("Token refresh returned no token");
-        writeAccessToken(nextToken);
-        return nextToken;
-      })
-      .finally(() => {
-        refreshPromise = null;
-      });
-  }
-  return refreshPromise;
-}
 
 function settleRequest() {
   pendingRequests = Math.max(0, pendingRequests - 1);

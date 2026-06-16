@@ -42,16 +42,6 @@ export function readAccessToken() {
   return sessionStorage.getItem(ACCESS_TOKEN_KEY) || "";
 }
 
-export function writeAccessToken(token) {
-  if (typeof window === "undefined") return;
-  const auth = readAuthStorage();
-  if (auth) {
-    auth.accessToken = token || "";
-    sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
-  }
-  sessionStorage.setItem(ACCESS_TOKEN_KEY, token || "");
-}
-
 export function writeAuthStorage(payload) {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
