@@ -125,6 +125,7 @@ function getCopyActionLabel(action = "") {
 
 function toDateTimeString(value) {
   if (!value) return "";
-  if (String(value).includes("T")) return String(value);
-  return `${String(value).slice(0, 10)}T00:00:00`;
+  const normalized = String(value).replaceAll("/", "-");
+  if (normalized.includes("T")) return normalized;
+  return `${normalized.slice(0, 10)}T00:00:00`;
 }

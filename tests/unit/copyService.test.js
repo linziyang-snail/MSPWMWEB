@@ -54,6 +54,18 @@ describe("submitCopy payload (NNB/WBK + 備註)", () => {
     expect(body.expiredAt).toBe("2026-06-30T00:00:00");
     expect(body.retentionMonths).toBeUndefined();
   });
+
+  it("normalizes slash-formatted expiredAt before sending to API", async () => {
+    await submitCopy({
+      number: "C3",
+      title: "t",
+      content: "c",
+      expirationType: "EXPIRED_AT",
+      expiredAt: "2026/07/08T00:00:00",
+    });
+    const body = post.mock.calls.at(-1)[1];
+    expect(body.expiredAt).toBe("2026-07-08T00:00:00");
+  });
 });
 
 describe("getCopyChangeRequests normalization", () => {
