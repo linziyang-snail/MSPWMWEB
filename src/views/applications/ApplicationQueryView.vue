@@ -62,7 +62,8 @@
             </span>
           </div>
           <button class="grid transition size-8 place-items-center text-danger-text hover:scale-110" type="button"
-            aria-label="刪除科別" @click="openDeleteCategory(category)">
+            aria-label="刪除科別" :disabled="checkingCategoryId === category.id"
+            @click="openDeleteCategory(category)">
             <TrashIcon />
           </button>
         </article>
@@ -264,6 +265,8 @@ import {
   getOrganizations,
   invalidateOrganizations,
 } from "@/services/organizationService";
+import { getAllUsers, getUsersForOrganization } from "@/services/userService";
+import { useAppStore } from "@/stores/appStore";
 import { useApprovalStore } from "@/stores/approvalStore";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -277,9 +280,11 @@ import {
   TARGET_TYPE_LABEL_MAP,
 } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
+import { resolveApiErrorMessage } from "@/utils/resolveApiErrorMessage";
 
 const route = useRoute();
 const auth = useAuthStore();
+const appStore = useAppStore();
 const approvalStore = useApprovalStore();
 const filters = reactive({ id: "", targetType: "", status: "" });
 const categoryCreateOpen = ref(false);
@@ -288,6 +293,7 @@ const approveCategoryDialogOpen = ref(false);
 const rejectCategoryDialogOpen = ref(false);
 const selectedCategory = ref(null);
 const deletingCategory = ref(false);
+const checkingCategoryId = ref(null);
 const reviewingCategory = ref(false);
 const approvals = ref([]);
 const organizations = ref([]);
@@ -442,9 +448,30 @@ const openEditCategory = (category) => {
   categoryCreateOpen.value = true;
 };
 
-const openDeleteCategory = (category) => {
-  selectedCategory.value = category;
-  deleteCategoryDialogOpen.value = true;
+const openDeleteCategory = async (category) => {
+  if (!category?.id || checkingCategoryId.value !== null) return;
+  checkingCategoryId.value = category.id;
+  try {
+    const users = await getAllUsers();
+    const organizationUsers = getUsersForOrganization(users, category.id);
+    if (organizationUsers.length) {
+      appStore.showAlert({
+        title: "無法刪除科別",
+        message: `此科別下仍有 ${organizationUsers.length} 個帳號，請先刪除或移轉該科別下所有帳號。`,
+      });
+      return;
+    }
+    selectedCategory.value = category;
+    deleteCategoryDialogOpen.value = true;
+  } catch (error) {
+    console.error(error);
+    appStore.showAlert({
+      title: "無法確認科別人員",
+      message: "無法確認科別人員資料，請稍後重試。",
+    });
+  } finally {
+    checkingCategoryId.value = null;
+  }
 };
 
 const confirmDeleteCategory = async () => {
@@ -459,11 +486,19 @@ const confirmDeleteCategory = async () => {
       forceOrganizations: true,
       forceRequests: true,
     });
-  } catch (error) {
-    console.error(error);
-  } finally {
     deleteCategoryDialogOpen.value = false;
     selectedCategory.value = null;
+  } catch (error) {
+    console.error(error);
+    const message = resolveApiErrorMessage(error);
+    appStore.showAlert({
+      title: "刪除科別失敗",
+      message:
+        /科別/.test(message) && /(人員|帳號)/.test(message)
+          ? "此科別下仍有人員，請先刪除或移轉所有帳號。"
+          : message,
+    });
+  } finally {
     deletingCategory.value = false;
   }
 };

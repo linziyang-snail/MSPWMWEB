@@ -12,6 +12,26 @@ export async function getUsers(params = {}) {
   );
 }
 
+export async function getAllUsers(params = {}) {
+  const size = 100;
+  const content = [];
+  for (let page = 1; page <= 100; page += 1) {
+    const response = await getUsers({ ...params, page, size, status: undefined });
+    const rows = response?.content || [];
+    content.push(...rows);
+    if (rows.length < size) break;
+  }
+  return content;
+}
+
+export function getUsersForOrganization(users = [], organizationId) {
+  return users.filter(
+    (user) =>
+      String(user.orgId ?? user.organizationId ?? user.organization?.id ?? "") ===
+      String(organizationId),
+  );
+}
+
 export async function searchUsersByKeyword(params = {}) {
   const {
     page = 1,
