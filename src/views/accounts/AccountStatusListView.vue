@@ -181,7 +181,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in pagedRows" :key="row.id"
+          <tr v-for="row in pagedRows" :key="row.rowKey || row.id" :data-row-key="row.rowKey || row.id"
             class="h-20 border-b border-border-muted last:border-0 hover:bg-background-hover">
             <template v-if="routeStatus === 'REJECTED'">
               <td class="px-4 py-4 text-base text-natural xl:px-5">{{ formatDate(row.createdAt) }}</td>
@@ -795,6 +795,7 @@ function getApprovedDeleteRows() {
 
 function getRejectedChangeRequestRows() {
   return accountChangeRows.value.map((row) => ({
+    rowKey: row.changeRequestId || row.id,
     id: row.userId || row.targetId || row.id,
     userName: row.userName || row.after?.userName || row.before?.userName || "-",
     orgName: row.after?.orgName || row.before?.orgName || "-",

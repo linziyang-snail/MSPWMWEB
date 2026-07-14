@@ -117,4 +117,44 @@ describe("AccountStatusListView route data sources", () => {
     expect(wrapper.text()).toContain("資料不完整");
     expect(wrapper.text()).toContain("2026-07-10");
   });
+
+  it("renders multiple rejected requests for the same employee without duplicate keys", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    getCachedChangeRequests.mockReturnValue([
+      {
+        id: 23,
+        targetId: "A001",
+        action: "UPDATE",
+        status: "REJECTED",
+        createdAt: "2026-07-10T08:00:00",
+        remark: "第一次駁回",
+        payload: { after: { id: "A001", userName: "王小明" } },
+      },
+      {
+        id: 24,
+        targetId: "A001",
+        action: "DELETE",
+        status: "REJECTED",
+        createdAt: "2026-07-11T08:00:00",
+        remark: "第二次駁回",
+        payload: { after: { id: "A001", userName: "王小明" } },
+      },
+    ]);
+    route.name = "AccountRejected";
+    route.meta = { title: "已駁回帳號", status: "REJECTED" };
+
+    const wrapper = shallowMount(AccountStatusListView);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("第一次駁回");
+    expect(wrapper.text()).toContain("第二次駁回");
+    expect(
+      wrapper.findAll("tbody tr").map((row) => row.attributes("data-row-key")),
+    ).toEqual(["24", "23"]);
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("Duplicate keys"),
+      expect.anything(),
+    );
+    warn.mockRestore();
+  });
 });
