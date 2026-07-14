@@ -81,12 +81,15 @@ export const useUserStore = defineStore("users", {
       if (status) {
         const statusKey = buildStatusKey(status);
         Object.keys(this.usersByStatus).forEach((key) => {
-          if (key.split(",").some((item) => statusKey.split(",").includes(item))) {
+          if (
+            key === "ALL"
+            || key.split(",").some((item) => statusKey.split(",").includes(item))
+          ) {
             delete this.usersByStatus[key];
           }
         });
         Object.keys(this.inFlightByKey).forEach((key) => {
-          if (key.includes(encodeURIComponent(statusKey)) || key.includes(statusKey)) {
+          if (shouldInvalidateUsersKey(key, statusKey)) {
             delete this.inFlightByKey[key];
           }
         });
@@ -214,6 +217,18 @@ function normalizeStatusList(status) {
 function buildStatusKey(status) {
   const statuses = normalizeStatusList(status);
   return statuses.length ? statuses.sort().join(",") : "ALL";
+}
+
+function shouldInvalidateUsersKey(key, statusKey) {
+  if (!key.startsWith("users:")) return false;
+  const cachedStatusKey = new URLSearchParams(
+    key.slice("users:".length),
+  ).get("status");
+  const cachedStatuses = cachedStatusKey ? cachedStatusKey.split(",") : [];
+  return (
+    cachedStatuses.includes("ALL")
+    || cachedStatuses.some((item) => statusKey.split(",").includes(item))
+  );
 }
 
 // Fetch every page for one status (1 request for <=100 rows; more only when

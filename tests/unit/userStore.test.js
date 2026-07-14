@@ -43,6 +43,35 @@ describe("userStore pending badge counts", () => {
 });
 
 describe("userStore.fetchUsers caching", () => {
+  it("invalidates the aggregate cache and in-flight query with a specific status", () => {
+    const store = useUserStore();
+    const pendingRequest = Promise.resolve();
+    const allRequest = Promise.resolve();
+    const combinedRequest = Promise.resolve();
+    const inactiveRequest = Promise.resolve();
+    const changeRequest = Promise.resolve();
+    store.usersByStatus = {
+      PENDING: [{ id: "pending" }],
+      ALL: [{ id: "pending" }, { id: "inactive" }],
+      INACTIVE: [{ id: "inactive" }],
+    };
+    store.inFlightByKey = {
+      "users:page=1&size=100&status=PENDING": pendingRequest,
+      "users:page=1&size=100&status=ALL": allRequest,
+      "users:page=1&size=100&status=ACTIVE%2CPENDING": combinedRequest,
+      "users:page=1&size=100&status=INACTIVE": inactiveRequest,
+      "changeRequests:USER:PENDING:ALL": changeRequest,
+    };
+
+    store.invalidateUsers("PENDING");
+
+    expect(store.usersByStatus).toEqual({ INACTIVE: [{ id: "inactive" }] });
+    expect(store.inFlightByKey).toEqual({
+      "users:page=1&size=100&status=INACTIVE": inactiveRequest,
+      "changeRequests:USER:PENDING:ALL": changeRequest,
+    });
+  });
+
   it("caches by status and force refetches", async () => {
     const store = useUserStore();
     getUsers.mockResolvedValue({ content: [{ id: "u1" }], totalElements: 1 });
