@@ -34,6 +34,7 @@ describe("OperationLogView history loading", () => {
     await flushPromises();
 
     expect(wrapper.findComponent({ name: "EmptyState" }).exists()).toBe(false);
+    expect(wrapper.text()).toContain("操作歷程載入失敗，請稍後重試。");
     expect(wrapper.text()).not.toContain("部分操作歷程載入失敗，請稍後重試");
     expect(console.error).toHaveBeenCalled();
   });

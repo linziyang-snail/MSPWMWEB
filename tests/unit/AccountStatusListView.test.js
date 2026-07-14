@@ -105,12 +105,13 @@ describe("AccountStatusListView route data sources", () => {
     expect(wrapper.text()).toContain("員工編號");
     expect(wrapper.text()).toContain("申請動作");
     expect(wrapper.text()).toContain("申請人");
-    expect(wrapper.text()).toContain("覆核人");
+    expect(wrapper.text()).toContain("駁回人");
     expect(wrapper.text()).toContain("駁回原因");
     expect(wrapper.text()).toContain("A001");
     expect(wrapper.text()).toContain("王小明");
     expect(wrapper.text()).toContain("資訊科");
-    expect(wrapper.text()).toContain("UPDATE");
+    expect(wrapper.text()).toContain("編輯");
+    expect(wrapper.text()).not.toContain("UPDATE");
     expect(wrapper.text()).toContain("申請人甲");
     expect(wrapper.text()).toContain("覆核人乙");
     expect(wrapper.text()).toContain("資料不完整");

@@ -188,7 +188,7 @@
               <td class="px-4 py-4 text-base font-bold text-natural xl:px-5">{{ row.id || "-" }}</td>
               <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.userName || "-" }}</td>
               <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.orgName || "-" }}</td>
-              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.action || "-" }}</td>
+              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ getChangeRequestActionLabel(row.action) }}</td>
               <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.requesterName || row.requesterId || "-" }}</td>
               <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.reviewerName || row.reviewerId || "-" }}</td>
               <td class="px-4 py-4 text-base text-center text-natural xl:px-5">{{ row.rejectReason || "-" }}</td>
@@ -380,6 +380,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useRoleStore } from "@/stores/roleStore";
 import { useUserStore } from "@/stores/userStore";
 import { roleLabelMap, statusLabelMap } from "@/utils/constants";
+import { getChangeRequestActionLabel } from "@/utils/changeRequestUtils";
 import { formatDateTime } from "@/utils/formatDate";
 
 const route = useRoute();
@@ -450,7 +451,7 @@ const tableColumns = computed(() => {
       { key: "orgName", label: "科別" },
       { key: "action", label: "申請動作" },
       { key: "requesterName", label: "申請人" },
-      { key: "reviewerName", label: "覆核人" },
+      { key: "reviewerName", label: "駁回人" },
       { key: "rejectReason", label: "駁回原因" },
     ];
   }

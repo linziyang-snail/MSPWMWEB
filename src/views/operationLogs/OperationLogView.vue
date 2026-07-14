@@ -32,6 +32,12 @@
     >
       {{ historyWarning }}
     </p>
+    <p
+      v-if="historyLoadFailed"
+      class="mb-4 rounded-lg border border-danger-text bg-danger-bg px-4 py-3 text-sm font-medium text-danger-text"
+    >
+      操作歷程載入失敗，請稍後重試。
+    </p>
 
     <BaseTable :columns="columns" :rows="pagedRows" row-key="rowKey">
       <template #cell-displayDate="{ row }">
