@@ -75,6 +75,12 @@ export const routes = [
         meta: { roles: ["USER"] },
       },
       {
+        path: "accounts/all",
+        name: "AccountAll",
+        component: AccountStatusListView,
+        meta: { title: "全部帳號", status: "ALL", roles: ["ADMIN"] },
+      },
+      {
         path: "accounts/pending-changes",
         name: "AccountPendingChanges",
         component: AccountStatusListView,
@@ -101,7 +107,8 @@ export const routes = [
       {
         path: "accounts/rejected",
         name: "AccountRejected",
-        redirect: "/accounts/active",
+        component: AccountStatusListView,
+        meta: { title: "已駁回帳號", status: "REJECTED", roles: ["ADMIN"] },
       },
       {
         path: "accounts/deleted",

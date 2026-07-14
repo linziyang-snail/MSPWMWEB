@@ -207,8 +207,8 @@
               {{ row.requesterId || "-" }}
             </td>
             <td class="px-3 py-4 xl:px-5">
-              <p v-if="routeStatus === 'DELETED'" class="text-base font-normal leading-normal text-center text-natural">
-                {{ row.reviewerId || "-" }}
+              <p v-if="routeStatus === 'DELETED' || routeStatus === 'REJECTED'" class="text-base font-normal leading-normal text-center text-natural">
+                {{ routeStatus === "REJECTED" ? row.rejectReason || "-" : row.reviewerId || "-" }}
               </p>
               <div v-else-if="isManageableAccount(row)" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
                 <button
@@ -433,6 +433,7 @@ const tableColumns = computed(() => {
   const dateLabelMap = {
     LOCKED: "停用日期",
     DELETED: "刪除日期",
+    REJECTED: "駁回日期",
   };
   return columns.map((column) =>
     column.key === "createdAt"
@@ -441,7 +442,11 @@ const tableColumns = computed(() => {
   );
 });
 const trailingColumnLabel = computed(() =>
-  routeStatus.value === "DELETED" ? "刪除審核人" : "操作",
+  routeStatus.value === "DELETED"
+    ? "刪除審核人"
+    : routeStatus.value === "REJECTED"
+      ? "駁回原因"
+      : "操作",
 );
 
 const routeStatus = computed(() => route.meta.status || "");
@@ -461,7 +466,7 @@ const pendingAccountChangeRows = computed(() =>
 
 const filteredRows = computed(() => {
   let rows = [];
-  if (!routeStatus.value) return users.value;
+  if (!routeStatus.value || routeStatus.value === "ALL") return sortRows(users.value);
   if (routeStatus.value === "PENDING") {
     rows = getPendingCreateRows();
     return sortRows(filterRowsByAccountFilters(rows));
@@ -469,6 +474,9 @@ const filteredRows = computed(() => {
   if (routeStatus.value === "DELETED") {
     rows = getApprovedDeleteRows();
     return sortRows(filterRowsByAccountFilters(rows));
+  }
+  if (routeStatus.value === "REJECTED") {
+    return sortRows(getRejectedChangeRequestRows());
   }
   const targetStatuses = getRouteDisplayStatuses();
   rows = users.value.filter((u) => targetStatuses.includes(u.status));
@@ -756,6 +764,19 @@ function getApprovedDeleteRows() {
       action: row.action,
       changeRequestId: row.id,
     }));
+}
+
+function getRejectedChangeRequestRows() {
+  return accountChangeRows.value.map((row) => ({
+    id: row.userId || row.targetId || row.id,
+    userName: row.userName || row.after?.userName || row.before?.userName || "-",
+    orgName: row.after?.orgName || row.before?.orgName || "-",
+    roles: extractRolesFromAccountInfo(row.after || row.before),
+    roleLabel: row.after?.roleLabel || row.before?.roleLabel,
+    status: "REJECTED",
+    createdAt: row.closedAt || row.createdAt,
+    rejectReason: row.remark || row.rejectReason || "-",
+  }));
 }
 
 function extractRolesFromAccountInfo(info = {}) {
@@ -1194,6 +1215,7 @@ async function reloadAccountDataAfterReview(reviewResult = "approve", reviewedRo
 }
 
 const accountRouteApiStatus = computed(() => {
+  if (route.name === "AccountAll") return null;
   if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
   if (route.name === "AccountDisabled" || route.name === "AccountLocked") return "LOCKED";
   if (route.name === "AccountDeleted") return "DISABLED";
@@ -1203,6 +1225,9 @@ const accountRouteApiStatus = computed(() => {
 });
 
 const accountRouteRequestQuery = computed(() => {
+  if (route.name === "AccountRejected") {
+    return { status: "REJECTED" };
+  }
   if (route.name === "AccountPendingChanges") {
     return { status: "PENDING", action: ["CREATE"] };
   }
@@ -1216,11 +1241,11 @@ const accountRouteRequestQuery = computed(() => {
 });
 
 const routeNeedsUsers = computed(() =>
-  !["AccountPendingChanges", "AccountPendingReview", "AccountDeleted"].includes(route.name),
+  !["AccountPendingChanges", "AccountPendingReview", "AccountRejected", "AccountDeleted"].includes(route.name),
 );
 
 const routeNeedsChangeRequests = computed(() =>
-  ["AccountPendingChanges", "AccountPendingReview", "AccountDeleted"].includes(route.name),
+  ["AccountPendingChanges", "AccountPendingReview", "AccountRejected", "AccountDeleted"].includes(route.name),
 );
 
 watch(
