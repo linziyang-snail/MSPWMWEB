@@ -12,10 +12,10 @@
 - 沿用現有 `FieldRow` 與唯讀欄位樣式，使兩種角色看到相同版面。
 - 動作以 `clickActionLabelMap` 顯示中文：
   - `OPEN_URL`：開啟連結
-  - `OPEN_APP`：開啟 APP
-  - `NONE`：無動作
+  - `OPEN_PAGE`：跳轉頁面
+  - `NONE`：無
 - URL 有值時顯示原值；空字串、`null` 或缺少欄位時顯示 `—`。
-- 未知的 `clickAction` 不顯示 `undefined`；保留原始值供診斷，完全缺值時退回「無動作」。
+- 未知的 `clickAction` 不顯示 `undefined`；保留原始值供診斷，完全缺值時退回「無」。
 - 不依角色加入條件渲染，不新增覆核主管專用 Modal。
 
 ## 資料與錯誤邊界
@@ -27,8 +27,8 @@
 ## 測試與驗收
 
 - `OPEN_URL` 顯示實際 URL 與「開啟連結」。
-- `OPEN_APP` 顯示「開啟 APP」。
-- `NONE` 顯示「無動作」，空 URL 顯示 `—`。
+- `OPEN_PAGE` 顯示「跳轉頁面」。
+- `NONE` 顯示「無」，空 URL 顯示 `—`。
 - 缺少 URL／動作時不出現 `undefined`。
 - `CopyStatusListView` 對 MANAGER 與 USER 都繼續使用同一個 `CopyDetailModal`，因此顯示規則一致。
 - 完整單元測試與 production build 必須通過。

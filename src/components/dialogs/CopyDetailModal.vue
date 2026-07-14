@@ -63,6 +63,18 @@
               {{ copy.content }}
             </p>
           </FieldRow>
+          <FieldRow label="URL">
+            <span
+              class="flex min-h-10 items-center rounded-lg border border-copy-table-border bg-background-surface px-4 py-2 text-base font-normal leading-normal text-natural">
+              {{ copy.url || "—" }}
+            </span>
+          </FieldRow>
+          <FieldRow label="動作">
+            <span
+              class="flex min-h-10 items-center rounded-lg border border-copy-table-border bg-background-surface px-4 py-2 text-base font-normal leading-normal text-natural">
+              {{ actionLabel }}
+            </span>
+          </FieldRow>
           <div>
             <BaseButton variant="outline" size="md" @click="previewOpen = true">
               <EyeIcon /> 預覽效果
@@ -155,6 +167,7 @@ import xCircleIcon from "@/assets/icon-x-circle.svg";
 import BaseButton from "@/components/base/BaseButton.vue";
 import BaseModal from "@/components/base/BaseModal.vue";
 import CopyPreviewModal from "@/components/dialogs/CopyPreviewModal.vue";
+import { clickActionLabelMap } from "@/utils/constants";
 import { formatDateTime } from "@/utils/formatDate";
 
 const props = defineProps({
@@ -164,6 +177,11 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 
 const previewOpen = ref(false);
+
+const actionLabel = computed(() => {
+  const action = props.copy?.clickAction || "NONE";
+  return clickActionLabelMap[action] || action;
+});
 
 const retentionLabel = computed(() => {
   const m = props.copy?.retentionMonths;
