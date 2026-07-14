@@ -3,14 +3,12 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const route = { name: "CategoryAll" };
-const getAllUsers = vi.fn();
+const getUsers = vi.fn();
 const disableOrganization = vi.fn();
 
 vi.mock("vue-router", () => ({ useRoute: () => route }));
 vi.mock("@/services/userService", () => ({
-  getAllUsers: (...args) => getAllUsers(...args),
-  getUsersForOrganization: (users, id) =>
-    users.filter((user) => String(user.orgId) === String(id)),
+  getUsers: (...args) => getUsers(...args),
 }));
 vi.mock("@/services/organizationService", () => ({
   disableOrganization: (...args) => disableOrganization(...args),
@@ -34,9 +32,9 @@ import { useAppStore } from "@/stores/appStore";
 const stubs = {
   CategoryCreateModal: true,
   ConfirmDialog: {
-    props: ["modelValue", "title"],
+    props: ["modelValue", "title", "message"],
     emits: ["confirm"],
-    template: '<div v-if="modelValue" data-test="confirm-dialog">{{ title }}<button data-test="confirm-delete" @click="$emit(\'confirm\')">confirm</button></div>',
+    template: '<div v-if="modelValue" data-test="confirm-dialog">{{ title }} {{ message }}<button data-test="confirm-delete" @click="$emit(\'confirm\')">confirm</button></div>',
   },
 };
 
@@ -48,45 +46,32 @@ async function mountView() {
   return wrapper;
 }
 
-describe("ApplicationQueryView category deletion guard", () => {
+describe("ApplicationQueryView category deletion", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    getAllUsers.mockReset();
+    getUsers.mockReset();
     disableOrganization.mockReset();
   });
 
-  it("does not open confirmation and reports the account count when users exist", async () => {
-    getAllUsers.mockResolvedValue([{ orgId: 7 }, { orgId: "7" }]);
-
+  it("opens confirmation without querying users", async () => {
     const wrapper = await mountView();
 
-    expect(wrapper.find('[data-test="confirm-dialog"]').exists()).toBe(false);
-    expect(useAppStore().alertState.message).toBe(
-      "此科別下仍有 2 個帳號，請先刪除或移轉該科別下所有帳號。",
-    );
-  });
-
-  it("opens confirmation only when the organization has no users", async () => {
-    getAllUsers.mockResolvedValue([{ orgId: 8 }]);
-
-    const wrapper = await mountView();
-
+    expect(getUsers).not.toHaveBeenCalled();
     expect(wrapper.find('[data-test="confirm-dialog"]').exists()).toBe(true);
   });
 
-  it("does not open confirmation and asks to retry when lookup fails", async () => {
-    getAllUsers.mockRejectedValue(new Error("network"));
-
+  it("completes a successful deletion and closes the confirmation", async () => {
+    disableOrganization.mockResolvedValue();
     const wrapper = await mountView();
 
+    await wrapper.get('[data-test="confirm-delete"]').trigger("click");
+    await flushPromises();
+
+    expect(disableOrganization).toHaveBeenCalledWith({ id: 7 });
     expect(wrapper.find('[data-test="confirm-dialog"]').exists()).toBe(false);
-    expect(useAppStore().alertState.message).toBe(
-      "無法確認科別人員資料，請稍後重試。",
-    );
   });
 
   it("keeps confirmation visible and translates a backend personnel conflict", async () => {
-    getAllUsers.mockResolvedValue([]);
     disableOrganization.mockRejectedValue({
       response: { data: { message: "科別仍綁定人員" } },
     });
@@ -96,8 +81,23 @@ describe("ApplicationQueryView category deletion guard", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-test="confirm-dialog"]').exists()).toBe(true);
+    expect(wrapper.get('[data-test="confirm-dialog"]').text()).toContain("心臟科");
     expect(useAppStore().alertState.message).toBe(
       "此科別下仍有人員，請先刪除或移轉所有帳號。",
     );
+  });
+
+  it("keeps confirmation visible and resolves a general backend error", async () => {
+    disableOrganization.mockRejectedValue({
+      response: { data: { message: "目前無法建立刪除申請" } },
+    });
+    const wrapper = await mountView();
+
+    await wrapper.get('[data-test="confirm-delete"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-test="confirm-dialog"]').exists()).toBe(true);
+    expect(wrapper.get('[data-test="confirm-dialog"]').text()).toContain("心臟科");
+    expect(useAppStore().alertState.message).toBe("目前無法建立刪除申請");
   });
 });
