@@ -26,6 +26,13 @@
       </div>
     </SearchFilterBar>
 
+    <p
+      v-if="historyWarning"
+      class="mb-4 rounded-lg border border-warning-border bg-warning-bg px-4 py-3 text-sm font-medium text-warning-text"
+    >
+      {{ historyWarning }}
+    </p>
+
     <BaseTable :columns="columns" :rows="pagedRows" row-key="rowKey">
       <template #cell-displayDate="{ row }">
         {{ formatDateTime(row.displayDate) }}
@@ -46,7 +53,7 @@
           {{ row.remark || "-" }}
         </span>
       </template>
-      <template #empty><EmptyState v-if="rows.length === 0" /></template>
+      <template #empty><EmptyState v-if="rows.length === 0 && !historyLoadFailed" /></template>
     </BaseTable>
     <BasePagination
       :page="currentPage"
@@ -80,6 +87,8 @@ import {
 import { formatDateTime } from "@/utils/formatDate";
 
 const operationLogs = ref([]);
+const historyWarning = ref("");
+const historyLoadFailed = ref(false);
 const filters = reactive({
   keyword: "",
   targetType: "",
@@ -175,6 +184,8 @@ watch(
 );
 
 async function loadOperationLogs() {
+  historyWarning.value = "";
+  historyLoadFailed.value = false;
   try {
     const response = await GetOperationHistory({
       startDate: filters.startDate,
@@ -182,7 +193,11 @@ async function loadOperationLogs() {
       force: true,
     });
     operationLogs.value = response?.list ?? [];
+    if (response?.partialFailure) {
+      historyWarning.value = "部分操作歷程載入失敗，請稍後重試";
+    }
   } catch (error) {
+    historyLoadFailed.value = true;
     console.error(error);
   }
 }
