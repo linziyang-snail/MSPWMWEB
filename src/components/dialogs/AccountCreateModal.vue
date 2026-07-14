@@ -88,8 +88,13 @@ import BaseModal from "@/components/base/BaseModal.vue";
 import BaseSelect from "@/components/base/BaseSelect.vue";
 import { getOrganizations } from "@/services/organizationService";
 import { createUser } from "@/services/userService";
+import { useAppStore } from "@/stores/appStore";
 import { useRoleStore } from "@/stores/roleStore";
 import { isActiveSectionOrganization, roleLabelMap } from "@/utils/constants";
+import {
+  resolveApiErrorMessage,
+  resolveDeletedDuplicateMessage,
+} from "@/utils/resolveApiErrorMessage";
 import {
   normalizeEmployeeId,
   validateEmployeeId,
@@ -102,6 +107,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "submitted"]);
 
+const appStore = useAppStore();
 const roleStore = useRoleStore();
 const roleOptions = computed(() => roleStore.assignableRoleOptions);
 const form = reactive({
@@ -187,6 +193,11 @@ async function submit() {
     close();
   } catch (error) {
     console.error(error);
+    appStore.showAlert({
+      title: "建立帳號失敗",
+      message:
+        resolveDeletedDuplicateMessage(error, "ACCOUNT") || resolveApiErrorMessage(error),
+    });
   } finally {
     submitting.value = false;
   }

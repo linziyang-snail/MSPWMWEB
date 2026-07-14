@@ -54,6 +54,11 @@ import {
   createOrganization,
   updateOrganization,
 } from "@/services/organizationService";
+import { useAppStore } from "@/stores/appStore";
+import {
+  resolveApiErrorMessage,
+  resolveDeletedDuplicateMessage,
+} from "@/utils/resolveApiErrorMessage";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -62,6 +67,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "submitted"]);
 
+const appStore = useAppStore();
 const name = ref("");
 const errorMsg = ref("");
 const submitting = ref(false);
@@ -105,6 +111,12 @@ async function submit() {
     emit("update:modelValue", false);
   } catch (error) {
     console.error(error);
+    appStore.showAlert({
+      title: isEditMode.value ? "修改科別失敗" : "建立科別失敗",
+      message:
+        resolveDeletedDuplicateMessage(error, "ORGANIZATION") ||
+        resolveApiErrorMessage(error),
+    });
   } finally {
     submitting.value = false;
   }

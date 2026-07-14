@@ -29,3 +29,23 @@ export const resolveApiErrorMessage = (error) => {
 
   return "系統發生錯誤，請稍後再試";
 };
+
+export function resolveDeletedDuplicateMessage(error, targetType) {
+  const source = [
+    error?.code,
+    error?.desc,
+    error?.response?.data?.code,
+    error?.response?.data?.desc,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const isDeletedDuplicate =
+    /deleted|已刪除/.test(source) && /duplicate|unique|重複|已存在/.test(source);
+
+  if (!isDeletedDuplicate) return "";
+
+  return targetType === "ACCOUNT"
+    ? "此員編曾被刪除，目前後端尚未開放重新建立，請聯絡系統管理人員恢復或解除限制。"
+    : "此科別曾被刪除，目前後端尚未開放重新建立，請聯絡系統管理人員恢復或解除限制。";
+}
