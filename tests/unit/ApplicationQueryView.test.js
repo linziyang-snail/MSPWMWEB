@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const route = { name: "CategoryAll" };
 const getUsers = vi.fn();
 const disableOrganization = vi.fn();
+const getOrganizations = vi.fn();
 
 vi.mock("vue-router", () => ({ useRoute: () => route }));
 vi.mock("@/services/userService", () => ({
@@ -12,9 +13,7 @@ vi.mock("@/services/userService", () => ({
 }));
 vi.mock("@/services/organizationService", () => ({
   disableOrganization: (...args) => disableOrganization(...args),
-  getOrganizations: vi.fn(() => Promise.resolve({ content: [
-    { id: 7, orgName: "心臟科", orgType: "SECTION", status: "ACTIVE" },
-  ] })),
+  getOrganizations: (...args) => getOrganizations(...args),
   invalidateOrganizations: vi.fn(),
 }));
 vi.mock("@/services/approvalService", () => ({
@@ -51,6 +50,12 @@ describe("ApplicationQueryView category deletion", () => {
     setActivePinia(createPinia());
     getUsers.mockReset();
     disableOrganization.mockReset();
+    getOrganizations.mockReset();
+    getOrganizations.mockResolvedValue({
+      content: [
+        { id: 7, orgName: "心臟科", orgType: "SECTION", status: "ACTIVE" },
+      ],
+    });
   });
 
   it("opens confirmation without querying users", async () => {
@@ -69,6 +74,27 @@ describe("ApplicationQueryView category deletion", () => {
 
     expect(disableOrganization).toHaveBeenCalledWith({ id: 7 });
     expect(wrapper.find('[data-test="confirm-dialog"]').exists()).toBe(false);
+  });
+
+  it("keeps deletion complete when refreshing the category list fails", async () => {
+    disableOrganization.mockResolvedValue();
+    getOrganizations
+      .mockResolvedValueOnce({ content: [
+        { id: 7, orgName: "心臟科", orgType: "SECTION", status: "ACTIVE" },
+      ] })
+      .mockRejectedValueOnce(new Error("refresh failed"));
+    const wrapper = await mountView();
+
+    await wrapper.get('[data-test="confirm-delete"]').trigger("click");
+    await flushPromises();
+
+    expect(disableOrganization).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('[data-test="confirm-dialog"]').exists()).toBe(false);
+    expect(wrapper.vm.selectedCategory).toBeNull();
+    expect(useAppStore().alertState).toMatchObject({
+      title: "重新整理科別清單失敗",
+      message: "科別已刪除，但清單重新整理失敗，請稍後再試。",
+    });
   });
 
   it("keeps confirmation visible and translates a backend personnel conflict", async () => {

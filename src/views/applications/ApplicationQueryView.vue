@@ -455,15 +455,6 @@ const confirmDeleteCategory = async () => {
   deletingCategory.value = true;
   try {
     await disableOrganization({ id: selectedCategory.value.id });
-    invalidateOrganizations("ACTIVE");
-    invalidateOrganizations("PENDING");
-    invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
-    await refreshCategoryData({
-      forceOrganizations: true,
-      forceRequests: true,
-    });
-    deleteCategoryDialogOpen.value = false;
-    selectedCategory.value = null;
   } catch (error) {
     console.error(error);
     const message = resolveApiErrorMessage(error);
@@ -473,6 +464,27 @@ const confirmDeleteCategory = async () => {
         /科別/.test(message) && /(人員|帳號)/.test(message)
           ? "此科別下仍有人員，請先刪除或移轉所有帳號。"
           : message,
+    });
+    deletingCategory.value = false;
+    return;
+  }
+
+  deleteCategoryDialogOpen.value = false;
+  selectedCategory.value = null;
+
+  try {
+    invalidateOrganizations("ACTIVE");
+    invalidateOrganizations("PENDING");
+    invalidateChangeRequests({ targetType: "ORGANIZATION", status: "PENDING" });
+    await refreshCategoryData({
+      forceOrganizations: true,
+      forceRequests: true,
+    });
+  } catch (error) {
+    console.error(error);
+    appStore.showAlert({
+      title: "重新整理科別清單失敗",
+      message: "科別已刪除，但清單重新整理失敗，請稍後再試。",
     });
   } finally {
     deletingCategory.value = false;
