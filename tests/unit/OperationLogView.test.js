@@ -37,4 +37,17 @@ describe("OperationLogView history loading", () => {
     expect(wrapper.text()).not.toContain("部分操作歷程載入失敗，請稍後重試");
     expect(console.error).toHaveBeenCalled();
   });
+
+  it("clears stale rows when a subsequent load completely fails", async () => {
+    GetOperationHistory
+      .mockResolvedValueOnce({ list: [{ id: 1 }], partialFailure: false })
+      .mockRejectedValueOnce(new Error("history failed"));
+    const wrapper = shallowMount(OperationLogView);
+    await flushPromises();
+
+    await wrapper.vm.loadOperationLogs();
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: "BaseTable" }).props("rows")).toEqual([]);
+  });
 });

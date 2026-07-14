@@ -197,6 +197,7 @@ async function loadOperationLogs() {
       historyWarning.value = "部分操作歷程載入失敗，請稍後重試";
     }
   } catch (error) {
+    operationLogs.value = [];
     historyLoadFailed.value = true;
     console.error(error);
   }

@@ -25,10 +25,10 @@ describe("getOperationHistory", () => {
 
     expect(getChangeRequests).toHaveBeenCalledTimes(2);
     expect(getChangeRequests).toHaveBeenCalledWith(
-      expect.objectContaining({ targetType: "USER" }),
+      expect.objectContaining({ targetType: "USER", skipGlobalErrorHandler: true }),
     );
     expect(getChangeRequests).toHaveBeenCalledWith(
-      expect.objectContaining({ targetType: "ORGANIZATION" }),
+      expect.objectContaining({ targetType: "ORGANIZATION", skipGlobalErrorHandler: true }),
     );
     expect(response.list.map(({ targetType }) => targetType)).toEqual([
       "ORGANIZATION",

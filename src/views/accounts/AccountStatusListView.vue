@@ -175,7 +175,7 @@
             <th v-if="routeStatus === 'DELETED'" class="w-[12%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
               刪除申請人
             </th>
-            <th class="w-[22%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
+            <th v-if="routeStatus !== 'REJECTED'" class="w-[22%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
               {{ trailingColumnLabel }}
             </th>
           </tr>
@@ -183,6 +183,17 @@
         <tbody>
           <tr v-for="row in pagedRows" :key="row.id"
             class="h-20 border-b border-border-muted last:border-0 hover:bg-background-hover">
+            <template v-if="routeStatus === 'REJECTED'">
+              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ formatDate(row.createdAt) }}</td>
+              <td class="px-4 py-4 text-base font-bold text-natural xl:px-5">{{ row.id || "-" }}</td>
+              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.userName || "-" }}</td>
+              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.orgName || "-" }}</td>
+              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.action || "-" }}</td>
+              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.requesterName || row.requesterId || "-" }}</td>
+              <td class="px-4 py-4 text-base text-natural xl:px-5">{{ row.reviewerName || row.reviewerId || "-" }}</td>
+              <td class="px-4 py-4 text-base text-center text-natural xl:px-5">{{ row.rejectReason || "-" }}</td>
+            </template>
+            <template v-else>
             <td class="px-4 py-4 text-base font-normal leading-normal wrap-break-word text-natural xl:px-5">
               {{ formatDate(row.createdAt) }}
             </td>
@@ -257,6 +268,7 @@
                 </BaseButton>
               </div>
             </td>
+            </template>
           </tr>
           <tr v-if="!filteredRows.length">
             <td :colspan="tableColumns.length + (routeStatus === 'DELETED' ? 2 : 1)" class="py-16 text-center">
@@ -430,6 +442,18 @@ const columns = [
   { key: "status", label: "狀態", class: "w-[16%]" },
 ];
 const tableColumns = computed(() => {
+  if (routeStatus.value === "REJECTED") {
+    return [
+      { key: "createdAt", label: "申請日期" },
+      { key: "id", label: "員工編號" },
+      { key: "userName", label: "姓名" },
+      { key: "orgName", label: "科別" },
+      { key: "action", label: "申請動作" },
+      { key: "requesterName", label: "申請人" },
+      { key: "reviewerName", label: "覆核人" },
+      { key: "rejectReason", label: "駁回原因" },
+    ];
+  }
   const dateLabelMap = {
     LOCKED: "停用日期",
     DELETED: "刪除日期",
@@ -444,9 +468,7 @@ const tableColumns = computed(() => {
 const trailingColumnLabel = computed(() =>
   routeStatus.value === "DELETED"
     ? "刪除審核人"
-    : routeStatus.value === "REJECTED"
-      ? "駁回原因"
-      : "操作",
+    : "操作",
 );
 
 const routeStatus = computed(() => route.meta.status || "");
@@ -641,7 +663,9 @@ async function normalizeAccountChangeRows(rows = []) {
         changeRequestId: row.changeRequestId ?? row.id,
         action: String(row.action || "UPDATE").toUpperCase(),
         requesterId: getRequesterId(row),
+        requesterName: row.requesterName || row.createdByName || "",
         reviewerId: row.reviewerId || "",
+        reviewerName: row.reviewerName || "",
         closedAt: row.closedAt,
         targetId: row.targetId,
         targetType: row.targetType || "USER",
@@ -668,7 +692,9 @@ async function normalizeAccountChangeRows(rows = []) {
       title: getChangeRequestTitle(action),
       createdBy: row.requesterId,
       requesterId: row.requesterId,
+      requesterName: row.requesterName || "",
       reviewerId: row.reviewerId,
+      reviewerName: row.reviewerName || "",
       createdByName: row.requesterName || row.requesterId || "-",
       closedAt: row.closedAt,
       before: normalizeAccountInfo(before, row.status),
@@ -774,7 +800,12 @@ function getRejectedChangeRequestRows() {
     roles: extractRolesFromAccountInfo(row.after || row.before),
     roleLabel: row.after?.roleLabel || row.before?.roleLabel,
     status: "REJECTED",
-    createdAt: row.closedAt || row.createdAt,
+    createdAt: row.createdAt,
+    action: row.action || "-",
+    requesterId: row.requesterId || row.createdBy || "",
+    requesterName: row.requesterName || row.createdByName || "",
+    reviewerId: row.reviewerId || "",
+    reviewerName: row.reviewerName || "",
     rejectReason: row.remark || row.rejectReason || "-",
   }));
 }

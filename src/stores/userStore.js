@@ -160,7 +160,7 @@ export const useUserStore = defineStore("users", {
       }
       if (this.inFlightByKey[key]) return this.inFlightByKey[key];
       this.inFlightByKey[key] = (async () => {
-        const rows = await getAccountChangeRequests(params);
+        const rows = await fetchAllAccountChangeRequests(params);
         this.accountChangeRequests = rows;
         this.changeRequestsByStatus = { ...this.changeRequestsByStatus, [key]: rows };
         this.changeRequestTotalsByStatus = {
@@ -299,6 +299,24 @@ function getRowsTotalElements(rows = []) {
   const totalElements = rows?.totalElements;
   if (Number.isFinite(Number(totalElements))) return Number(totalElements);
   return Array.isArray(rows) ? rows.length : 0;
+}
+
+async function fetchAllAccountChangeRequests(params = "PENDING") {
+  const query = typeof params === "string" ? { status: params } : params || {};
+  const size = 100;
+  const rows = [];
+  let totalElements = 0;
+  for (let page = 1; page <= 100; page += 1) {
+    const pageRows = await getAccountChangeRequests({ ...query, page, size });
+    rows.push(...pageRows);
+    totalElements = Number(pageRows?.totalElements ?? rows.length);
+    if (pageRows.length < size || rows.length >= totalElements) break;
+  }
+  Object.defineProperty(rows, "totalElements", {
+    value: totalElements || rows.length,
+    enumerable: false,
+  });
+  return rows;
 }
 
 function canLoadAdminUserData(params = {}) {

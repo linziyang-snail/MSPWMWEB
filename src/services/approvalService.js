@@ -17,6 +17,7 @@ export async function getChangeRequests(params = {}) {
     page = 1,
     size = 100,
     force = false,
+    skipGlobalErrorHandler = false,
   } = params || {};
   if (!targetType) throw new Error("targetType is required");
   const normalizedStatus = normalizeArrayParam(status);
@@ -38,6 +39,7 @@ export async function getChangeRequests(params = {}) {
 
   changeRequestsInFlight[cacheKey] = apiRequest.get("/api/change-requests", {
       params: query,
+      skipGlobalErrorHandler,
     })
     .then(unwrapApiBody)
     .then(normalizeChangeRequestPage)

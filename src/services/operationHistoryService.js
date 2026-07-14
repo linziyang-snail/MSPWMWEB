@@ -26,6 +26,7 @@ async function fetchAllHistoryForTargetType(targetType, params = {}) {
       start: start || startDate,
       end: end || endDate,
       force,
+      skipGlobalErrorHandler: true,
     });
     const rows = pageData.content || [];
     raw = raw.concat(rows);

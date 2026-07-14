@@ -85,10 +85,13 @@ describe("AccountStatusListView route data sources", () => {
         targetType: "USER",
         action: "UPDATE",
         status: "REJECTED",
+        createdAt: "2026-07-10T08:00:00",
         closedAt: "2026-07-10T09:00:00",
         remark: "資料不完整",
+        requesterName: "申請人甲",
+        reviewerName: "覆核人乙",
         payload: {
-          after: { userName: "王小明", orgName: "資訊科", roles: ["USER"] },
+          after: { id: "A001", userName: "王小明", orgName: "資訊科", roles: ["USER"] },
         },
       },
     ]);
@@ -98,9 +101,18 @@ describe("AccountStatusListView route data sources", () => {
     const wrapper = shallowMount(AccountStatusListView);
     await flushPromises();
 
-    expect(wrapper.text()).toContain("駁回日期");
+    expect(wrapper.text()).toContain("申請日期");
+    expect(wrapper.text()).toContain("員工編號");
+    expect(wrapper.text()).toContain("申請動作");
+    expect(wrapper.text()).toContain("申請人");
+    expect(wrapper.text()).toContain("覆核人");
     expect(wrapper.text()).toContain("駁回原因");
+    expect(wrapper.text()).toContain("A001");
     expect(wrapper.text()).toContain("王小明");
+    expect(wrapper.text()).toContain("資訊科");
+    expect(wrapper.text()).toContain("UPDATE");
+    expect(wrapper.text()).toContain("申請人甲");
+    expect(wrapper.text()).toContain("覆核人乙");
     expect(wrapper.text()).toContain("資料不完整");
     expect(wrapper.text()).toContain("2026-07-10");
   });

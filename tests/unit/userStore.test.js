@@ -17,6 +17,33 @@ beforeEach(() => {
 });
 
 describe("userStore pending badge counts", () => {
+  it("fetches every change-request page when results exceed 100", async () => {
+    const store = useUserStore();
+    const firstPage = Object.assign(Array.from({ length: 100 }, (_, id) => ({ id })), {
+      totalElements: 130,
+    });
+    const secondPage = Object.assign(Array.from({ length: 30 }, (_, id) => ({ id: id + 100 })), {
+      totalElements: 130,
+    });
+    getAccountChangeRequests
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage);
+
+    await store.fetchAccountChangeRequests({ status: "REJECTED" });
+
+    expect(getAccountChangeRequests).toHaveBeenNthCalledWith(1, {
+      status: "REJECTED",
+      page: 1,
+      size: 100,
+    });
+    expect(getAccountChangeRequests).toHaveBeenNthCalledWith(2, {
+      status: "REJECTED",
+      page: 2,
+      size: 100,
+    });
+    expect(store.getCachedChangeRequests({ status: "REJECTED" })).toHaveLength(130);
+  });
+
   it("pendingNewCount and pendingChangeCount come from their own queries", async () => {
     const store = useUserStore();
     getAccountChangeRequests.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]);
