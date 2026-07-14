@@ -4,7 +4,7 @@ import apiRequest, { unwrapApiBody } from "./apiRequest";
 import { changeMyPassword as changeMyPasswordApi } from "./authService";
 
 export async function getUsers(params = {}) {
-  const { page = 1, size = 20, status = "ACTIVE" } = params || {};
+  const { page = 1, size = 20, status } = params || {};
   return unwrapApiBody(
     await apiRequest.get("/api/users", {
       params: pruneEmptyParams({ page, size: clampUserPageSize(size), status }),

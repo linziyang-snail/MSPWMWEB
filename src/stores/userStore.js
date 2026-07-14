@@ -103,9 +103,11 @@ export const useUserStore = defineStore("users", {
     },
     async fetchUsers(params = {}) {
       const { force = false, ...requestParams } = params || {};
-      const status = requestParams.status || "ACTIVE";
+      const status = Object.hasOwn(requestParams, "status")
+        ? requestParams.status
+        : "ACTIVE";
       const statuses = normalizeStatusList(status);
-      const statusKey = buildStatusKey(statuses);
+      const statusKey = buildStatusKey(status);
       const key = buildUsersKey({ ...requestParams, status });
       if (!force && this.usersByStatus[statusKey]) {
         this.users = this.usersByStatus[statusKey];
@@ -115,11 +117,13 @@ export const useUserStore = defineStore("users", {
       this.loading = true;
       this.error = "";
       this.inFlightByKey[key] = (async () => {
-        const pages = await Promise.all(
-          statuses.map((singleStatus) =>
-            fetchAllUsersForStatus(singleStatus, requestParams),
-          ),
-        );
+        const pages = statuses.length
+          ? await Promise.all(
+            statuses.map((singleStatus) =>
+              fetchAllUsersForStatus(singleStatus, requestParams),
+            ),
+          )
+          : [await fetchAllUsersForStatus(undefined, requestParams)];
         const response = mergeUserPages(pages, requestParams);
         const rows = response.content || [];
         this.users = rows;
@@ -192,7 +196,7 @@ export const useUserStore = defineStore("users", {
 });
 
 function buildUsersKey(params = {}) {
-  const status = normalizeStatusList(params.status || "ACTIVE");
+  const status = normalizeStatusList(params.status);
   const normalizedParams = {
     page: params.page || 1,
     size: Math.min(Number(params.size || 20), 100),
@@ -202,12 +206,14 @@ function buildUsersKey(params = {}) {
 }
 
 function normalizeStatusList(status) {
-  if (Array.isArray(status)) return status.filter(Boolean).map((item) => String(item));
-  return [status || "ACTIVE"];
+  if (status === null || status === undefined || status === "") return [];
+  if (Array.isArray(status)) return status.filter(Boolean).map(String);
+  return [String(status)];
 }
 
 function buildStatusKey(status) {
-  return normalizeStatusList(status).sort().join(",");
+  const statuses = normalizeStatusList(status);
+  return statuses.length ? statuses.sort().join(",") : "ALL";
 }
 
 // Fetch every page for one status (1 request for <=100 rows; more only when
@@ -217,8 +223,11 @@ async function fetchAllUsersForStatus(status, requestParams = {}) {
   let page = 1;
   let content = [];
   let totalElements = 0;
+  const { status: _status, ...paramsWithoutStatus } = requestParams;
   for (let guard = 0; guard < 100; guard += 1) {
-    const response = await getUsers({ ...requestParams, status, page, size });
+    const query = { ...paramsWithoutStatus, page, size };
+    if (status !== undefined) query.status = status;
+    const response = await getUsers(query);
     const rows = response?.content || [];
     content = content.concat(rows);
     totalElements = Number(response?.totalElements ?? content.length);

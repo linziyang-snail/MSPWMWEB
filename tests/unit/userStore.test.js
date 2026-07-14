@@ -66,4 +66,26 @@ describe("userStore.fetchUsers caching", () => {
     expect(getUsers).toHaveBeenCalledTimes(2);
     expect(store.getCachedUsers("ACTIVE")).toHaveLength(130);
   });
+
+  it("fetches and caches every page without a status filter", async () => {
+    const store = useUserStore();
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({ id: `u${i}` }));
+    const tail = Array.from({ length: 20 }, (_, i) => ({ id: `u${100 + i}` }));
+    getUsers
+      .mockResolvedValueOnce({ content: fullPage, totalElements: 120 })
+      .mockResolvedValueOnce({ content: tail, totalElements: 120 });
+
+    await store.fetchUsers({ status: null, size: 100 });
+
+    expect(getUsers).toHaveBeenCalledTimes(2);
+    expect(getUsers).toHaveBeenNthCalledWith(1, {
+      page: 1,
+      size: 100,
+    });
+    expect(getUsers).toHaveBeenNthCalledWith(2, {
+      page: 2,
+      size: 100,
+    });
+    expect(store.getCachedUsers(null)).toHaveLength(120);
+  });
 });
