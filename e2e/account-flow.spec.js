@@ -232,7 +232,7 @@ test.describe("account flow", () => {
     expect(body, "password reset failed").toContain('"0000"');
   });
 
-  test("ADMIN deletes the account, ADMIN2 approves → 已刪除", async ({
+  test("ADMIN deletes the account, ADMIN2 approves → 全部帳號不顯示", async ({
     page,
   }) => {
     const { id } = await createAndApproveAccount(page);
@@ -250,9 +250,7 @@ test.describe("account flow", () => {
     await approveChangeReview(page, id);
 
     await login(page, "ADMIN");
-    await page.goto("/accounts/deleted");
-    await expect(page.locator("tr").filter({ hasText: id })).toBeVisible({
-      timeout: 15_000,
-    });
+    await page.goto("/accounts/all");
+    await expect(page.locator("tr").filter({ hasText: id })).toHaveCount(0);
   });
 });

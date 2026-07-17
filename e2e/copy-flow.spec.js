@@ -38,7 +38,8 @@ test.describe("copy flow", () => {
     await page.getByRole("button", { name: "送出審核" }).click();
     const body = (await posted).request().postDataJSON();
     expect(body.content).toMatch(/\|\$1\|/); // at least one inserted parameter
-    expect(body.remark).toBeTruthy(); // 備註 was sent
+    expect(body.comment).toBeTruthy(); // 備註 was sent
+    expect(body.remark).toBeUndefined();
   }
 
   // Search filters across all loaded rows, so a copy is found regardless of page.

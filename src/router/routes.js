@@ -112,9 +112,7 @@ export const routes = [
       },
       {
         path: "accounts/deleted",
-        name: "AccountDeleted",
-        component: AccountStatusListView,
-        meta: { title: "已刪除帳號", status: "DELETED", roles: ["ADMIN"] },
+        redirect: "/accounts/all",
       },
       {
         path: "applications/query",

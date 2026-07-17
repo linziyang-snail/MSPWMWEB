@@ -16,7 +16,7 @@
         <BaseSearchInput
           v-model="draftFilters.keyword"
           class="min-w-72 flex-1 lg:max-w-modal-history-search"
-          placeholder="搜尋人員姓名、標題或動作..."
+          placeholder="搜尋操作者、異動對象、狀態或動作..."
           size="md"
           @submit="applyFilters"
         />
@@ -57,41 +57,86 @@
       >
         {{ errorMessage }}
       </div>
-      <div v-else class="min-h-0 flex-1 overflow-auto rounded-lg border border-border-muted">
-        <table class="w-full min-w-[760px] table-fixed text-left text-sm text-text-secondary">
-          <thead class="sticky top-0 z-10 h-12 bg-background-subtle text-sm font-bold text-text-heading">
-            <tr>
-              <th class="w-1/5 px-5">日期</th>
-              <th class="w-1/5 px-5">操作者</th>
-              <th class="w-1/5 px-5">被異動帳號</th>
-              <th class="w-1/5 px-5 text-center">動作</th>
-              <th class="w-1/5 px-5">異動欄位</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in filteredRows"
-              :key="row.rowKey"
-              class="h-14 border-b border-border-muted last:border-b-0"
-            >
-              <td class="px-5">{{ formatDateTime(row.date) }}</td>
-              <td class="px-5 font-medium">{{ row.requesterId }}</td>
-              <td class="px-5">
-                <span class="block truncate" :title="row.displayTargetId">
+      <div v-else class="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border-muted">
+        <div data-test="history-desktop-table" class="hidden lg:block">
+          <table class="w-full table-fixed text-left text-sm text-text-secondary">
+            <thead class="sticky top-0 z-10 h-12 bg-background-subtle text-sm font-bold text-text-heading">
+              <tr>
+                <th class="w-[16%] px-3 xl:px-4">日期</th>
+                <th class="w-[12%] px-3 xl:px-4">操作者</th>
+                <th class="w-[16%] px-3 xl:px-4">異動對象</th>
+                <th class="w-[10%] px-3 text-center xl:px-4">狀態</th>
+                <th class="w-[10%] px-3 text-center xl:px-4">動作</th>
+                <th class="w-[18%] px-3 xl:px-4">異動欄位</th>
+                <th class="w-[18%] px-3 xl:px-4">駁回原因</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in filteredRows"
+                :key="row.rowKey"
+                class="min-h-14 border-b border-border-muted align-top last:border-b-0"
+              >
+                <td class="px-3 py-4 break-words xl:px-4">{{ formatDateTime(row.date) }}</td>
+                <td class="px-3 py-4 font-medium break-words xl:px-4">{{ row.requesterId }}</td>
+                <td class="px-3 py-4 break-words xl:px-4" :title="row.displayTargetId">
                   {{ row.displayTargetId }}
-                </span>
-              </td>
-              <td class="px-5 text-center">
-                <BaseBadge :status="row.action" :label="row.actionLabel" />
-              </td>
-              <td class="px-5">
-                <span class="block whitespace-normal break-words" :title="row.changedFields">
-                  {{ row.changedFields }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td class="px-3 py-4 text-center xl:px-4">
+                  <BaseBadge :status="row.status" :label="row.statusLabel" />
+                </td>
+                <td class="px-3 py-4 text-center xl:px-4">
+                  <BaseBadge :status="row.action" :label="row.actionLabel" />
+                </td>
+                <td class="px-3 py-4 whitespace-normal break-words xl:px-4" :title="row.changedFields">
+                  {{ row.changedFields || "-" }}
+                </td>
+                <td class="px-3 py-4 whitespace-normal break-words xl:px-4" :title="row.rejectReason">
+                  {{ row.rejectReason || "-" }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div data-test="history-responsive-cards" class="grid gap-4 p-4 lg:hidden">
+          <article
+            v-for="row in filteredRows"
+            :key="`card-${row.rowKey}`"
+            class="rounded-lg border border-border-muted bg-background-surface p-4 shadow-sm"
+          >
+            <dl class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+              <div>
+                <dt class="text-xs font-bold text-text-grey">日期</dt>
+                <dd class="mt-1 break-words text-sm text-text-secondary">{{ formatDateTime(row.date) }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-bold text-text-grey">操作者</dt>
+                <dd class="mt-1 break-words text-sm font-medium text-text-secondary">{{ row.requesterId }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-bold text-text-grey">異動對象</dt>
+                <dd class="mt-1 break-words text-sm text-text-secondary">{{ row.displayTargetId }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-bold text-text-grey">狀態</dt>
+                <dd class="mt-1"><BaseBadge :status="row.status" :label="row.statusLabel" /></dd>
+              </div>
+              <div>
+                <dt class="text-xs font-bold text-text-grey">動作</dt>
+                <dd class="mt-1"><BaseBadge :status="row.action" :label="row.actionLabel" /></dd>
+              </div>
+              <div>
+                <dt class="text-xs font-bold text-text-grey">異動欄位</dt>
+                <dd class="mt-1 whitespace-normal break-words text-sm text-text-secondary">{{ row.changedFields || "-" }}</dd>
+              </div>
+              <div class="sm:col-span-2">
+                <dt class="text-xs font-bold text-text-grey">駁回原因</dt>
+                <dd class="mt-1 whitespace-normal break-words text-sm text-text-secondary">{{ row.rejectReason || "-" }}</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
 
         <EmptyState
           v-if="!filteredRows.length"
@@ -241,8 +286,11 @@ function getSearchText(row = {}) {
     row.payload?.userName,
     row.payload?.orgName,
     row.actionLabel,
+    row.statusLabel,
     row.changedFields,
     row.remark,
+    row.comment,
+    row.rejectReason,
   ]
     .filter(Boolean)
     .join(" ")

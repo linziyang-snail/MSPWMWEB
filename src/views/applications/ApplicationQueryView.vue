@@ -696,7 +696,7 @@ function toPendingCategoryRow(row = {}, sourceOrg = null) {
     requesterId: row.requesterId || row.createdBy || "",
     createdAt: row.createdAt,
     closedAt: row.closedAt,
-    rejectReason: row.remark || row.rejectReason || "-",
+    rejectReason: row.comment || row.rejectReason || "-",
   };
 }
 
@@ -852,7 +852,7 @@ async function rejectSelectedCategory(reason) {
   try {
     await rejectChangeRequest({
       id: selectedCategory.value.changeRequestId,
-      remark: reason,
+      comment: reason,
     });
     invalidateCategoryCachesAfterReject();
     approvalStore.fetchCategoryPendingCount({ force: true });

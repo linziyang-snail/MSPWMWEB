@@ -67,9 +67,49 @@ describe("normalizeChangeRequestForHistory", () => {
     });
     expect(row.targetTypeLabel).toBe("帳號");
     expect(row.actionLabel).toBe("編輯");
-    expect(row.statusLabel).toBe("已核准");
+    expect(row.statusLabel).toBe("核准");
     expect(row.targetDisplay).toBe("1126580 / 林子洋");
+    expect(row.displayTargetId).toBe("1126580");
     expect(row.date).toBe("2026-06-09"); // closedAt preferred over createdAt
+  });
+
+  it("uses payload orgName as the organization display instead of targetId", () => {
+    const row = normalizeChangeRequestForHistory({
+      id: 44,
+      targetType: "ORGANIZATION",
+      targetId: "14",
+      action: "CREATE",
+      payload: '{"orgName":"數三科","orgType":"SECTION"}',
+      requesterId: "1150251",
+      status: "APPROVED",
+      reviewerId: "1134540",
+      remark: "科別名稱、科別類型",
+      comment: null,
+      closedAt: "2026-07-17T10:50:06",
+      createdAt: "2026-07-17T10:49:55",
+    });
+
+    expect(row.displayTargetId).toBe("數三科");
+    expect(row.targetDisplay).toBe("數三科");
+    expect(row.statusLabel).toBe("核准");
+    expect(row.changedFields).toBe("科別名稱、科別類型");
+    expect(row.rejectReason).toBe("");
+  });
+
+  it("maps rejected status and reads its reason from comment", () => {
+    const row = normalizeChangeRequestForHistory({
+      id: 45,
+      targetType: "USER",
+      targetId: "A001",
+      action: "UPDATE",
+      status: "REJECTED",
+      remark: "權限",
+      comment: "申請資料不完整",
+    });
+
+    expect(row.statusLabel).toBe("駁回");
+    expect(row.changedFields).toBe("權限");
+    expect(row.rejectReason).toBe("申請資料不完整");
   });
 });
 

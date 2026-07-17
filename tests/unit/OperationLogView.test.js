@@ -13,6 +13,23 @@ beforeEach(() => {
 });
 
 describe("OperationLogView history loading", () => {
+  it("uses the required seven operation-history columns", async () => {
+    GetOperationHistory.mockResolvedValue({ list: [], partialFailure: false });
+
+    const wrapper = shallowMount(OperationLogView);
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: "BaseTable" }).props("columns")).toEqual([
+      expect.objectContaining({ key: "displayDate", label: "日期" }),
+      expect.objectContaining({ key: "operator", label: "操作者" }),
+      expect.objectContaining({ key: "displayTargetId", label: "異動對象" }),
+      expect.objectContaining({ key: "status", label: "狀態" }),
+      expect.objectContaining({ key: "action", label: "動作" }),
+      expect.objectContaining({ key: "changedFieldsLabel", label: "異動欄位" }),
+      expect.objectContaining({ key: "rejectReason", label: "駁回原因" }),
+    ]);
+  });
+
   it("shows a warning while retaining rows after a partial failure", async () => {
     GetOperationHistory.mockResolvedValue({
       list: [{ id: 1, targetType: "USER", targetDisplay: "A001" }],

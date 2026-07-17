@@ -33,7 +33,7 @@
   - response body 已改為 `PageChangeRequestDto`，列表資料在 `body.content`。
   - 舊 `/api/change-requests/history` 與 `/api/change-requests/search` 已不存在；前端相容 wrapper 皆改呼叫新版 `/api/change-requests`。
 - `PUT /api/change-requests/{id}/approve`：核准。
-- `PUT /api/change-requests/{id}/reject`：駁回，request `{ remark }`。
+- `PUT /api/change-requests/{id}/reject`：駁回，request `{ comment }`。
 - `PUT /api/change-requests/{id}/cancel`：取消，後端權限主要給 `USER`。
 - `ChangeRequestStatus` 使用 `CANCELED`，不是 `CANCELLED`。
 
@@ -80,11 +80,11 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
 
 | 頁面 / 功能 | API | 結果 |
 | --- | --- | --- |
+| 全部帳號 | `GET /api/users?page=1&size=100` | page；前端排除 `DISABLED` / `DELETED` |
 | 已啟用帳號 | `GET /api/users?page=1&size=100&status=ACTIVE` | page，count=15，totalElements=32 |
 | 待審核新帳號 | `GET /api/change-requests?targetType=USER&status=PENDING&action=CREATE&page=1&size=100` | page，count=3，totalElements=3 |
 | 待審核帳號異動 | `GET /api/change-requests?targetType=USER&status=PENDING&action=UPDATE&action=DELETE&page=1&size=100` | page，count=3，totalElements=3 |
 | 已停用帳號 | `GET /api/users?page=1&size=100&status=LOCKED` | page，count=0，totalElements=32 |
-| 已刪除帳號 | `GET /api/change-requests?targetType=USER&status=APPROVED&action=DELETE&page=1&size=100` | page，count=10，totalElements=10 |
 | 帳號搜尋 | `GET /api/users/keyword?page=1&size=20&status=ACTIVE&keyword=1` | page，count=10，totalElements=10 |
 | 角色列表 | `GET /api/roles` | array，count=3；roles=`ADMIN` / `MANAGER` / `USER` |
 
@@ -109,7 +109,7 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
   - `USER_PENDING_CHANGES`：`targetType=USER&status=PENDING&action=UPDATE&action=DELETE`
   - `USER_PENDING_ALL`：`targetType=USER&status=PENDING` 只可用於總待審核數；不可作為「待審核帳號異動」badge 或列表來源。
 - 已停用帳號使用 `GET /api/users?status=LOCKED`，`LOCKED` 不屬於審核單。
-- 已刪除帳號使用 `targetType=USER&status=APPROVED&action=DELETE` 顯示刪除流程資訊。
+- 人員管理不提供已刪除帳號頁；全部帳號會排除 `DISABLED` / `DELETED`。
 - 待審核科別使用 `targetType=ORGANIZATION&status=PENDING`，不以 `organizations?status=PENDING` 作為主要資料來源。
 - 已駁回科別使用 `targetType=ORGANIZATION&status=REJECTED`，不可使用 `organizations?status=DISABLED`。
 - 已刪除科別使用 `organizations?status=DISABLED`，並合併 `targetType=ORGANIZATION&status=APPROVED&action=DELETE` 補刪除申請人、審核人、刪除日期。

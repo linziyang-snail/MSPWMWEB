@@ -67,6 +67,25 @@ describe("AccountStatusListView route data sources", () => {
     );
   });
 
+  it("excludes deleted accounts from AccountAll", async () => {
+    getCachedUsers.mockReturnValue([
+      { id: "ACTIVE-001", userName: "啟用帳號", status: "ACTIVE" },
+      { id: "LOCKED-001", userName: "停用帳號", status: "LOCKED" },
+      { id: "DISABLED-001", userName: "已刪除帳號", status: "DISABLED" },
+      { id: "DELETED-001", userName: "歷史刪除帳號", status: "DELETED" },
+    ]);
+    route.name = "AccountAll";
+    route.meta = { title: "全部帳號", status: "ALL" };
+
+    const wrapper = shallowMount(AccountStatusListView);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("ACTIVE-001");
+    expect(wrapper.text()).toContain("LOCKED-001");
+    expect(wrapper.text()).not.toContain("DISABLED-001");
+    expect(wrapper.text()).not.toContain("DELETED-001");
+  });
+
   it("fetches rejected change requests without fetching users", async () => {
     await mountRoute("AccountRejected", "REJECTED");
 
@@ -87,7 +106,7 @@ describe("AccountStatusListView route data sources", () => {
         status: "REJECTED",
         createdAt: "2026-07-10T08:00:00",
         closedAt: "2026-07-10T09:00:00",
-        remark: "資料不完整",
+        comment: "資料不完整",
         requesterName: "申請人甲",
         reviewerName: "覆核人乙",
         payload: {
@@ -127,7 +146,7 @@ describe("AccountStatusListView route data sources", () => {
         action: "UPDATE",
         status: "REJECTED",
         createdAt: "2026-07-10T08:00:00",
-        remark: "第一次駁回",
+        comment: "第一次駁回",
         payload: { after: { id: "A001", userName: "王小明" } },
       },
       {
@@ -136,7 +155,7 @@ describe("AccountStatusListView route data sources", () => {
         action: "DELETE",
         status: "REJECTED",
         createdAt: "2026-07-11T08:00:00",
-        remark: "第二次駁回",
+        comment: "第二次駁回",
         payload: { after: { id: "A001", userName: "王小明" } },
       },
     ]);

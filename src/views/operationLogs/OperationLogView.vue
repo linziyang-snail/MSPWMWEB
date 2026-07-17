@@ -43,20 +43,25 @@
       <template #cell-displayDate="{ row }">
         {{ formatDateTime(row.displayDate) }}
       </template>
-      <template #cell-targetDisplay="{ row }">
-        <span class="block truncate" :title="row.targetDisplay">
-          {{ row.targetDisplay }}
+      <template #cell-displayTargetId="{ row }">
+        <span class="block whitespace-normal break-words" :title="row.displayTargetId">
+          {{ row.displayTargetId }}
         </span>
-      </template>
-      <template #cell-action="{ row }">
-        <BaseBadge :status="row.action" :label="row.actionLabel" />
       </template>
       <template #cell-status="{ row }">
         <BaseBadge :status="row.status" :label="row.statusLabel" />
       </template>
-      <template #cell-remark="{ row }">
-        <span class="block truncate" :title="row.remark">
-          {{ row.remark || "-" }}
+      <template #cell-action="{ row }">
+        <BaseBadge :status="row.action" :label="row.actionLabel" />
+      </template>
+      <template #cell-changedFieldsLabel="{ row }">
+        <span class="block whitespace-normal break-words" :title="row.changedFieldsLabel">
+          {{ row.changedFieldsLabel || "-" }}
+        </span>
+      </template>
+      <template #cell-rejectReason="{ row }">
+        <span class="block whitespace-normal break-words" :title="row.rejectReason">
+          {{ row.rejectReason || "-" }}
         </span>
       </template>
       <template #empty><EmptyState v-if="rows.length === 0 && !historyLoadFailed" /></template>
@@ -87,8 +92,8 @@ import BaseTable from "@/components/tables/BaseTable.vue";
 import { GetOperationHistory } from "@/services/operationHistoryService";
 import {
   getChangeRequestActionLabel,
-  getChangeRequestStatusLabel,
   getChangeRequestTargetTypeLabel,
+  getOperationHistoryStatusLabel,
 } from "@/utils/changeRequestUtils";
 import { formatDateTime } from "@/utils/formatDate";
 
@@ -110,13 +115,11 @@ const PAGE_SIZE = 20;
 const columns = [
   { key: "displayDate", label: "日期" },
   { key: "operator", label: "操作者" },
-  { key: "targetTypeLabel", label: "類型" },
-  { key: "targetDisplay", label: "被異動帳號 / 科別" },
+  { key: "displayTargetId", label: "異動對象" },
+  { key: "status", label: "狀態" },
   { key: "action", label: "動作" },
   { key: "changedFieldsLabel", label: "異動欄位" },
-  { key: "status", label: "審核狀態" },
-  { key: "reviewer", label: "審核人" },
-  { key: "remark", label: "備註 / 駁回原因" },
+  { key: "rejectReason", label: "駁回原因" },
 ];
 
 const targetTypeOptions = ["USER", "ORGANIZATION"].map((value) => ({
@@ -129,7 +132,7 @@ const actionOptions = ["CREATE", "UPDATE", "DELETE"].map((value) => ({
 }));
 const statusOptions = ["PENDING", "APPROVED", "REJECTED", "CANCELED"].map((value) => ({
   value,
-  label: getChangeRequestStatusLabel(value),
+  label: getOperationHistoryStatusLabel(value),
 }));
 
 const rows = computed(() =>
@@ -139,7 +142,14 @@ const rows = computed(() =>
       const keyword = filters.keyword.trim().toLowerCase();
       const matchKeyword =
         !keyword ||
-        [row.operator, row.targetDisplay]
+        [
+          row.operator,
+          row.displayTargetId,
+          row.actionLabel,
+          row.statusLabel,
+          row.changedFieldsLabel,
+          row.rejectReason,
+        ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(keyword));
       const matchTargetType = !filters.targetType || row.targetType === filters.targetType;

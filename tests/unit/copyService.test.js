@@ -20,7 +20,7 @@ import { getCopyChangeRequests, submitCopy } from "@/services/copyService";
 describe("submitCopy payload (NNB/WBK + 備註)", () => {
   beforeEach(() => post.mockClear());
 
-  it("sends WBK value in wbkCategory, NNB value in nnbCategory, and note as remark", async () => {
+  it("sends WBK value in wbkCategory, NNB value in nnbCategory, and note as comment", async () => {
     await submitCopy({
       number: "C1",
       title: "t",
@@ -37,7 +37,8 @@ describe("submitCopy payload (NNB/WBK + 備註)", () => {
     expect(url).toBe("/api/copies");
     expect(body.nnbCategory).toBe("帳務");
     expect(body.wbkCategory).toBe("優惠");
-    expect(body.remark).toBe("作者備註");
+    expect(body.comment).toBe("作者備註");
+    expect(body).not.toHaveProperty("remark");
     expect(body.retentionMonths).toBe(1);
     expect(body.expiredAt).toBeUndefined();
   });
@@ -69,7 +70,7 @@ describe("submitCopy payload (NNB/WBK + 備註)", () => {
 });
 
 describe("getCopyChangeRequests normalization", () => {
-  it("maps payload.remark -> note and the top-level remark -> rejectReason", async () => {
+  it("maps payload.comment -> note and top-level comment -> rejectReason", async () => {
     getChangeRequests.mockResolvedValueOnce({
       content: [
         {
@@ -81,11 +82,11 @@ describe("getCopyChangeRequests normalization", () => {
             title: "T",
             nnbCategory: "帳務",
             wbkCategory: "優惠",
-            remark: "作者備註",
+            comment: "作者備註",
           }),
           requesterId: "u1",
           reviewerId: "r1",
-          remark: "駁回原因",
+          comment: "駁回原因",
           createdAt: "2026-01-01T00:00:00",
           closedAt: "2026-01-02T00:00:00",
         },
@@ -101,8 +102,10 @@ describe("getCopyChangeRequests normalization", () => {
     );
     expect(row.changeRequestId).toBe(9);
     expect(row.code).toBe("C9");
-    expect(row.note).toBe("作者備註"); // payload.remark -> note
-    expect(row.rejectReason).toBe("駁回原因"); // top-level remark -> rejectReason
+    expect(row.note).toBe("作者備註");
+    expect(row.rejectReason).toBe("駁回原因");
+    expect(row.comment).toBe("駁回原因");
+    expect(row).not.toHaveProperty("remark");
     expect(row.nnbCategory).toBe("帳務");
     expect(row.wbkCategory).toBe("優惠");
     expect(row.status).toBe("REJECTED");

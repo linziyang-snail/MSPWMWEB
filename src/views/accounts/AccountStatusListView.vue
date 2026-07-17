@@ -172,11 +172,8 @@
                 <SortIcon :active="sortState.key === col.key" :direction="sortState.direction" />
               </button>
             </th>
-            <th v-if="routeStatus === 'DELETED'" class="w-[12%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
-              刪除申請人
-            </th>
             <th v-if="routeStatus !== 'REJECTED'" class="w-[22%] px-4 py-4 text-base font-bold leading-normal text-center text-natural xl:px-5">
-              {{ trailingColumnLabel }}
+              操作
             </th>
           </tr>
         </thead>
@@ -214,14 +211,8 @@
               </span>
               <StatusBadge v-else :status="row.status" :label="getAccountBadgeLabel(row.status)" />
             </td>
-            <td v-if="routeStatus === 'DELETED'" class="px-4 py-4 text-base font-normal leading-normal text-center wrap-break-word text-natural xl:px-5">
-              {{ row.requesterId || "-" }}
-            </td>
             <td class="px-3 py-4 xl:px-5">
-              <p v-if="routeStatus === 'DELETED' || routeStatus === 'REJECTED'" class="text-base font-normal leading-normal text-center text-natural">
-                {{ routeStatus === "REJECTED" ? row.rejectReason || "-" : row.reviewerId || "-" }}
-              </p>
-              <div v-else-if="isManageableAccount(row)" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
+              <div v-if="isManageableAccount(row)" class="flex flex-wrap items-center justify-center gap-4 2xl:gap-8">
                 <button
                   class="grid transition rounded size-8 place-items-center text-natural hover:bg-background-hover hover:text-primary"
                   type="button" aria-label="重設密碼" @click="openPasswordReset(row)">
@@ -271,7 +262,7 @@
             </template>
           </tr>
           <tr v-if="!filteredRows.length">
-            <td :colspan="tableColumns.length + (routeStatus === 'DELETED' ? 2 : 1)" class="py-16 text-center">
+            <td :colspan="tableColumns.length + 1" class="py-16 text-center">
               <EmptyState />
             </td>
           </tr>
@@ -457,7 +448,6 @@ const tableColumns = computed(() => {
   }
   const dateLabelMap = {
     LOCKED: "停用日期",
-    DELETED: "刪除日期",
     REJECTED: "駁回日期",
   };
   return columns.map((column) =>
@@ -466,12 +456,6 @@ const tableColumns = computed(() => {
       : column,
   );
 });
-const trailingColumnLabel = computed(() =>
-  routeStatus.value === "DELETED"
-    ? "刪除審核人"
-    : "操作",
-);
-
 const routeStatus = computed(() => route.meta.status || "");
 
 const isPendingPage = computed(() => routeStatus.value === "PENDING");
@@ -489,13 +473,13 @@ const pendingAccountChangeRows = computed(() =>
 
 const filteredRows = computed(() => {
   let rows = [];
-  if (!routeStatus.value || routeStatus.value === "ALL") return sortRows(users.value);
+  if (!routeStatus.value || routeStatus.value === "ALL") {
+    return sortRows(
+      users.value.filter((user) => !["DISABLED", "DELETED"].includes(user.status)),
+    );
+  }
   if (routeStatus.value === "PENDING") {
     rows = getPendingCreateRows();
-    return sortRows(filterRowsByAccountFilters(rows));
-  }
-  if (routeStatus.value === "DELETED") {
-    rows = getApprovedDeleteRows();
     return sortRows(filterRowsByAccountFilters(rows));
   }
   if (routeStatus.value === "REJECTED") {
@@ -527,7 +511,6 @@ function getRouteDisplayStatuses() {
   // PASSWORD_INVALID (需改密碼) is an active-but-must-change state, shown under
   // 已啟用; 已停用 holds only LOCKED.
   if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
-  if (routeStatus.value === "DELETED") return ["DISABLED"];
   return [routeStatus.value];
 }
 
@@ -771,28 +754,6 @@ function getPendingCreateRows(existingRows = []) {
     }));
 }
 
-function getApprovedDeleteRows() {
-  return accountChangeRows.value
-    .filter((row) => row.action === "DELETE")
-    .map((row) => ({
-      id: row.userId || row.targetId || row.id,
-      userId: row.userId || row.targetId || row.id,
-      userName: row.userName,
-      orgName: row.after?.orgName || row.before?.orgName || "-",
-      status: "DISABLED",
-      createdAt: row.closedAt || row.createdAt,
-      requestedAt: row.createdAt,
-      closedAt: row.closedAt,
-      requesterId: row.requesterId || row.createdBy || "",
-      reviewerId: row.reviewerId || "",
-      roles: extractRolesFromAccountInfo(row.after),
-      roleLabel: row.after?.roleLabel,
-      targetType: row.targetType,
-      action: row.action,
-      changeRequestId: row.id,
-    }));
-}
-
 function getRejectedChangeRequestRows() {
   return accountChangeRows.value.map((row) => ({
     rowKey: row.changeRequestId || row.id,
@@ -808,7 +769,7 @@ function getRejectedChangeRequestRows() {
     requesterName: row.requesterName || row.createdByName || "",
     reviewerId: row.reviewerId || "",
     reviewerName: row.reviewerName || "",
-    rejectReason: row.remark || row.rejectReason || "-",
+    rejectReason: row.comment || row.rejectReason || "-",
   }));
 }
 
@@ -1085,7 +1046,7 @@ async function onRejectConfirm(reason) {
   try {
     const changeRequestId = getChangeRequestId(selected.value);
     if (!changeRequestId) return;
-    await rejectChangeRequest({ id: changeRequestId, remark: reason });
+    await rejectChangeRequest({ id: changeRequestId, comment: reason });
     await reloadAccountDataAfterReview("reject", selected.value);
   } catch (error) {
     console.error(error);
@@ -1251,7 +1212,6 @@ const accountRouteApiStatus = computed(() => {
   if (route.name === "AccountAll") return null;
   if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
   if (route.name === "AccountDisabled" || route.name === "AccountLocked") return "LOCKED";
-  if (route.name === "AccountDeleted") return "DISABLED";
   if (route.name === "AccountPasswordInvalid") return "PASSWORD_INVALID";
   if (route.name === "AccountActive") return ["ACTIVE", "PASSWORD_INVALID"];
   return "ACTIVE";
@@ -1267,18 +1227,15 @@ const accountRouteRequestQuery = computed(() => {
   if (route.name === "AccountPendingReview") {
     return { status: "PENDING", action: ["UPDATE", "DELETE"] };
   }
-  if (route.name === "AccountDeleted") {
-    return { status: "APPROVED", action: ["DELETE"] };
-  }
   return { status: "PENDING" };
 });
 
 const routeNeedsUsers = computed(() =>
-  !["AccountPendingChanges", "AccountPendingReview", "AccountRejected", "AccountDeleted"].includes(route.name),
+  !["AccountPendingChanges", "AccountPendingReview", "AccountRejected"].includes(route.name),
 );
 
 const routeNeedsChangeRequests = computed(() =>
-  ["AccountPendingChanges", "AccountPendingReview", "AccountRejected", "AccountDeleted"].includes(route.name),
+  ["AccountPendingChanges", "AccountPendingReview", "AccountRejected"].includes(route.name),
 );
 
 watch(

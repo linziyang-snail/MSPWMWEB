@@ -36,6 +36,16 @@ export function getChangeRequestStatusLabel(status = "") {
   );
 }
 
+export function getOperationHistoryStatusLabel(status = "") {
+  const normalizedStatus = String(status || "").toUpperCase();
+  return (
+    {
+      APPROVED: "核准",
+      REJECTED: "駁回",
+    }[normalizedStatus] || getChangeRequestStatusLabel(status)
+  );
+}
+
 export function getChangeRequestTargetTypeLabel(targetType = "") {
   const normalizedTargetType = String(targetType || "").toUpperCase();
   return (
@@ -69,11 +79,14 @@ export function getChangeRequestTargetId(row = {}, payload = safeParsePayload(ro
 export function getChangeRequestTargetName(row = {}, payload = safeParsePayload(row.payload)) {
   const targetType = String(row.targetType || "").toUpperCase();
   if (targetType === "USER") return payload.userName || "";
-  if (targetType === "ORGANIZATION") return payload.orgName || payload.name || payload.categoryName || "";
+  if (targetType === "ORGANIZATION") return getOrganizationName(payload);
   return "";
 }
 
 export function getOperationHistoryDisplayTargetId(row = {}, payload = safeParsePayload(row.payload)) {
+  if (String(row.targetType || "").toUpperCase() === "ORGANIZATION") {
+    return getOrganizationName(payload) || row.targetId || "-";
+  }
   return payload.userId || row.targetId || "-";
 }
 
@@ -107,10 +120,12 @@ export function normalizeChangeRequestForHistory(row = {}) {
     action,
     actionLabel: getChangeRequestActionLabel(action),
     status,
-    statusLabel: getChangeRequestStatusLabel(status),
+    statusLabel: getOperationHistoryStatusLabel(status),
     changedFields,
     changedFieldsLabel: changedFields,
     remark: row.remark || "",
+    comment: row.comment || "",
+    rejectReason: row.comment || "",
     payload,
     raw: row,
     module: getChangeRequestTargetTypeLabel(targetType),
@@ -142,7 +157,20 @@ function getUserTargetDisplay(row = {}, payload = {}) {
 }
 
 function getOrganizationTargetDisplay(row = {}, payload = {}) {
-  const orgName = payload.orgName || payload.name || payload.categoryName || "";
-  if (row.targetId && orgName) return `${row.targetId} / ${orgName}`;
-  return row.targetId || orgName || "-";
+  return getOrganizationName(payload) || row.targetId || "-";
+}
+
+function getOrganizationName(payload = {}) {
+  return (
+    payload.orgName ||
+    payload.name ||
+    payload.categoryName ||
+    payload.after?.orgName ||
+    payload.after?.name ||
+    payload.after?.categoryName ||
+    payload.before?.orgName ||
+    payload.before?.name ||
+    payload.before?.categoryName ||
+    ""
+  );
 }

@@ -121,8 +121,8 @@ export async function approveChangeRequest(params) {
 }
 
 export async function rejectChangeRequest(params, legacyPayload) {
-  const { id, remark = "" } = normalizeRejectParams(params, legacyPayload);
-  const body = { remark };
+  const { id, comment = "" } = normalizeRejectParams(params, legacyPayload);
+  const body = { comment };
   return apiRequest.put(`/api/change-requests/${id}/reject`, body);
 }
 

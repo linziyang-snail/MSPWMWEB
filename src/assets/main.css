@@ -122,7 +122,7 @@
   --spacing-modal-lg: 680px;
   --spacing-modal-xl: 960px;
   --spacing-modal-max: calc(100vw - 32px);
-  --spacing-modal-history: 1152px;
+  --spacing-modal-history: 1440px;
   --spacing-modal-history-max: calc(100vh - 48px);
   --spacing-modal-history-search: 456px;
   --spacing-modal-date: 184px;

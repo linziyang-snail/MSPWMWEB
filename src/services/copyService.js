@@ -43,7 +43,7 @@ export async function getCopyChangeRequests(params = {}) {
 export const approveCopyChangeRequest = (id) => approveChangeRequest({ id });
 
 export const rejectCopyChangeRequest = (id, reason = "") =>
-  rejectChangeRequest({ id, remark: reason });
+  rejectChangeRequest({ id, comment: reason });
 
 export const cancelCopyChangeRequest = (id) => cancelChangeRequest({ id });
 
@@ -59,7 +59,7 @@ function normalizeSubmitCopyPayload(payload = {}) {
     url: clickAction === "OPEN_URL" ? payload.url || "" : payload.url || "",
     clickAction,
     expirationType,
-    remark: payload.note ?? payload.remark ?? "",
+    comment: payload.note ?? payload.comment ?? "",
   };
   if (expirationType === "RETENTION_MONTHS") {
     body.retentionMonths = Number(payload.retentionMonths);
@@ -96,7 +96,7 @@ function normalizeCopyChangeRequest(row = {}) {
     expirationType: payload.expirationType || "NONE",
     retentionMonths: payload.retentionMonths ?? "",
     expiredAt: payload.expiredAt || "",
-    note: payload.remark ?? payload.note ?? "",
+    note: payload.comment ?? payload.note ?? "",
     submittedBy: row.requesterId || "-",
     submittedAt: row.createdAt || "",
     createdBy: row.requesterId || "-",
@@ -109,8 +109,8 @@ function normalizeCopyChangeRequest(row = {}) {
     cancelledAt: status === "CANCELED" ? row.closedAt || row.createdAt || "" : "",
     reviewerId: row.reviewerId || "",
     reviewAt: row.closedAt || "",
-    rejectReason: row.remark || "",
-    remark: row.remark || "",
+    rejectReason: row.comment || "",
+    comment: row.comment || "",
     payload,
   };
 }
