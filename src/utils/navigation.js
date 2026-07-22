@@ -42,7 +42,6 @@ export const sidebarSections = [
       { label: "全部科別", to: "/categories/all" },
       { label: "待審核科別", to: "/categories/pending", countKey: "CategoryPending" },
       { label: "已駁回科別", to: "/categories/rejected" },
-      { label: "已刪除科別", to: "/categories/deleted" },
     ],
   },
 ];
@@ -70,7 +69,6 @@ export const breadcrumbMap = {
   CategoryAll: ["科別管理", "全部科別"],
   CategoryPending: ["科別管理", "待審核科別"],
   CategoryRejected: ["科別管理", "已駁回科別"],
-  CategoryDeleted: ["科別管理", "已刪除科別"],
   OperationLogs: ["查看操作記錄"],
   ChangePassword: ["修改個人密碼"],
 };

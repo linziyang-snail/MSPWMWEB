@@ -140,12 +140,6 @@ export const routes = [
         meta: { title: "已駁回科別", roles: ["ADMIN"] },
       },
       {
-        path: "categories/deleted",
-        name: "CategoryDeleted",
-        component: ApplicationQueryView,
-        meta: { title: "已刪除科別", roles: ["ADMIN"] },
-      },
-      {
         path: "operation-logs",
         name: "OperationLogs",
         component: OperationLogView,

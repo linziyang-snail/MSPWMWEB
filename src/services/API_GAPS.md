@@ -95,8 +95,6 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
 | 全部科別 | `GET /api/organizations?status=ACTIVE` | array，count=3 |
 | 待審核科別 | `GET /api/change-requests?targetType=ORGANIZATION&status=PENDING&page=1&size=100` | page，count=2，totalElements=2 |
 | 已駁回科別 | `GET /api/change-requests?targetType=ORGANIZATION&status=REJECTED&page=1&size=100` | page，count=9，totalElements=9 |
-| 已刪除科別主資料 | `GET /api/organizations?status=DISABLED` | array，count=9 |
-| 已刪除科別審核紀錄 | `GET /api/change-requests?targetType=ORGANIZATION&status=APPROVED&action=DELETE&page=1&size=100` | page，count=9，totalElements=9 |
 
 ### Confirmed ADMIN data-source rules
 
@@ -112,7 +110,7 @@ Console smoke test 已完成，主要 ADMIN 查詢 API 共 12 支：
 - 人員管理不提供已刪除帳號頁；全部帳號明確合併 `ACTIVE` / `PASSWORD_INVALID` / `LOCKED` / `PENDING_APPROVAL`，並排除 `DISABLED` / `DELETED`。
 - 待審核科別使用 `targetType=ORGANIZATION&status=PENDING`，不以 `organizations?status=PENDING` 作為主要資料來源。
 - 已駁回科別使用 `targetType=ORGANIZATION&status=REJECTED`，不可使用 `organizations?status=DISABLED`。
-- 已刪除科別使用 `organizations?status=DISABLED`，並合併 `targetType=ORGANIZATION&status=APPROVED&action=DELETE` 補刪除申請人、審核人、刪除日期。
+- `DISABLED` 科別仍是後端刪除狀態，但 ADMIN 前端不提供已刪除科別頁面或 `/categories/deleted` 路由。
 - 操作歷程查詢使用兩支 change request 查詢：
   - `targetType=USER&status=PENDING&status=APPROVED&status=REJECTED&status=CANCELED&action=CREATE&action=UPDATE&action=DELETE&page=1&size=100`
   - `targetType=ORGANIZATION&status=PENDING&status=APPROVED&status=REJECTED&status=CANCELED&action=CREATE&action=UPDATE&action=DELETE&page=1&size=100`
