@@ -1209,7 +1209,9 @@ async function reloadAccountDataAfterReview(reviewResult = "approve", reviewedRo
 }
 
 const accountRouteApiStatus = computed(() => {
-  if (route.name === "AccountAll") return null;
+  if (route.name === "AccountAll") {
+    return ["ACTIVE", "PASSWORD_INVALID", "LOCKED", "PENDING_APPROVAL"];
+  }
   if (route.name === "AccountPendingChanges") return "PENDING_APPROVAL";
   if (route.name === "AccountDisabled" || route.name === "AccountLocked") return "LOCKED";
   if (route.name === "AccountPasswordInvalid") return "PASSWORD_INVALID";
