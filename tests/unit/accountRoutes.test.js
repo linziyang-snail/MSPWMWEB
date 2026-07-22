@@ -41,4 +41,20 @@ describe("account routes and navigation", () => {
     expect(accountChildren.map((item) => item.label)).not.toContain("已刪除帳號");
     expect(breadcrumbMap.AccountDeleted).toBeUndefined();
   });
+
+  it("removes the deleted category page without redirecting old URLs", () => {
+    const categoryChildren = sidebarSections.find(
+      (section) => section.label === "科別管理",
+    ).children;
+    const deletedRoute = accountRoutes.find(
+      (route) => route.path === "categories/deleted",
+    );
+
+    expect(findRoute("CategoryDeleted")).toBeUndefined();
+    expect(deletedRoute).toBeUndefined();
+    expect(categoryChildren.map((item) => item.label)).not.toContain(
+      "已刪除科別",
+    );
+    expect(breadcrumbMap.CategoryDeleted).toBeUndefined();
+  });
 });

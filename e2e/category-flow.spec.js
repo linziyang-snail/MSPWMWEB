@@ -101,7 +101,7 @@ test.describe("category flow", () => {
     await login(page, "ADMIN2");
     await approvePending(page, name);
 
-    await page.goto("/categories/deleted");
-    await expect(page.getByText(name)).toBeVisible({ timeout: 15_000 });
+    await page.goto("/categories/all");
+    await expect(page.locator("article").filter({ hasText: name })).toHaveCount(0);
   });
 });

@@ -59,17 +59,25 @@ beforeEach(() => {
 });
 
 describe("AccountStatusListView route data sources", () => {
-  it("fetches every user without a status filter for AccountAll", async () => {
+  it("fetches every non-deleted user status for AccountAll", async () => {
     await mountRoute("AccountAll", "ALL");
 
     expect(fetchUsers).toHaveBeenCalledWith(
-      expect.objectContaining({ status: null, size: 100 }),
+      expect.objectContaining({
+        status: ["ACTIVE", "PASSWORD_INVALID", "LOCKED", "PENDING_APPROVAL"],
+        size: 100,
+      }),
     );
   });
 
   it("excludes deleted accounts from AccountAll", async () => {
     getCachedUsers.mockReturnValue([
       { id: "ACTIVE-001", userName: "啟用帳號", status: "ACTIVE" },
+      {
+        id: "PASSWORD-001",
+        userName: "需改密碼帳號",
+        status: "PASSWORD_INVALID",
+      },
       { id: "LOCKED-001", userName: "停用帳號", status: "LOCKED" },
       { id: "DISABLED-001", userName: "已刪除帳號", status: "DISABLED" },
       { id: "DELETED-001", userName: "歷史刪除帳號", status: "DELETED" },
@@ -81,6 +89,8 @@ describe("AccountStatusListView route data sources", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("ACTIVE-001");
+    expect(wrapper.text()).toContain("PASSWORD-001");
+    expect(wrapper.text()).toContain("需改密碼");
     expect(wrapper.text()).toContain("LOCKED-001");
     expect(wrapper.text()).not.toContain("DISABLED-001");
     expect(wrapper.text()).not.toContain("DELETED-001");

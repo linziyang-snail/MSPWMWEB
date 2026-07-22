@@ -138,10 +138,6 @@
                 type="button">
                 {{ category.rejectReason || "-" }}
               </button>
-              <p v-else-if="route.name === 'CategoryDeleted'"
-                class="text-base font-normal leading-normal text-center text-natural">
-                {{ category.reviewerName || "-" }}
-              </p>
               <p v-else class="text-base font-normal leading-normal text-center text-natural">
                 -
               </p>
@@ -295,7 +291,6 @@ const reviewingCategory = ref(false);
 const approvals = ref([]);
 const organizations = ref([]);
 const categoryChangeRequests = ref([]);
-const approvedDeleteCategoryRequests = ref([]);
 const categorySortState = ref({ key: "date", direction: "desc" });
 const currentPage = ref(1);
 const PAGE_SIZE = 20;
@@ -338,14 +333,12 @@ const categoryStatusByRoute = {
   CategoryAll: "ACTIVE",
   CategoryPending: "PENDING",
   CategoryRejected: "REJECTED",
-  CategoryDeleted: "DISABLED",
 };
 
 const categoryTitleByRoute = {
   CategoryAll: "全部科別",
   CategoryPending: "待審核科別",
   CategoryRejected: "已駁回科別",
-  CategoryDeleted: "已刪除科別",
 };
 
 const isCategoryPage = computed(() => route.name?.startsWith("Category"));
@@ -401,23 +394,17 @@ watch(
   },
 );
 const categoryTrailingColumnLabel = computed(() =>
-  isRejectedCategoryPage.value
-    ? "駁回原因"
-    : route.name === "CategoryDeleted"
-      ? "刪除審核人"
-      : "操作",
+  isRejectedCategoryPage.value ? "駁回原因" : "操作",
 );
 
 const categoryColumns = computed(() => {
   const dateLabelMap = {
     CategoryPending: "建立日期",
     CategoryRejected: "駁回日期",
-    CategoryDeleted: "刪除日期",
   };
   const actorLabelMap = {
     CategoryPending: "建立人",
     CategoryRejected: "駁回人",
-    CategoryDeleted: "刪除申請人",
   };
   return [
     {
@@ -503,13 +490,6 @@ async function refreshCategoryData(options = {}) {
     await refreshCategoryChangeRequests("REJECTED", { force: forceRequests });
     return;
   }
-  if (route.name === "CategoryDeleted") {
-    await Promise.all([
-      refreshOrganizations({ status: "DISABLED", force: forceOrganizations }),
-      refreshApprovedDeleteCategoryRequests({ force: forceRequests }),
-    ]);
-    return;
-  }
   await refreshOrganizations({
     status: categoryStatusByRoute[route.name] || "ACTIVE",
     force: forceOrganizations,
@@ -546,15 +526,6 @@ async function refreshCategoryChangeRequests(status = "PENDING", options = {}) {
   });
 }
 
-async function refreshApprovedDeleteCategoryRequests(options = {}) {
-  approvedDeleteCategoryRequests.value = await fetchAllChangeRequests({
-    targetType: "ORGANIZATION",
-    status: ["APPROVED"],
-    action: ["DELETE"],
-    force: Boolean(options.force),
-  });
-}
-
 function normalizeOrganizationRows(response) {
   if (Array.isArray(response)) return response;
   if (Array.isArray(response?.body)) return response.body;
@@ -570,10 +541,6 @@ function isSectionOrg(org = {}) {
 function toCategoryRow(org = {}) {
   const normalizedOrgType = normalizeOrgTypeValue(org.orgType);
   const normalizedStatus = normalizeOrganizationStatusValue(org.status);
-  const approvedDeleteRequest =
-    route.name === "CategoryDeleted"
-      ? findApprovedDeleteRequestByTargetId(org.id)
-      : null;
   const displayStatus = getCategoryStatusLabel(normalizedStatus);
   return {
     ...org,
@@ -594,22 +561,10 @@ function toCategoryRow(org = {}) {
       statusLabelMap[normalizedStatus] ||
       org.status ||
       "-",
-    actorName:
-      route.name === "CategoryDeleted"
-        ? approvedDeleteRequest?.requesterId || "-"
-        : org.createdBy || org.requesterId || "-",
-    reviewerName:
-      route.name === "CategoryDeleted"
-        ? approvedDeleteRequest?.reviewerId || "-"
-        : "",
-    createdAt:
-      route.name === "CategoryDeleted"
-        ? approvedDeleteRequest?.createdAt || org.createdAt
-        : org.createdAt,
-    closedAt:
-      route.name === "CategoryDeleted"
-        ? approvedDeleteRequest?.closedAt || org.closedAt
-        : org.closedAt,
+    actorName: org.createdBy || org.requesterId || "-",
+    reviewerName: "",
+    createdAt: org.createdAt,
+    closedAt: org.closedAt,
   };
 }
 
@@ -736,19 +691,6 @@ function findOrganizationById(id) {
   if (id === undefined || id === null || id === "") return null;
   return (
     organizations.value.find((org) => String(org.id) === String(id)) || null
-  );
-}
-
-function findApprovedDeleteRequestByTargetId(id) {
-  if (id === undefined || id === null || id === "") return null;
-  return (
-    approvedDeleteCategoryRequests.value.find(
-      (request) =>
-        isOrganizationChangeRequest(request) &&
-        String(request.status || "").toUpperCase() === "APPROVED" &&
-        String(request.action || "").toUpperCase() === "DELETE" &&
-        String(request.targetId) === String(id),
-    ) || null
   );
 }
 
